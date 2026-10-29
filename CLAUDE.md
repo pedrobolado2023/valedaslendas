@@ -115,11 +115,17 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   O save nunca guarda o covil: volta para `return_map`. Inimigos podem ter `leash`/`aggro_r` nos dados.
 - **Monstros no estilo novo:** `blender/creature_kit.py` (esqueleto → corpo de metaballs → remesh → pesos automáticos
   → peças rígidas e asas de membrana → cores por vértice → animações) e `blender/make_monsters.py` (rodar com
-  `blender -b -P blender/make_monsters.py -- nome1,nome2`). Feitos: 4 lobos e 2 dragões. Faltam: slimes, golems (5),
-  escorpiões, esqueletos, yetis, diabretes. Materiais têm de ser criados DEPOIS de `C.new_scene()`.
+  `blender -b -P blender/make_monsters.py -- nome1,nome2`). Todos os 20 feitos (lobos, dragões, golens, yetis,
+  esqueletos, diabretes, slimes, escorpiões). Materiais têm de ser criados DEPOIS de `C.new_scene()`. Metaballs
+  aparecem ~40% menores que o raio: ajustar olhando `C:\Users\pedro\vale-tools\monster_sheet.py` (folha de vistas).
 - Dono pediu (29/10): pular multiplayer e arena por enquanto e fazer monstros → loja com gemas → mapas novos até
   o nível 1000 (escolheu mapas novos, não Ascensão) → balanceamento → acabamento → pré-lançamento. Ele vai ligar
   um banco de dados depois: manter save/compras num lugar só (SaveGame).
+- **Loja com gemas (tecla L):** catálogo `GameData.SHOP` (runas permanentes de ataque/vida/mana/velocidade, arma e
+  armadura lendárias, poção de nível, XP em dobro, ouro, 3 mascotes com bônus de XP). Toda compra passa por
+  `scripts/shop.gd` (`Shop.buy` → `_charge`; créditos em `Shop.credit_gems`) e fica em `player.purchases` — é
+  aqui que o banco de dados entra. Gemas grátis por enquanto: 300 no início, 5 por nível, 25 no boss global,
+  admin "+1000 gemas". Ainda sem venda de gemas por dinheiro real.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

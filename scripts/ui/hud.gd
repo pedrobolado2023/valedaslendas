@@ -12,6 +12,7 @@ signal auto_quest_pressed
 signal missions_pressed
 signal gear_pressed
 signal admin_pressed
+signal shop_pressed
 
 var player: Player
 var root: Control
@@ -243,6 +244,7 @@ func _build_buttons() -> void:
 	_btn_skills = _button(h, "Skills (K)", func() -> void: skills_pressed.emit())
 	_button(h, "Missões (J)", func() -> void: missions_pressed.emit())
 	_button(h, "Equipamento (I)", func() -> void: gear_pressed.emit())
+	_button(h, "Loja (L)", func() -> void: shop_pressed.emit())
 	if GameData.ADMIN_ENABLED:
 		var ab := _button(h, "Admin (F1)", func() -> void: admin_pressed.emit())
 		ab.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5))
@@ -347,7 +349,7 @@ func refresh() -> void:
 		_xp.max_value = GameData.xp_need(p.level)
 		_xp.value = p.xp
 		_xp_t.text = "XP %d / %d" % [p.xp, GameData.xp_need(p.level)] + ("   (XP ×0,1 a partir do Nv 31)" if p.level >= 31 else "")
-	_gold.text = "Ouro  %d" % p.gold
+	_gold.text = "Ouro  %d    Gemas  %d" % [p.gold, p.gems]
 	var b := []
 	if p.dmg_buff > 0.0:
 		b.append("Fúria +%d%%" % int(p.dmg_buff * 100))

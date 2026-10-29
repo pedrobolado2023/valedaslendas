@@ -109,6 +109,7 @@ func _on_boss_died(e: Enemy) -> void:
 	var xp := int(GameData.xp_need(p.level) * float(cfg["reward_xp_levels"]))
 	p.gain_xp(xp)
 	p.gold += int(cfg["reward_gold"])
+	Shop.credit_gems(p, int(cfg["reward_gems"]), "boss_global")
 	var at := e.global_position
 	game._drop_item(String(cfg["loot_rarity"]), at + Vector3(2, 0, 0))
 	if randf() < float(cfg["legendary_chance"]):
@@ -117,6 +118,6 @@ func _on_boss_died(e: Enemy) -> void:
 		game._drop("gold", int(cfg["reward_gold"]) / 20, "Ouro", at + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4)))
 	Vfx.explosion(game.actors, at, 8.0)
 	Fx.shake(p, 0.8)
-	game.hud.banner("Dragão Ancestral derrotado!", "+%d XP   +%d de ouro   ·   próximo boss global às %s" % [xp, int(cfg["reward_gold"]), next_text()], 5.0)
+	game.hud.banner("Dragão Ancestral derrotado!", "+%d XP   +%d de ouro   +%d gemas   ·   próximo boss global às %s" % [xp, int(cfg["reward_gold"]), int(cfg["reward_gems"]), next_text()], 5.0)
 	p.stats_changed.emit()
 	game.save_now()

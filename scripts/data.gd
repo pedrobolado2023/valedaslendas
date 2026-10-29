@@ -211,7 +211,7 @@ const BASE_ENEMIES := {
 ## Pensado para vários jogadores (a vida vai crescer com o multiplayer); por enquanto é fraco para testar.
 const GLOBAL_BOSS := {
 	"enemy": "dragon_global", "map": "covil", "hours": [10, 16, 22], "minutes": 15, "warn_minutes": 5,
-	"reward_gold": 3000, "reward_xp_levels": 0.5, "loot_rarity": "epica", "legendary_chance": 0.25,
+	"reward_gold": 3000, "reward_gems": 25, "reward_xp_levels": 0.5, "loot_rarity": "epica", "legendary_chance": 0.25,
 	# mecânicas (tempos em segundos, dano relativo ao "dmg" do boss)
 	"breath_len": 16.0, "breath_half": 0.45, "breath_dur": 1.8, "breath_mult": 0.25,
 	"meteor_count": 6, "meteor_blast": 3.5, "meteor_mult": 1.2,
@@ -312,7 +312,27 @@ const MAPS := {
 			"sun": Color(1.0, 0.5, 0.35), "sun_energy": 0.85, "ambient": Color(0.5, 0.3, 0.38), "ambient_energy": 0.62, "lava": 1.0, "houses": ["house_dark", "house_dark"]}},
 }
 
-const MAP_ORDER := ["vale", "deserto", "gelo", "vulcao"]
+## Loja (tecla L). Preços em gemas (moeda premium). Depois o banco de dados/pagamento credita as gemas
+## (ver scripts/shop.gd: toda compra passa por Shop.buy). "max" = quantas vezes dá para comprar (0 = sem limite).
+const SHOP := [
+	{"id": "runa_forca", "name": "Runa da Força", "desc": "+5% de ataque para sempre", "price": 120, "kind": "bonus", "stat": "atk", "amount": 0.05, "max": 20, "color": Color(1.0, 0.45, 0.3)},
+	{"id": "runa_vigor", "name": "Runa do Vigor", "desc": "+5% de vida máxima para sempre", "price": 120, "kind": "bonus", "stat": "hp", "amount": 0.05, "max": 20, "color": Color(0.45, 1.0, 0.45)},
+	{"id": "runa_mente", "name": "Runa da Mente", "desc": "+5% de mana máxima para sempre", "price": 90, "kind": "bonus", "stat": "mp", "amount": 0.05, "max": 20, "color": Color(0.45, 0.7, 1.0)},
+	{"id": "botas_vento", "name": "Botas do Vento", "desc": "+3% de velocidade para sempre", "price": 100, "kind": "bonus", "stat": "speed", "amount": 0.03, "max": 10, "color": Color(0.8, 1.0, 0.95)},
+	{"id": "arma_lendaria", "name": "Arma Lendária", "desc": "Arma lendária da sua classe (o melhor ataque)", "price": 350, "kind": "item", "slot": "weapon", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.8, 0.3)},
+	{"id": "armadura_lendaria", "name": "Armadura Lendária", "desc": "Armadura lendária da sua classe (mais vida e defesa)", "price": 350, "kind": "item", "slot": "armor", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.8, 0.3)},
+	{"id": "pocao_sabedoria", "name": "Poção de Sabedoria", "desc": "Sobe 1 nível na hora", "price": 80, "kind": "level", "amount": 1, "max": 0, "color": Color(0.8, 0.5, 1.0)},
+	{"id": "pergaminho_xp", "name": "Pergaminho de XP em Dobro", "desc": "XP em dobro por 30 minutos", "price": 60, "kind": "xp_boost", "minutes": 30, "max": 0, "color": Color(1.0, 0.9, 0.4)},
+	{"id": "saco_ouro", "name": "Saco de Ouro", "desc": "+10.000 de ouro", "price": 40, "kind": "gold", "amount": 10000, "max": 0, "color": Color(1.0, 0.82, 0.3)},
+	{"id": "pet_coruja", "name": "Mascote: Coruja Mística", "desc": "Voa ao seu lado. +5% de XP", "price": 250, "kind": "pet", "model": "pet_owl", "xp": 0.05, "max": 1, "color": Color(0.75, 0.6, 1.0)},
+	{"id": "pet_aguaviva", "name": "Mascote: Água-viva", "desc": "Flutua ao seu lado. +5% de XP", "price": 250, "kind": "pet", "model": "pet_jelly", "xp": 0.05, "max": 1, "color": Color(0.5, 0.85, 1.0)},
+	{"id": "pet_peixe", "name": "Mascote: Peixe Dourado", "desc": "Nada no ar ao seu lado. +8% de XP", "price": 400, "kind": "pet", "model": "pet_fish", "xp": 0.08, "max": 1, "color": Color(1.0, 0.75, 0.3)},
+]
+## Gemas grátis dadas pelo jogo (para testar a loja sem pagamento).
+const GEMS_START := 300
+const GEMS_PER_LEVEL := 5
+
+const MAP_ORDER :=["vale", "deserto", "gelo", "vulcao"]
 
 ## Zonas de caça. "center" e "boss_pos" ficam nas pontas das trilhas.
 const ZONES := {

@@ -146,6 +146,9 @@ func _hero_col() -> Control:
 		var p: Player = game.get("player")
 		game.call("admin_set_level", int(_level.value))
 		_done("Nível definido: %d (pontos de skill: %d)" % [p.level, p.skill_points]))
+	_btn(v, "+1000 gemas (testar a loja)", func() -> void:
+		Shop.credit_gems(game.get("player"), 1000, "admin")
+		_done("+1000 gemas."))
 	_btn(v, "Boss global: começar agora (15 min)", func() -> void:
 		var ev: WorldEvents = game.get("events")
 		ev.force(int(GameData.GLOBAL_BOSS["minutes"]))

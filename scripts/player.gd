@@ -24,6 +24,12 @@ var atk := 20.0
 var speed := 7.0
 var skill_levels: Array[int] = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 var skill_points := 0
+var gems := 0                    # moeda premium da loja (Shop)
+var shop_counts := {}            # id -> quantas vezes comprou
+var shop_bonus := {}             # "atk"/"hp"/"mp"/"speed" -> bônus somado das runas
+var pet := ""                    # mascote da loja ativo (id)
+var xp_boost_until := 0.0        # horário Unix até quando o XP vale dobrado
+var purchases: Array = []        # registro de compras/créditos (para o banco de dados)
 var skill_cd: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var basic_cd := 0.0
 
@@ -116,6 +122,10 @@ func recalc() -> void:
 	max_mp = int(float(cdata["mp"]) * (1.0 + 0.08 * k))
 	atk = float(cdata["atk"]) * (1.0 + 0.10 * k)
 	speed = float(cdata["speed"])
+	max_hp = int(max_hp * (1.0 + float(shop_bonus.get("hp", 0.0))))
+	max_mp = int(max_mp * (1.0 + float(shop_bonus.get("mp", 0.0))))
+	atk *= 1.0 + float(shop_bonus.get("atk", 0.0))
+	speed *= 1.0 + float(shop_bonus.get("speed", 0.0))
 	if not weapon.is_empty():
 		atk *= float(GameData.RARITY[weapon["rarity"]]["atk"])
 	if not armor.is_empty():
@@ -589,7 +599,14 @@ func revive(at: Vector3) -> void:
 func gain_xp(n: int) -> int:
 	if level >= GameData.MAX_LEVEL:
 		return 0
-	n = maxi(1, int(round(n * GameData.xp_gain_mult(level))))
+	n = maxi(1, int(round(n * GameData.xp_gain_mult(level) * Shop.xp_mult(self))))
+	return gain_xp_raw(n)
+
+
+## XP sem multiplicadores (poção da loja, admin).
+func gain_xp_raw(n: int) -> int:
+	if level >= GameData.MAX_LEVEL:
+		return 0
 	xp += n
 	while level < GameData.MAX_LEVEL and xp >= GameData.xp_need(level):
 		xp -= GameData.xp_need(level)
@@ -598,6 +615,7 @@ func gain_xp(n: int) -> int:
 		recalc()
 		hp = max_hp
 		mp = max_mp
+		gems += GameData.GEMS_PER_LEVEL
 		leveled_up.emit(level)
 		var host := get_parent()
 		Fx.ring(host, global_position + Vector3(0, 0.1, 0), Color(1.0, 0.85, 0.35), 4.0, 0.7)
@@ -684,6 +702,12 @@ func _build_visuals() -> void:
 	_kit.play("idle")
 	attach_weapon(_kit, class_key, w_r)
 	add_gear_effects(_vis, _kit, w_r, a_r, class_key)
+	if pet != "":
+		_pet(_vis, String(Shop.item(pet).get("model", "pet_owl")), Vector3(1.0, 2.3, -0.2), 0.7)
+
+
+func rebuild_visuals() -> void:
+	_build_visuals()
 
 
 ## Encaixa a arma (.glb) na mão do modelo e soma os materiais dela ao flash de dano.

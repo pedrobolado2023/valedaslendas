@@ -24,6 +24,7 @@ var zones := {}
 var map_id := "vale"
 var missions := MissionBook.new()
 var events: WorldEvents          # boss global (horários, covil, recompensas)
+var shop_panel: ShopPanel
 var return_map := "vale"         # mapa para onde o herói volta ao sair de um mapa de evento (o save não guarda o covil)
 
 var quest_index := 0
@@ -235,6 +236,8 @@ func start_game(key: String, save: Dictionary) -> void:
 	player.cam_fwd = cam_fwd
 	if not save.is_empty():
 		_apply_save(save)
+	else:
+		player.gems = GameData.GEMS_START
 	var start_map := String(save.get("map", "vale")) if not save.is_empty() else "vale"
 	if not GameData.MAPS.has(start_map):
 		start_map = "vale"
@@ -282,6 +285,12 @@ func _apply_save(d: Dictionary) -> void:
 	player.xp = int(d.get("xp", 0))
 	player.gold = int(d.get("gold", 0))
 	player.skill_points = int(d.get("points", 0))
+	player.gems = int(d.get("gems", GameData.GEMS_START))
+	player.shop_counts = d.get("shop_counts", {})
+	player.shop_bonus = d.get("shop_bonus", {})
+	player.pet = String(d.get("pet", ""))
+	player.xp_boost_until = float(d.get("xp_boost_until", 0.0))
+	player.purchases = d.get("purchases", [])
 	var sk: Array = d.get("skills", [1])
 	for i in player.skill_levels.size():
 		player.skill_levels[i] = int(sk[i]) if i < sk.size() else 0
@@ -309,6 +318,8 @@ func save_now() -> void:
 	SaveGame.write({
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
+		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet,
+		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"weapon_uid": int(player.weapon.get("uid", -1)), "armor_uid": int(player.armor.get("uid", -1)),
 		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_state": quest_state, "quest_kills": quest_kills,
@@ -329,6 +340,7 @@ func _build_ui() -> void:
 	hud.auto_quest_pressed.connect(toggle_auto_quest)
 	hud.missions_pressed.connect(func() -> void: board_panel.toggle())
 	hud.gear_pressed.connect(func() -> void: gear_panel.toggle())
+	hud.shop_pressed.connect(func() -> void: shop_panel.toggle())
 
 	dialog = DialogBox.new()
 	add_child(dialog)
@@ -341,6 +353,9 @@ func _build_ui() -> void:
 	gear_panel = EquipmentPanel.new()
 	add_child(gear_panel)
 	gear_panel.setup(player)
+	shop_panel = ShopPanel.new()
+	add_child(shop_panel)
+	shop_panel.setup(player)
 	hud.admin_pressed.connect(func() -> void: admin_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
@@ -348,7 +363,7 @@ func _build_ui() -> void:
 
 
 func _free_ui() -> void:
-	for n in [hud, dialog, skill_panel, board_panel, gear_panel, admin_panel]:
+	for n in [hud, dialog, skill_panel, board_panel, gear_panel, shop_panel, admin_panel]:
 		if n != null:
 			(n as Node).queue_free()
 
@@ -533,6 +548,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			board_panel.toggle()
 		KEY_I:
 			gear_panel.toggle()
+		KEY_L:
+			shop_panel.toggle()
 		KEY_F1:
 			if GameData.ADMIN_ENABLED:
 				admin_panel.toggle()
