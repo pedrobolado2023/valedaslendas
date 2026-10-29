@@ -2,7 +2,10 @@ class_name SaveGame
 extends RefCounted
 ## Salva o progresso num arquivo JSON (pasta de dados do usuário do Godot).
 
-const PATH := "user://vale_das_lendas_save.json"
+const REAL_PATH := "user://vale_das_lendas_save.json"
+## Testes automáticos (variável de ambiente VALE_TESTE) usam outro arquivo para nunca apagar o progresso do jogador.
+const TEST_PATH := "user://teste_save.json"
+static var PATH: String = TEST_PATH if OS.get_environment("VALE_TESTE") != "" else REAL_PATH
 
 
 static func exists() -> bool:

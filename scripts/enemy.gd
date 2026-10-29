@@ -194,10 +194,10 @@ func _physics_process(delta: float) -> void:
 		else:
 			move = back.normalized() * spd * 1.6
 	else:
-		var aggro_r := 15.0 if boss else 8.5
+		var aggro_r := float(data.get("aggro_r", 15.0 if boss else 8.5))
 		if not aggro and d < aggro_r:
 			aggro = true
-		if aggro and (global_position - home).length() > (34.0 if boss else 24.0):
+		if aggro and (global_position - home).length() > float(data.get("leash", 34.0 if boss else 24.0)):
 			aggro = false
 			_returning = true
 			hp = max_hp

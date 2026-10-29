@@ -23,6 +23,8 @@ var cam_fwd := Vector3(0, 0, -1)
 var zones := {}
 var map_id := "vale"
 var missions := MissionBook.new()
+var events: WorldEvents          # boss global (horários, covil, recompensas)
+var return_map := "vale"         # mapa para onde o herói volta ao sair de um mapa de evento (o save não guarda o covil)
 
 var quest_index := 0
 var quest_state := "none"      # none | kill | boss | done
@@ -184,6 +186,8 @@ func travel(id: String, ignore_level: bool = false) -> void:
 		return
 	_traveling = true
 	dialog.close()
+	if bool(md.get("event", false)) and not bool(GameData.MAPS[map_id].get("event", false)):
+		return_map = map_id
 	Sfx.play("portal", -2.0)
 	var tw := create_tween()
 	tw.tween_property(_fade, "color:a", 1.0, 0.35)
@@ -249,6 +253,11 @@ func start_game(key: String, save: Dictionary) -> void:
 
 	_build_ui()
 
+	events = WorldEvents.new()
+	events.game = self
+	events.defeated_key = String(save.get("boss_done", ""))
+	add_child(events)
+
 	autopilot = Autopilot.new()
 	autopilot.game = self
 	autopilot.player = player
@@ -299,9 +308,10 @@ func save_now() -> void:
 		return
 	SaveGame.write({
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
+		"boss_done": events.defeated_key if events != null else "",
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"weapon_uid": int(player.weapon.get("uid", -1)), "armor_uid": int(player.armor.get("uid", -1)),
-		"map": map_id, "quest_index": quest_index, "quest_state": quest_state, "quest_kills": quest_kills,
+		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	})
 
@@ -573,6 +583,12 @@ func _interact(what: String, from_click: bool) -> void:
 
 func open_portal() -> void:
 	var opts: Array = []
+	if events != null and map_id != String(GameData.GLOBAL_BOSS["map"]):
+		if events.active():
+			opts.append(["BOSS GLOBAL: Covil do Dragão (termina em %d min)" % events.minutes_left(), func() -> void: travel(String(GameData.GLOBAL_BOSS["map"]), true)])
+		else:
+			opts.append(["Boss global: próximo às %s" % events.next_text(), func() -> void:
+				toast("O Covil do Dragão abre às 10h, 16h e 22h (15 min cada)", 2.5)])
 	for id in GameData.MAP_ORDER:
 		if id == map_id:
 			continue

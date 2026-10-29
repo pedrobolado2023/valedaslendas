@@ -106,6 +106,16 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Foto das skills dentro do jogo: `godot --path . -s C:\Users\pedro\vale-tools\shot_skills.gd -- saida.png dr7,dr8`.
 - Casas do acampamento: `world.gd _house_angle` escolhe o lugar medindo a distância real das trilhas nos cantos da
   casa (as trilhas fazem curva). Foto de cima do acampamento: `C:\Users\pedro\vale-tools\shot_hub.gd -- saida.png gelo`.
+- **Boss global (etapa 1, ainda sem servidor):** `GameData.GLOBAL_BOSS` (horários 10h/16h/22h pela hora do PC,
+  15 min, recompensas e números das mecânicas) + inimigo `dragon_global` (vida 6000 e dano 30 de propósito, para
+  testar; aumentar depois). Mapa de evento `covil` (`"event": true`, zona `arena_dragao` sem monstros normais).
+  `scripts/world_events.gd` (agenda, avisos, opção no portal, nasce o dragão, recompensas, `boss_done` no save)
+  e `scripts/world_boss.gd` (fases 100/60/30%: sopro em cone, meteoros, voo e queda, dragonetes, anel de fogo;
+  mira em todos do grupo "player" — pronto para o multiplayer). Admin F1: "Boss global: começar agora".
+  O save nunca guarda o covil: volta para `return_map`. Inimigos podem ter `leash`/`aggro_r` nos dados.
+- Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
+- **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
+  `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).
 - Ícones: `tools/make_textures.py --icons` (rodar com o Python do Blender + `PYTHONPATH=C:\Users\pedro\vale-tools\pylibs`).
 - Ver um modelo exportado de frente/lado/3/4: `C:\Users\pedro\vale-tools\views.py` (Blender, EEVEE, rápido).
 - Ferramentas nesta máquina (Windows): `C:\Users\pedro\vale-tools\` — Blender 5.2.3 portátil, Godot 4.3 (console),

@@ -1031,14 +1031,15 @@ static func sparks(host: Node, pos: Vector3, amount: int = 18, speed: float = 7.
 
 
 ## Jato de lança-chamas saindo do herói na direção dir por `dur` segundos (segue o herói).
-static func flame_stream(p: Node3D, dir: Vector3, length: float, dur: float) -> void:
+static func flame_stream(p: Node3D, dir: Vector3, length: float, dur: float, height: float = 1.1, width: float = 1.0) -> void:
 	if not _ok(p):
 		return
 	var host := p.get_parent()
 	var node := Node3D.new()
 	p.add_child(node)
-	node.position = Vector3(0, 1.1, 0)
+	node.position = Vector3(0, height, 0)
 	node.look_at(node.global_position + dir, Vector3.UP)
+	node.scale = Vector3.ONE * width
 	var speed := length / 0.45
 	var e1 := emit(node, node.global_position, {"tex": "flame", "add": false, "shot": false, "amount": 80, "life": 0.5, "dur": dur,
 			"size": [0.6, 1.8], "vel": [speed * 0.8, speed], "dir": Vector3.FORWARD, "spread": 9.0, "damp": [speed * 0.6, speed * 0.9],

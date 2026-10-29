@@ -198,6 +198,25 @@ const BASE_ENEMIES := {
 		"xp": 360, "gold": Vector2i(10, 24), "radius": 0.9, "height": 1.2, "bar": 2.9, "range": 2.4, "atk_cd": 1.6, "style": "melee", "outline": 0.06},
 	"golem_boss": {"name": "Golem Guardião", "model": "golem", "scale": 1.15, "hp": 9000, "dmg": 70, "speed": 2.4, "level": 15,
 		"xp": 7000, "gold": Vector2i(500, 800), "radius": 1.6, "height": 2.4, "bar": 5.4, "range": 3.6, "atk_cd": 2.6, "style": "slam", "slam_r": 5.5, "boss": true, "outline": 0.05},
+	# boss global (ver GLOBAL_BOSS): vida e dano baixos de propósito enquanto o jogo é testado — aumentar depois
+	"dragon_global": {"name": "Dragão Ancestral", "model": "dragon_ancient", "scale": 3.4, "hp": 6000, "dmg": 30, "speed": 3.2, "level": 50,
+		"xp": 0, "gold": Vector2i(0, 0), "radius": 4.5, "height": 5.0, "bar": 11.0, "range": 7.5, "atk_cd": 2.4, "style": "melee",
+		"boss": true, "outline": 0.012, "leash": 999.0, "aggro_r": 70.0},
+	"dragon_hatchling": {"name": "Dragonete", "model": "dragon_whelp", "scale": 0.5, "hp": 220, "dmg": 10, "speed": 4.4, "level": 30,
+		"xp": 300, "gold": Vector2i(10, 30), "radius": 1.0, "height": 1.0, "bar": 2.6, "range": 2.2, "atk_cd": 1.4, "style": "melee", "outline": 0.035,
+		"leash": 999.0, "aggro_r": 60.0},
+}
+
+## Boss global: aparece no Covil do Dragão nos horários abaixo (hora do computador) e fica `minutes` minutos.
+## Pensado para vários jogadores (a vida vai crescer com o multiplayer); por enquanto é fraco para testar.
+const GLOBAL_BOSS := {
+	"enemy": "dragon_global", "map": "covil", "hours": [10, 16, 22], "minutes": 15, "warn_minutes": 5,
+	"reward_gold": 3000, "reward_xp_levels": 0.5, "loot_rarity": "epica", "legendary_chance": 0.25,
+	# mecânicas (tempos em segundos, dano relativo ao "dmg" do boss)
+	"breath_len": 16.0, "breath_half": 0.45, "breath_dur": 1.8, "breath_mult": 0.25,
+	"meteor_count": 6, "meteor_blast": 3.5, "meteor_mult": 1.2,
+	"dive_r": 7.0, "dive_mult": 1.5, "whelps": 4, "ring_mult": 0.8,
+	"phase2": 0.6, "phase3": 0.3, "mech_every": 5.5,
 }
 
 ## Inimigos dos mapas novos: vida, dano, XP e ouro saem da fórmula pelo nível (ver enemy()).
@@ -266,11 +285,12 @@ const MAPS := {
 		"npc": "Guardiã Freya", "npc_model": "npc_ice", "music": "music_snow", "zones": ["tundra", "cavernas", "glaciar"],
 		"lake": {"c": Vector2(56, -30), "r": Vector2(15, 10), "type": "ice"},
 		"regions": [{"type": "forest", "c": Vector2(-42, 42), "r": 36.0}, {"type": "stone", "c": Vector2(20, -72), "r": 20.0}],
-		"theme": {"ground": "snow", "path": "dirt", "ground_tint": Color(0.82, 0.86, 0.95), "forest_tint": Color(0.7, 0.78, 0.9), "path_tint": Color(0.55, 0.52, 0.55), "stone_tint": Color(0.6, 0.72, 0.85),
+		"theme": {"ground": "snow", "path": "dirt", "ground_tint": Color(0.7, 0.75, 0.86), "forest_tint": Color(0.62, 0.7, 0.84), "path_tint": Color(0.55, 0.52, 0.55), "stone_tint": Color(0.6, 0.72, 0.85),
 			"trees": {"pine_snow": 0.7, "dead_tree_frost": 0.3}, "forest_trees": {"pine_snow": 1.0}, "tree_keep": 0.14, "forest_keep": 0.8,
 			"grass": Color(0.75, 0.85, 0.95), "forest_grass": Color(0.6, 0.75, 0.8), "grass_count": 0, "flowers": 0,
 			"props": {"rock_a": 0.5, "rock_b": 0.5}, "forest_props": {"ice_crystal": 1.0}, "glow_prop": "ice_crystal", "glow_color": Color(0.5, 0.85, 1.0),
-			"sun": Color(0.85, 0.9, 1.0), "sun_energy": 1.0, "ambient": Color(0.45, 0.55, 0.82), "ambient_energy": 0.72, "lava": 0.0, "houses": ["house_snow", "house_snow"]}},
+			"sun": Color(0.85, 0.9, 1.0), "sun_energy": 0.95, "ambient": Color(0.45, 0.55, 0.82), "ambient_energy": 0.6, "lava": 0.0, "houses": ["house_snow", "house_snow"],
+			"glow_threshold": 1.4, "exposure": 0.92}},
 	"vulcao": {"name": "Abismo Vulcânico", "levels": "Nv 46-60", "min_level": 45, "hub": "Fortaleza de Obsidiana", "hub_style": "fortaleza",
 		"npc": "Ferreiro Vulcan", "npc_model": "npc_volcano", "music": "music_volcano", "zones": ["fendas", "forja", "ninho"],
 		"lake": {"c": Vector2(46, -50), "r": Vector2(17, 12), "type": "lava"},
@@ -280,12 +300,24 @@ const MAPS := {
 			"grass": Color(0, 0, 0), "forest_grass": Color(0, 0, 0), "grass_count": 0, "flowers": 0,
 			"props": {"rock_a": 0.5, "rock_b": 0.3, "bones": 0.2}, "forest_props": {"fire_crystal": 1.0}, "glow_prop": "fire_crystal", "glow_color": Color(1.0, 0.4, 0.1),
 			"sun": Color(1.0, 0.45, 0.3), "sun_energy": 0.8, "ambient": Color(0.48, 0.28, 0.38), "ambient_energy": 0.62, "lava": 1.0, "houses": ["house_dark", "house_dark"]}},
+	# mapa do boss global (evento): uma arena grande para muitos jogadores, sem caça normal
+	"covil": {"name": "Covil do Dragão", "levels": "Boss global", "min_level": 1, "hub": "Entrada do Covil", "hub_style": "fortaleza",
+		"npc": "Arauto Kael", "npc_model": "npc_volcano", "music": "music_volcano", "zones": ["arena_dragao"], "event": true,
+		"lake": {"c": Vector2(62, 58), "r": Vector2(10, 7), "type": "lava"},
+		"regions": [{"type": "stone", "c": Vector2(0, -58), "r": 34.0}],
+		"theme": {"ground": "ash", "path": "stone", "ground_tint": Color(0.8, 0.68, 0.66), "forest_tint": Color(0.75, 0.55, 0.55), "path_tint": Color(0.5, 0.42, 0.42), "stone_tint": Color(0.42, 0.32, 0.34),
+			"trees": {"dead_tree_burnt": 1.0}, "forest_trees": {"dead_tree_burnt": 1.0}, "tree_keep": 0.03, "forest_keep": 0.1,
+			"grass": Color(0, 0, 0), "forest_grass": Color(0, 0, 0), "grass_count": 0, "flowers": 0,
+			"props": {"rock_a": 0.5, "bones": 0.5}, "forest_props": {"fire_crystal": 1.0}, "glow_prop": "fire_crystal", "glow_color": Color(1.0, 0.45, 0.15),
+			"sun": Color(1.0, 0.5, 0.35), "sun_energy": 0.85, "ambient": Color(0.5, 0.3, 0.38), "ambient_energy": 0.62, "lava": 1.0, "houses": ["house_dark", "house_dark"]}},
 }
 
 const MAP_ORDER := ["vale", "deserto", "gelo", "vulcao"]
 
 ## Zonas de caça. "center" e "boss_pos" ficam nas pontas das trilhas.
 const ZONES := {
+	"arena_dragao": {"map": "covil", "name": "Ninho do Dragão Ancestral", "levels": "Boss global", "lvl": Vector2i(1, 60), "center": Vector3(0, 0, -56), "radius": 30.0,
+		"enemy": "dragon_hatchling", "boss": "dragon_global", "count": 0, "boss_pos": Vector3(0, 0, -62), "color": Color(1.0, 0.45, 0.15)},
 	"campo": {"map": "vale", "name": "Campo das Flores", "levels": "Nv 1-5", "lvl": Vector2i(1, 5), "center": Vector3(58, 0, 32), "radius": 17.0,
 		"enemy": "slime", "boss": "slime_king", "count": 12, "boss_pos": Vector3(70, 0, 42), "color": Color(0.55, 0.85, 0.45)},
 	"floresta": {"map": "vale", "name": "Floresta Sombria", "levels": "Nv 6-10", "lvl": Vector2i(6, 10), "center": Vector3(-58, 0, -40), "radius": 18.0,

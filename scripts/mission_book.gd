@@ -81,6 +81,11 @@ func accept(kind: String, player_level: int, map_id: String) -> Dictionary:
 
 ## Zona mais alta do mapa que o herói já alcança (ou a primeira, se ainda estiver abaixo de todas).
 func pick_zone(level: int, map_id: String) -> String:
+	if bool(GameData.MAPS[map_id].get("event", false)):   # no covil do boss: usa o mapa normal do nível do herói
+		map_id = "vale"
+		for id in GameData.MAP_ORDER:
+			if level >= int(GameData.MAPS[id]["min_level"]):
+				map_id = id
 	var zones: Array = GameData.MAPS[map_id]["zones"]
 	var best := String(zones[0])
 	for zid in zones:

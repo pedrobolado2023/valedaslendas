@@ -260,12 +260,12 @@ func _build_environment() -> void:
 	env.ambient_light_color = theme["ambient"]
 	env.ambient_light_energy = float(theme["ambient_energy"])
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.05
+	env.tonemap_exposure = float(theme.get("exposure", 1.05))
 	env.glow_enabled = true
 	env.glow_intensity = 0.8
 	env.glow_strength = 1.1
 	env.glow_bloom = 0.05
-	env.glow_hdr_threshold = 0.85
+	env.glow_hdr_threshold = float(theme.get("glow_threshold", 0.85))   # neve: mais alto, senão o chão inteiro brilha
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	env.adjustment_enabled = true
 	env.adjustment_contrast = 1.16

@@ -146,6 +146,11 @@ func _hero_col() -> Control:
 		var p: Player = game.get("player")
 		game.call("admin_set_level", int(_level.value))
 		_done("Nível definido: %d (pontos de skill: %d)" % [p.level, p.skill_points]))
+	_btn(v, "Boss global: começar agora (15 min)", func() -> void:
+		var ev: WorldEvents = game.get("events")
+		ev.force(int(GameData.GLOBAL_BOSS["minutes"]))
+		ev.defeated_key = ""
+		_done("Boss global liberado: use o Portal de Viagem (Covil do Dragão)."))
 	_btn(v, "Todas as skills no nível 10", func() -> void:
 		var p: Player = game.get("player")
 		for i in p.skill_count():
