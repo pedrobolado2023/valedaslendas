@@ -237,6 +237,11 @@ func _sb(path: String, method: int, body: Variant, user_token: String = "", extr
 func connect_to_server(token: String) -> bool:
 	if server_url == "" or is_server:
 		return false
+	# aceita o endereço do Easypanel como https:// (vira wss://, o WebSocket seguro)
+	if server_url.begins_with("https://"):
+		server_url = "wss://" + server_url.trim_prefix("https://")
+	elif server_url.begins_with("http://"):
+		server_url = "ws://" + server_url.trim_prefix("http://")
 	var peer := WebSocketMultiplayerPeer.new()
 	if peer.create_client(server_url) != OK:
 		return false
