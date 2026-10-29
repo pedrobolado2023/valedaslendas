@@ -27,6 +27,7 @@ var events: WorldEvents          # boss global (horários, covil, recompensas)
 var shop_panel: ShopPanel
 var pet_panel: PetPanel
 var rewards_panel: RewardsPanel
+var dungeon: Dungeon
 var settings_panel: SettingsPanel
 var tutorial: Tutorial
 var tutorial_done := false
@@ -268,6 +269,9 @@ func start_game(key: String, save: Dictionary) -> void:
 	events.game = self
 	events.defeated_key = String(save.get("boss_done", ""))
 	add_child(events)
+	dungeon = Dungeon.new()
+	dungeon.game = self
+	add_child(dungeon)
 
 	autopilot = Autopilot.new()
 	autopilot.game = self
@@ -671,6 +675,8 @@ func open_portal(page: int = -1) -> void:
 		else:
 			opts.append(["Boss global: próximo às %s" % events.next_text(), func() -> void:
 				toast("O Covil do Dragão abre às 10h, 16h e 22h (15 min cada)", 2.5)])
+	if dungeon != null and map_id != "masmorra":
+		opts.append(["Masmorra Sombria  ·  %d/%d hoje" % [dungeon.runs_today(), int(GameData.DUNGEON["per_day"])], func() -> void: dungeon.enter()])
 	for k in range(page * per, mini((page + 1) * per, order.size())):
 		var id := String(order[k])
 		if id == map_id:

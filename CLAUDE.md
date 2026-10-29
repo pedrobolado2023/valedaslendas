@@ -130,6 +130,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   em `speed`, `regen`, `def`, `trail` (rastro de fogo). Atacar/skill desmonta; fora de combate andando 2 s monta sozinho.
 - **Recompensas (tecla O):** `scripts/rewards.gd` (login de 7 dias pela data do PC + 19 conquistas com gemas) e
   `ui/rewards_panel.gd`. Save: `stats` (kills/bosses/global/quests/logins), `login`, `achieved`.
+- **Masmorras:** `scripts/dungeon.gd` + `GameData.DUNGEON` (mapa de evento `masmorra`, zona `sala_masmorra`): entra pelo
+  Portal, 3/dia, 3 ondas + chefe (monstros da zona do nível do herói), 10 min; vitória dá XP/gemas/2 itens e volta sozinho.
 - **Monstros no estilo novo:** `blender/creature_kit.py` (esqueleto → corpo de metaballs → remesh → pesos automáticos
   → peças rígidas e asas de membrana → cores por vértice → animações) e `blender/make_monsters.py` (rodar com
   `blender -b -P blender/make_monsters.py -- nome1,nome2`). Todos os 20 feitos (lobos, dragões, golens, yetis,

@@ -27,18 +27,18 @@ func _process(delta: float) -> void:
 	var nk := _next_key_soon()
 	if nk != "" and nk != _warned:
 		_warned = nk
-		game.hud.banner("Boss global em %d min" % _minutes_to_next(), "O Dragão Ancestral vai despertar no Covil do Dragão", 4.0)
+		game.hud.banner("Boss global em %d min" % _minutes_to_next(), "O Dragão de Lava vai despertar no Covil do Dragão", 4.0)
 		Sfx.play("boss", -8.0, 1.2)
 	if key != "" and key != _started:
 		_started = key
 		if key != defeated_key:
-			game.hud.banner("O Dragão Ancestral despertou!", "Use o Portal de Viagem: Covil do Dragão  ·  %d min" % minutes_left(), 5.0)
+			game.hud.banner("O Dragão de Lava despertou!", "Use o Portal de Viagem: Covil do Dragão  ·  %d min" % minutes_left(), 5.0)
 			Sfx.play("boss", -4.0)
 	if key != "" and key != defeated_key and game.map_id == String(cfg["map"]) and (boss == null or not is_instance_valid(boss)):
 		_spawn()
 	if key == "" and boss != null and is_instance_valid(boss) and boss.alive:
 		boss.depart()
-		game.toast("O tempo acabou: o Dragão Ancestral voou para longe.", 3.0)
+		game.toast("O tempo acabou: o Dragão de Lava voou para longe.", 3.0)
 
 
 ## Chave da janela ativa ("2026-10-29-16") ou "" se não houver evento agora.
@@ -99,8 +99,8 @@ func _spawn() -> void:
 	boss.died.connect(_on_boss_died)
 	boss.phase_changed.connect(func(p: int) -> void:
 		var txt := {2: "O dragão levanta voo e chama os filhotes!", 3: "Fúria final: o chão pega fogo!"}
-		game.hud.banner("Dragão Ancestral — fase %d" % p, String(txt.get(p, "")), 3.0))
-	game.hud.banner("Dragão Ancestral", "Derrote o boss global antes que o tempo acabe (%d min)" % minutes_left(), 3.5)
+		game.hud.banner("Dragão de Lava — fase %d" % p, String(txt.get(p, "")), 3.0))
+	game.hud.banner("Dragão de Lava", "Derrote o boss global antes que o tempo acabe (%d min)" % minutes_left(), 3.5)
 
 
 func _on_boss_died(e: Enemy) -> void:

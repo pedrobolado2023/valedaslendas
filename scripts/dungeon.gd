@@ -1,0 +1,150 @@
+class_name Dungeon
+extends Node
+## Masmorra Sombria (pelo Portal): 3 entradas por dia (data do PC). Dentro: 3 ondas de monstros do mapa do nível
+## do herói e um chefe mais forte, com 10 minutos. Vencer dá ouro, gemas, XP e itens; morrer ou o tempo acabar
+## devolve o herói ao mapa de antes. Números em GameData.DUNGEON.
+
+var game: Node
+var state := ""          # "" fora · "wait" entrando · "fight" onda · "boss" · "done"
+var wave := 0
+var time_left := 0.0
+var _alive: Array = []
+var _enemy := ""
+var _boss := ""
+var _label: Label
+
+
+func _ready() -> void:
+	var cl := CanvasLayer.new()
+	cl.layer = 6
+	add_child(cl)
+	_label = UiTheme.title("", 22)
+	_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_label.offset_top = 70
+	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cl.add_child(_label)
+
+
+func runs_today() -> int:
+	var p: Player = game.player
+	return int(p.stats.get("dg_count", 0)) if String(p.stats.get("dg_day", "")) == Rewards.today() else 0
+
+
+func enter() -> void:
+	var cfg: Dictionary = GameData.DUNGEON
+	if runs_today() >= int(cfg["per_day"]):
+		game.toast("Você já fez as %d masmorras de hoje. Volte amanhã!" % int(cfg["per_day"]), 2.5)
+		return
+	var p: Player = game.player
+	p.stats["dg_day"] = Rewards.today()
+	p.stats["dg_count"] = runs_today() + 1
+	# monstros e chefe da zona mais alta que o herói alcança
+	var bm := GameData.best_map(p.level)
+	var zs: Array = GameData.MAPS[bm]["zones"]
+	var best: Dictionary = GameData.ZONES[zs[0]]
+	for z in zs:
+		var zd: Dictionary = GameData.ZONES[z]
+		if int(zd["lvl"].x) <= p.level:
+			best = zd
+	_enemy = String(best["enemy"])
+	_boss = String(best.get("boss", _enemy))
+	state = "wait"
+	wave = 0
+	time_left = float(cfg["minutes"]) * 60.0
+	game.travel(String(cfg["map"]), true)
+
+
+func _process(delta: float) -> void:
+	if _label != null:
+		_label.text = hud_text()
+	if state == "" or game.player == null:
+		return
+	if String(game.map_id) != String(GameData.DUNGEON["map"]):
+		if state != "wait":
+			state = ""
+		return
+	if game.get("_traveling"):
+		return
+	if state == "wait":
+		_next_wave()
+		return
+	if state == "done":
+		return
+	time_left -= delta
+	if time_left <= 0.0 or not game.player.alive:
+		_fail("O tempo acabou!" if time_left <= 0.0 else "Você caiu na masmorra.")
+		return
+	_alive = _alive.filter(func(e) -> bool: return is_instance_valid(e) and (e as Enemy).alive)
+	if _alive.is_empty():
+		if state == "boss":
+			_win()
+		else:
+			_next_wave()
+
+
+func hud_text() -> String:
+	if state in ["fight", "boss"]:
+		return "Masmorra · %s · %d inimigos · %d:%02d" % ["CHEFE" if state == "boss" else "onda %d/%d" % [wave, GameData.DUNGEON["waves"].size()],
+			_alive.size(), int(time_left) / 60, int(time_left) % 60]
+	return ""
+
+
+func _spawn(type_id: String, at: Vector3) -> Enemy:
+	var e := Enemy.new()
+	e.setup(type_id, at, String(GameData.DUNGEON["zone"]))
+	e.died.connect(game._on_killed)
+	game.actors.add_child(e)
+	_alive.append(e)
+	return e
+
+
+func _next_wave() -> void:
+	var waves: Array = GameData.DUNGEON["waves"]
+	var z: Dictionary = GameData.ZONES[String(GameData.DUNGEON["zone"])]
+	var c: Vector3 = z["center"]
+	wave += 1
+	if wave > waves.size():
+		state = "boss"
+		var b := _spawn(_boss, z["boss_pos"] + Vector3(0, 0.3, 0))
+		b.max_hp = int(b.max_hp * float(GameData.DUNGEON["boss_hp_mult"]))
+		b.hp = b.max_hp
+		game.hud.banner("Chefe da Masmorra", String(b.data["name"]), 2.5)
+		return
+	state = "fight"
+	for i in int(waves[wave - 1]):
+		var a := randf() * TAU
+		_spawn(_enemy, c + Vector3(cos(a), 0, sin(a)) * randf_range(6.0, 16.0) + Vector3(0, 0.2, 0))
+	game.hud.banner("Onda %d de %d" % [wave, waves.size()], "Derrote todos os monstros", 2.0)
+
+
+func _win() -> void:
+	state = "done"
+	var cfg: Dictionary = GameData.DUNGEON
+	var p: Player = game.player
+	var xp := int(GameData.xp_need(p.level) * float(cfg["reward_xp_levels"]))
+	p.gain_xp(xp)
+	Shop.credit_gems(p, int(cfg["reward_gems"]), "masmorra")
+	p.stat_add("dungeons")
+	for i in int(cfg["items"]):
+		game._drop_item(GameData.roll_rarity("boss"), p.global_position + Vector3(2.0 * (i - 0.5), 0, 2))
+	game.hud.banner("Masmorra concluída!", "+%d XP   +%d gemas   ·   itens no chão   ·   saindo em 8 s" % [xp, int(cfg["reward_gems"])], 5.0)
+	Sfx.play("legendary", -2.0)
+	_leave(8.0)
+
+
+func _fail(why: String) -> void:
+	state = "done"
+	for e in _alive:
+		if is_instance_valid(e):
+			(e as Node).queue_free()
+	_alive.clear()
+	game.hud.banner("Masmorra perdida", why, 3.0)
+	_leave(3.0)
+
+
+func _leave(secs: float) -> void:
+	await get_tree().create_timer(secs).timeout
+	state = ""
+	if String(game.map_id) == String(GameData.DUNGEON["map"]):
+		game.travel(String(game.return_map), true)

@@ -498,7 +498,20 @@ const BASE_MAPS := {
 			"grass": Color(0, 0, 0), "forest_grass": Color(0, 0, 0), "grass_count": 0, "flowers": 0,
 			"props": {"rock_a": 0.5, "bones": 0.5}, "forest_props": {"fire_crystal": 1.0}, "glow_prop": "fire_crystal", "glow_color": Color(1.0, 0.45, 0.15),
 			"sun": Color(1.0, 0.5, 0.35), "sun_energy": 0.85, "ambient": Color(0.5, 0.3, 0.38), "ambient_energy": 0.62, "lava": 1.0, "houses": ["house_dark", "house_dark"]}},
+	"masmorra": {"name": "Masmorra Sombria", "levels": "Masmorra", "min_level": 1, "hub": "Salão de Entrada", "hub_style": "fortaleza",
+		"npc": "Guardiã Lira", "npc_model": "npc_volcano", "music": "music_ice", "zones": ["sala_masmorra"], "event": true,
+		"lake": {"c": Vector2(62, 58), "r": Vector2(10, 7), "type": "lava"},
+		"regions": [{"type": "stone", "c": Vector2(0, -58), "r": 34.0}],
+		"theme": {"ground": "ash", "path": "stone", "ground_tint": Color(0.8, 0.68, 0.66), "forest_tint": Color(0.75, 0.55, 0.55), "path_tint": Color(0.5, 0.42, 0.42), "stone_tint": Color(0.42, 0.32, 0.34),
+			"trees": {"dead_tree_burnt": 1.0}, "forest_trees": {"dead_tree_burnt": 1.0}, "tree_keep": 0.03, "forest_keep": 0.1,
+			"grass": Color(0, 0, 0), "forest_grass": Color(0, 0, 0), "grass_count": 0, "flowers": 0,
+			"props": {"rock_a": 0.5, "bones": 0.5}, "forest_props": {"ice_crystal": 1.0}, "glow_prop": "ice_crystal", "glow_color": Color(0.45, 0.6, 1.0),
+			"sun": Color(0.55, 0.6, 1.0), "sun_energy": 0.85, "ambient": Color(0.3, 0.3, 0.5), "ambient_energy": 0.62, "lava": 0.0, "houses": ["house_dark", "house_dark"]}},
 }
+
+## Masmorras: 3 por dia; 3 ondas e um chefe com os monstros do mapa do nível do herói; 10 minutos.
+const DUNGEON := {"map": "masmorra", "zone": "sala_masmorra", "per_day": 3, "waves": [8, 10, 12], "minutes": 10,
+	"boss_hp_mult": 3.0, "reward_gold_levels": 0.0, "reward_gems": 10, "reward_xp_levels": 0.35, "items": 2}
 
 ## Loja (tecla L). Preços em gemas (moeda premium). Depois o banco de dados/pagamento credita as gemas
 ## (ver scripts/shop.gd: toda compra passa por Shop.buy). "max" = quantas vezes dá para comprar (0 = sem limite).
@@ -532,6 +545,8 @@ const BASE_MAP_ORDER := ["vale", "deserto", "gelo", "vulcao"]
 
 ## Zonas de caça. "center" e "boss_pos" ficam nas pontas das trilhas.
 const BASE_ZONES := {
+	"sala_masmorra": {"map": "masmorra", "name": "Salão Sombrio", "levels": "Masmorra", "lvl": Vector2i(1, 1000), "center": Vector3(0, 0, -50), "radius": 26.0,
+		"enemy": "dragon_hatchling", "boss": "dragon_hatchling", "count": 0, "boss_pos": Vector3(0, 0, -56), "color": Color(0.5, 0.6, 1.0)},
 	"arena_dragao": {"map": "covil", "name": "Ninho do Dragão Ancestral", "levels": "Boss global", "lvl": Vector2i(1, 60), "center": Vector3(0, 0, -56), "radius": 30.0,
 		"enemy": "dragon_hatchling", "boss": "dragon_global", "count": 0, "boss_pos": Vector3(0, 0, -62), "color": Color(1.0, 0.45, 0.15)},
 	"campo": {"map": "vale", "name": "Campo das Flores", "levels": "Nv 1-5", "lvl": Vector2i(1, 5), "center": Vector3(58, 0, 32), "radius": 17.0,
