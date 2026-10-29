@@ -1,13 +1,14 @@
 class_name CloudSync
 extends Node
 ## Cópia do save na nuvem (Supabase). O jogo continua salvando no arquivo local (SaveGame); este nó:
-## 1) entra com login anônimo (a sessão fica em user://nuvem.cfg, então é sempre a mesma conta neste PC);
+## 1) entra com e-mail e senha (tela LoginPanel); a sessão fica em user://nuvem.cfg e reabre sozinha;
 ## 2) ao abrir, baixa o save da nuvem e usa ele se for mais novo que o local;
 ## 3) a cada save, envia uma cópia (sem travar o jogo).
 ## Configuração em res://supabase.cfg ([supabase] url e anon_key). Sem o arquivo, fica desligado.
 ## Tabela e regras: supabase/schema.sql.
 
 signal ready_done(pulled: bool)
+signal need_login
 
 const CFG := "res://supabase.cfg"
 const SESSION := "user://nuvem.cfg"
@@ -17,6 +18,7 @@ var key := ""
 var token := ""
 var refresh := ""
 var user_id := ""
+var email := ""
 var enabled := false
 var status := "desligado"
 var _busy := false
@@ -43,27 +45,59 @@ func start() -> void:
 	if refresh != "":
 		ok = await _auth("/auth/v1/token?grant_type=refresh_token", {"refresh_token": refresh})
 	if not ok:
-		ok = await _auth("/auth/v1/signup", {"data": {"jogo": "vale_das_lendas"}})   # login anônimo
-	if not ok:
-		status = "sem conexão"
-		ready_done.emit(false)
+		status = "sem login"
+		need_login.emit()
 		return
 	status = "conectado"
 	ready_done.emit(await pull())
+
+
+## Entrar com e-mail e senha (criar = true cria a conta). Devolve "" se deu certo, ou a mensagem de erro.
+func login(mail: String, senha: String, criar: bool) -> String:
+	var path := "/auth/v1/signup" if criar else "/auth/v1/token?grant_type=password"
+	var r := await _req(path, HTTPClient.METHOD_POST, {"email": mail, "password": senha}, false)
+	if int(r["code"]) == 200 and r["json"] is Dictionary and r["json"].has("access_token"):
+		_take(r["json"])
+		status = "conectado"
+		ready_done.emit(await pull())
+		return ""
+	var j: Variant = r["json"]
+	var msg := String(j.get("msg", j.get("error_description", j.get("message", "")))) if j is Dictionary else ""
+	if int(r["code"]) == 0:
+		return "Sem conexão com o servidor."
+	if "Invalid login" in msg:
+		return "E-mail ou senha errados."
+	if "already registered" in msg:
+		return "Esse e-mail já tem conta. Use Entrar."
+	if "Password" in msg:
+		return "A senha precisa ter pelo menos 6 letras/números."
+	return msg if msg != "" else "Erro %d" % int(r["code"])
+
+
+func logout() -> void:
+	token = ""
+	refresh = ""
+	user_id = ""
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SESSION))
 
 
 func _auth(path: String, body: Dictionary) -> bool:
 	var r := await _req(path, HTTPClient.METHOD_POST, body, false)
 	if int(r["code"]) != 200 or not (r["json"] is Dictionary) or not r["json"].has("access_token"):
 		return false
-	token = String(r["json"]["access_token"])
-	refresh = String(r["json"]["refresh_token"])
-	user_id = String(r["json"]["user"]["id"])
+	_take(r["json"])
+	return true
+
+
+func _take(j: Dictionary) -> void:
+	token = String(j["access_token"])
+	refresh = String(j["refresh_token"])
+	user_id = String(j["user"]["id"])
+	email = String(j["user"].get("email", ""))
 	var s := ConfigFile.new()
 	s.set_value("auth", "refresh", refresh)
 	s.set_value("auth", "user_id", user_id)
 	s.save(SESSION)
-	return true
 
 
 ## Baixa o save da nuvem; se for mais novo que o local, grava no local. Devolve true se trocou.

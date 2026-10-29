@@ -69,6 +69,11 @@ func _ready() -> void:
 	cloud = CloudSync.new()
 	add_child(cloud)
 	# save mais novo na nuvem (outro PC): refaz o menu com o "Continuar" certo
+	cloud.need_login.connect(func() -> void:
+		if player == null:
+			var lp := LoginPanel.new()
+			lp.cloud = cloud
+			add_child(lp))
 	cloud.ready_done.connect(func(pulled: bool) -> void:
 		if pulled and player == null and _menu != null:
 			_menu.queue_free()

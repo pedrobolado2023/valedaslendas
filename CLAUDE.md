@@ -163,7 +163,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `SaveGame` agora usa um backend trocável (`LocalBackend` com .bak e gravação segura); o save tem `schema` e
   `account_id` (id local) para o banco de dados.
 - **Banco de dados (Supabase, projeto `vvgufliyrwdxwwvyosho`, MCP em `.mcp.json`):** tabelas em `supabase/schema.sql`
-  (`saves` com RLS por `auth.uid()`, `purchases`). `scripts/cloud_sync.gd` (nó `game.cloud`): login anônimo (sessão em
+  (`saves` com RLS por `auth.uid()`, `purchases`). `scripts/cloud_sync.gd` (nó `game.cloud`) + `ui/login_panel.gd`: login por e-mail e senha (sessão em
   `user://nuvem.cfg`), baixa o save se for mais novo e envia cópia a cada `save_now`. Liga só com `res://supabase.cfg`
   ([supabase] url, anon_key); desligado nos testes (VALE_TESTE).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
