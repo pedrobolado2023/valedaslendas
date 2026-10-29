@@ -871,3 +871,141 @@ static func radiance(host: Node, at: Vector3, r: float) -> void:
 			"colors": [[0, Color(1.0, 0.95, 0.7, 1.0)], [0.5, Color(1.0, 0.75, 0.3, 0.9)], [1, Color(1.0, 0.6, 0.2, 0.0)]]})
 	marker(host, at, gold, r, 1.4)
 	light(host, at + Vector3(0, 3.0, 0), gold, 1.6, r * 1.4, 0.8)
+
+# =================================================================== sombras (Assassino)
+
+const SHADOW := [[0.0, Color(0.12, 0.05, 0.18, 0.0)], [0.12, Color(0.1, 0.04, 0.16, 0.75)], [1.0, Color(0.05, 0.02, 0.08, 0.0)]]
+
+
+## Nuvem de sombra (teleporte, clones, invisibilidade).
+static func shadow_puff(host: Node, pos: Vector3, s: float = 1.0, col: Color = Color(0.55, 0.3, 0.95)) -> void:
+	if not _ok(host):
+		return
+	emit(host, pos + Vector3(0, 0.9, 0), {"tex": "smoke", "add": false, "amount": int(14 * s), "life": 0.9, "size": [1.0 * s, 2.0 * s],
+			"shape": "sphere", "r": 0.5 * s, "vel": [1.0, 3.0 * s], "damp": [2.0, 3.0], "colors": SHADOW,
+			"curve": [[0, 0.5], [1, 1.3]], "spin": 60.0})
+	emit(host, pos + Vector3(0, 1.0, 0), {"tex": "dot", "amount": int(16 * s), "life": 0.6, "size": [0.08, 0.16], "shape": "sphere", "r": 0.6 * s,
+			"vel": [2.0, 5.0], "colors": [[0, Color(col.r, col.g, col.b, 0.9)], [1, Color(col.r * 0.5, col.g * 0.3, col.b * 0.6, 0.0)]]})
+	shockwave(host, pos, col, 1.8 * s, 0.3)
+
+
+## Explosão de sombra (Marca da Morte, fim do Eclipse).
+static func shadow_burst(host: Node, pos: Vector3, r: float, col: Color = Color(0.6, 0.25, 1.0)) -> void:
+	if not _ok(host):
+		return
+	emit(host, pos + Vector3(0, 0.8, 0), {"tex": "smoke", "add": false, "amount": 26, "life": 1.2, "size": [1.4, 2.8],
+			"shape": "sphere", "r": 0.6, "vel": [r * 0.8, r * 1.6], "damp": [r * 1.4, r * 2.0], "colors": SHADOW,
+			"curve": [[0, 0.5], [1, 1.4]], "spin": 70.0})
+	emit(host, pos + Vector3(0, 0.9, 0), {"tex": "soft", "amount": 18, "life": 0.5, "size": [0.8, 1.6], "vel": [r * 0.6, r * 1.4],
+			"damp": [r * 1.5, r * 2.0], "colors": [[0, Color(col.r * 0.8, col.g * 0.6, col.b * 0.85, 0.7)], [1, Color(col.r * 0.4, 0.05, col.b * 0.5, 0.0)]]})
+	var shard := CylinderMesh.new()
+	shard.top_radius = 0.0
+	shard.bottom_radius = 0.1
+	shard.height = 0.6
+	shard.radial_segments = 4
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = Color(0.08, 0.04, 0.12)
+	sm.emission_enabled = true
+	sm.emission = col * 0.6
+	shard.material = sm
+	emit(host, pos + Vector3(0, 0.6, 0), {"mesh": shard, "amount": 14, "life": 0.8, "size": [0.7, 1.4], "vel": [r * 1.2, r * 2.2],
+			"gravity": Vector3(0, -14, 0), "spread": 70.0, "spin": 400.0, "curve": [[0, 1], [0.8, 1], [1, 0]],
+			"colors": [[0, Color(1, 1, 1)], [1, Color(1, 1, 1)]]})
+	shockwave(host, pos, col, r * 1.3, 0.45)
+	ground_mark(host, pos, "scorch", r * 1.8, 4.0)
+	light(host, pos + Vector3(0, 1.5, 0), col, 1.8, r * 1.6, 0.4)
+
+
+## Sigilo girando sobre a cabeça do alvo (fica preso nele).
+static func sigil(target: Node3D, height: float, col: Color, time: float) -> void:
+	if not _ok(target):
+		return
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(2.2, 2.2)
+	mi.mesh = pm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.no_depth_test = true
+	m.albedo_texture = tex("ring")
+	m.albedo_color = Color(col.r * 0.8, col.g * 0.6, col.b * 0.85, 0.0)
+	mi.material_override = m
+	target.add_child(mi)
+	mi.position = Vector3(0, height + 0.8, 0)
+	var spin := mi.create_tween().set_loops()
+	spin.tween_property(mi, "rotation:y", TAU, 0.8).from(0.0)
+	var tw := mi.create_tween()
+	tw.tween_property(m, "albedo_color:a", 0.9, 0.15)
+	tw.parallel().tween_property(mi, "scale", Vector3.ONE * 0.45, time).from(Vector3.ONE * 1.3)
+	tw.tween_callback(mi.queue_free)
+	emit(target, target.global_position + Vector3(0, height + 0.8, 0), {"tex": "dot", "shot": false, "local": true, "amount": 10, "life": 0.5,
+			"dur": time, "size": [0.06, 0.12], "shape": "ring", "r": 0.9, "vel": [0.2, 0.6], "dir": Vector3.DOWN,
+			"colors": [[0, Color(col.r, col.g, col.b, 0.9)], [1, Color(col.r, col.g, col.b, 0.0)]]})
+
+
+## Corte vermelho (Eclipse) com respingos.
+static func blood_slash(host: Node, pos: Vector3, angle: float, r: float) -> void:
+	if not _ok(host):
+		return
+	Fx.slash(host, pos, angle, r, 160.0, Color(0.85, 0.08, 0.12), 0.7, 0.22, randf() < 0.5)
+	emit(host, pos, {"tex": "dot", "add": false, "amount": 12, "life": 0.6, "size": [0.08, 0.18], "vel": [3.0, 7.0],
+			"gravity": Vector3(0, -14, 0), "spread": 80.0, "colors": [[0, Color(0.6, 0.02, 0.05, 1)], [1, Color(0.35, 0.0, 0.02, 0)]]})
+
+
+## Cúpula de escuridão (Eclipse Sangrento).
+static func dark_dome(host: Node, pos: Vector3, r: float, dur: float) -> void:
+	if not _ok(host):
+		return
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = r
+	sm.height = r * 1.2
+	sm.radial_segments = 32
+	sm.rings = 12
+	mi.mesh = sm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	m.albedo_color = Color(0.06, 0.01, 0.06, 0.0)
+	m.rim_enabled = false
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	host.add_child(mi)
+	mi.global_position = pos
+	mi.scale = Vector3.ONE * 0.2
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE, 0.3).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.parallel().tween_property(m, "albedo_color:a", 0.5, 0.3)
+	tw.tween_interval(maxf(0.1, dur - 0.6))
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.3)
+	tw.tween_callback(mi.queue_free)
+	marker(host, pos, Color(0.9, 0.1, 0.15), r, dur)
+	emit(host, pos + Vector3(0, 0.3, 0), {"tex": "dot", "shot": false, "amount": 40, "life": 1.2, "dur": dur, "size": [0.06, 0.14],
+			"shape": "ring", "r": r * 0.95, "r_in": 0.0, "vel": [0.5, 2.0], "dir": Vector3.UP, "spread": 20.0,
+			"colors": [[0, Color(0.9, 0.1, 0.15, 0.0)], [0.3, Color(0.8, 0.08, 0.12, 0.8)], [1, Color(0.4, 0.0, 0.05, 0.0)]]})
+
+
+## Veneno nas lâminas: bolhas verdes subindo e gotas caindo em volta do herói.
+static func poison_aura(p: Node3D, dur: float) -> void:
+	if not _ok(p):
+		return
+	emit(p, p.global_position + Vector3(0, 1.0, 0), {"tex": "dot", "shot": false, "local": true, "amount": 16, "life": 0.9, "dur": dur,
+			"size": [0.08, 0.18], "shape": "sphere", "r": 0.6, "vel": [0.4, 1.2], "dir": Vector3.UP, "spread": 30.0,
+			"colors": [[0, Color(0.5, 1.0, 0.3, 0.0)], [0.3, Color(0.45, 0.95, 0.3, 0.75)], [1, Color(0.3, 0.7, 0.15, 0.0)]]})
+	emit(p, p.global_position + Vector3(0, 1.1, 0), {"tex": "dot", "add": false, "shot": false, "local": true, "amount": 8, "life": 0.7,
+			"dur": dur, "size": [0.06, 0.12], "shape": "sphere", "r": 0.5, "vel": [0.0, 0.3], "gravity": Vector3(0, -6, 0),
+			"colors": [[0, Color(0.35, 0.85, 0.2, 0.9)], [1, Color(0.25, 0.6, 0.1, 0.0)]]})
+	emit(p.get_parent(), p.global_position + Vector3(0, 0.8, 0), {"tex": "smoke", "add": false, "amount": 12, "life": 1.0, "size": [1.0, 1.8],
+			"shape": "sphere", "r": 0.5, "vel": [1.0, 2.5], "damp": [1.5, 2.5],
+			"colors": [[0, Color(0.3, 0.6, 0.15, 0.0)], [0.15, Color(0.28, 0.55, 0.14, 0.45)], [1, Color(0.2, 0.4, 0.1, 0.0)]]})
+
+
+## Rastro roxo das adagas arremessadas.
+static func dagger_trail(proj: Node3D, col: Color) -> void:
+	emit(proj, proj.global_position, {"tex": "soft", "shot": false, "amount": 24, "life": 0.25, "size": [0.25, 0.45], "vel": [0, 0.2],
+			"colors": [[0, Color(col.r * 0.8, col.g * 0.6, col.b * 0.85, 0.7)], [1, Color(col.r * 0.4, 0.05, col.b * 0.5, 0.0)]],
+			"curve": [[0, 1], [1, 0.1]]})

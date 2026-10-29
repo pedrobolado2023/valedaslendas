@@ -220,7 +220,9 @@ ICON_SPECS = {
                ("dr9", (255, 150, 60), (110, 30, 10), "meteors"), ("dr10", (255, 120, 40), (60, 15, 5), "fissure")],
     "assassino": [("as1", (180, 120, 255), (40, 15, 80), "dash"), ("as2", (140, 255, 110), (20, 70, 20), "flame"),
                   ("as3", (150, 140, 190), (25, 20, 45), "nova"), ("as4", (210, 160, 255), (60, 20, 100), "spin"),
-                  ("as5", (120, 110, 140), (20, 15, 30), "shield"), ("as6", (255, 220, 110), (110, 70, 10), "sword")],
+                  ("as5", (120, 110, 140), (20, 15, 30), "shield"), ("as6", (255, 220, 110), (110, 70, 10), "sword"),
+                  ("as7", (190, 140, 255), (40, 15, 80), "fan"), ("as8", (210, 120, 255), (50, 10, 70), "mark"),
+                  ("as9", (160, 110, 240), (25, 10, 50), "clones"), ("as10", (255, 70, 80), (40, 5, 10), "eclipse")],
     "mecanico": [("me1", (140, 220, 255), (30, 60, 90), "triple"), ("me2", (255, 190, 90), (100, 50, 10), "trap"),
                  ("me3", (130, 210, 255), (20, 60, 110), "shield"), ("me4", (255, 150, 60), (100, 30, 10), "flame"),
                  ("me5", (140, 255, 190), (20, 80, 50), "falcon"), ("me6", (255, 210, 90), (110, 70, 10), "quake")],
@@ -338,6 +340,30 @@ def icon(path, c1, c2, kind):
         d.line([(20, 20), (70, 70)], fill=(255, 200, 90, 200), width=26)
         d.ellipse([56, 56, 112, 112], fill=L, outline=D, width=4)
         d.ellipse([70, 66, 92, 88], fill=W)
+    elif kind == "fan":
+        for a in (-0.7, -0.35, 0.0, 0.35, 0.7):
+            x2, y2 = 64 + math.sin(a) * 50, 108 - math.cos(a) * 50
+            d.line([(64 + math.sin(a) * 14, 108 - math.cos(a) * 14), (x2, y2)], fill=L, width=5)
+            poly([(x2 - math.cos(a) * 6, y2 - math.sin(a) * 6), (x2 + math.sin(a) * 18, y2 - math.cos(a) * 18), (x2 + math.cos(a) * 6, y2 + math.sin(a) * 6)], W, width=2)
+    elif kind == "mark":
+        d.ellipse([20, 20, 108, 108], outline=L, width=7)
+        d.ellipse([34, 34, 94, 94], outline=W, width=3)
+        for k in range(6):
+            a = k * math.tau / 6
+            d.line([(64 + math.cos(a) * 30, 64 + math.sin(a) * 30), (64 + math.cos(a) * 48, 64 + math.sin(a) * 48)], fill=L, width=5)
+        poly([(64, 44), (78, 64), (64, 84), (50, 64)], W)
+    elif kind == "clones":
+        for k, (cx, sc) in enumerate(((36, 0.8), (92, 0.8), (64, 1.0))):
+            col = L if k < 2 else W
+            r0 = 12 * sc
+            d.ellipse([cx - r0, 30 - r0 + (1 - sc) * 30, cx + r0, 30 + r0 + (1 - sc) * 30], fill=col)
+            poly([(cx - 20 * sc, 112), (cx - 12 * sc, 50 + (1 - sc) * 30), (cx + 12 * sc, 50 + (1 - sc) * 30), (cx + 20 * sc, 112)], col, width=3)
+    elif kind == "eclipse":
+        d.ellipse([22, 22, 106, 106], fill=(255, 60, 70, 255), outline=D, width=4)
+        d.ellipse([34, 26, 110, 102], fill=(15, 5, 12, 255))
+        for k in range(3):
+            a = 2.4 + k * 0.5
+            d.arc([10 + k * 4, 10 + k * 4, 118 - k * 4, 118 - k * 4], math.degrees(a), math.degrees(a) + 50, fill=W, width=4)
     elif kind == "hail":
         for x0, y0, s in ((30, 14, 1.0), (70, 30, 1.25), (98, 10, 0.85)):
             poly([(x0, y0), (x0 + 9 * s, y0 + 26 * s), (x0, y0 + 64 * s), (x0 - 9 * s, y0 + 26 * s)], W, width=3)

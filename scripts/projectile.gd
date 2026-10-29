@@ -48,7 +48,8 @@ func _ready() -> void:
 		"dagger":
 			add_child(Toon.part(Toon.box(Vector3(0.12, 0.03, 0.6)), Color(0.85, 0.88, 0.95), Vector3(0, 0, -0.1), 0.01))
 			add_child(Toon.part(Toon.box(Vector3(0.3, 0.05, 0.06)), Color(0.3, 0.2, 0.35), Vector3(0, 0, 0.22), 0.0))
-			_trail(color, 0.06)
+			add_child(Toon.glow_part(Toon.box(Vector3(0.05, 0.05, 0.55)), Color(color.r * 0.7, color.g * 0.5, color.b * 0.8), Vector3(0, 0.02, -0.1), 0.8, true))
+			_dagger_fx.call_deferred()
 		"fireball", "orb":
 			var c := color
 			add_child(Toon.glow_part(Toon.sphere(0.42 if visual == "fireball" else 0.3, 12), c, Vector3.ZERO, 0.85, true))
@@ -76,6 +77,10 @@ func _ready() -> void:
 			if big or gold:
 				_trail(color, 0.08)
 	rotation.y = atan2(-dir.x, -dir.z)
+
+
+func _dagger_fx() -> void:
+	Vfx.dagger_trail(self, color)
 
 
 ## Rastro de vento (precisa da posição final, por isso roda depois de entrar na cena).

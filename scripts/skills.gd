@@ -366,18 +366,21 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			else:
 				var away := flat(tgt.global_position - pos).normalized()
 				var dest := tgt.global_position + away * (tgt.radius + 1.2)
-				Fx.burst(host, pos + Vector3(0, 1.0, 0), Color(0.15, 0.08, 0.25), 24, 3.0, 0.2)
+				Vfx.shadow_puff(host, pos, 1.0, col)
 				p.global_position = Vector3(dest.x, pos.y, dest.z)
 				p.face_dir(-away)
-				Fx.burst(host, p.global_position + Vector3(0, 1.0, 0), col, 24, 4.0, 0.15)
+				Vfx.shadow_puff(host, p.global_position, 1.1, col)
 			p.crit_next = true
 		"poison_buff":
 			p.poison_t = float(sk["dur"])
 			p.poison_mult = m
 			p.add_dmg_buff(p.dmg_buff, float(sk["dur"]), col)
-			Fx.burst(host, pos + Vector3(0, 1.0, 0), col, 26, 3.0, 0.1, 0.9, 1.0)
+			Vfx.poison_aura(p, float(sk["dur"]))
 		"stealth":
-			Fx.burst(host, pos + Vector3(0, 1.0, 0), Color(0.12, 0.1, 0.16), 34, 4.0, 0.28, 1.0, 1.0)
+			Vfx.shadow_puff(host, pos, 1.8, col)
+			Vfx.emit(host, pos + Vector3(0, 0.6, 0), {"tex": "smoke", "add": false, "amount": 20, "life": 2.0, "size": [1.6, 3.0],
+					"shape": "ring", "r": 1.2, "vel": [0.5, 1.5], "dir": Vector3.UP, "spread": 60.0, "colors": Vfx.SHADOW,
+					"curve": [[0, 0.6], [1, 1.5]], "spin": 30.0})
 			p.start_stealth(float(sk["dur"]))
 		"spin_multi":
 			var rs := area(sk)
@@ -387,14 +390,20 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 						return
 					var o := p.global_position
 					Fx.slash(host, o + Vector3(0, 1.0, 0), _ang(dir) + k * 1.6, rs, 360.0, col, 0.9, 0.2, k % 2 == 1)
+					Vfx.emit(host, o + Vector3(0, 1.0, 0), {"tex": "dot", "amount": 16, "life": 0.4, "size": [0.06, 0.14], "shape": "ring",
+							"r": rs * 0.8, "r_in": rs * 0.6, "vel": [2.0, 5.0], "gravity": Vector3(0, -5, 0),
+							"colors": [[0, Color(0.9, 0.8, 1.0, 0.9)], [1, Color(0.6, 0.3, 1.0, 0.0)]]})
+					Vfx.shockwave(host, o, col, rs, 0.25)
 					Sfx.play("swing", -6.0, 1.0 + 0.1 * k)
 					p.spin_visual()
 					for e in in_radius(tree, o, rs):
 						hit(p, e, m, o))
 		"dodge":
 			p.dodge_t = float(sk["dur"])
-			Fx.burst(host, pos + Vector3(0, 1.0, 0), Color(0.1, 0.08, 0.14), 30, 3.0, 0.25, 1.0, 1.0)
-			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, 2.5, 0.4)
+			Vfx.shadow_puff(host, pos, 1.3, Color(0.45, 0.3, 0.7))
+			Vfx.emit(p, pos + Vector3(0, 0.2, 0), {"tex": "smoke", "add": false, "shot": false, "local": true, "amount": 10, "life": 0.9,
+					"dur": 1.6, "size": [0.8, 1.4], "shape": "ring", "r": 0.8, "vel": [0.5, 1.2], "dir": Vector3.UP, "spread": 20.0,
+					"colors": Vfx.SHADOW})
 		"execute":
 			var tgt2: Enemy = null
 			var low := 2.0
@@ -410,8 +419,10 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				p.face_dir(flat(tgt2.global_position - dest2).normalized())
 				p.attack_visual()
 				var top := tgt2.global_position + Vector3(0, float(tgt2.data["height"]), 0)
-				Fx.lightning(host, top + Vector3(0, 10, 0), top, col, 0.3)
-				Fx.light_flash(host, top, col, 10.0, 12.0, 0.5)
+				Vfx.bolt(host, top + Vector3(randf_range(-2, 2), 16, randf_range(-2, 2)), top, col, 0.8, 0.4, 4)
+				Vfx.shockwave(host, tgt2.global_position, col, 5.0, 0.45)
+				Vfx.emit(host, top, {"tex": "dot", "amount": 30, "life": 0.8, "size": [0.08, 0.18], "vel": [4.0, 9.0], "gravity": Vector3(0, -8, 0),
+						"colors": [[0, Color(1.0, 0.95, 0.7, 1)], [1, Color(1.0, 0.6, 0.2, 0)]]})
 				Fx.slash(host, top, _ang(dir), 2.4, 220.0, col, 1.3, 0.3)
 				Fx.hitstop(p, 0.08)
 				hit(p, tgt2, m, pos)
@@ -464,6 +475,84 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					Fx.shake(p, 0.12)
 					for e in in_radius(tree, at, hit_r):
 						hit(p, e, m, at, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"])}))
+		"dagger_fan":
+			var cnt := int(sk["count"])
+			var spr := float(sk["spread"])
+			for k in cnt:
+				var d3 := dir.rotated(Vector3.UP, (float(k) / (cnt - 1) - 0.5) * spr)
+				var pr2 := Projectile.new()
+				pr2.player = p
+				pr2.dir = d3
+				pr2.speed = float(sk["speed"])
+				pr2.life = float(sk["life"])
+				pr2.mult = m
+				pr2.pierce = true
+				pr2.visual = "dagger"
+				pr2.color = col
+				pr2.extra = {"vuln": float(sk["vuln"]), "vuln_dur": float(sk["vuln_dur"])}
+				host.add_child(pr2)
+				pr2.global_position = hand + d3 * 0.6
+			Vfx.shadow_puff(host, pos + dir * 0.8, 0.6, col)
+		"death_mark":
+			var mark := _closest(tree, pos + flat(point - pos).limit_length(float(sk["range"])), float(sk["range"]))
+			if mark == null:
+				Vfx.shadow_puff(host, pos, 0.7, col)
+				return
+			var hh := float(mark.data["height"])
+			Vfx.sigil(mark, hh, col, float(sk["delay"]))
+			var rd := area(sk)
+			_later(p, float(sk["delay"]), func() -> void:
+				if not is_instance_valid(p):
+					return
+				var at4 := mark.global_position if is_instance_valid(mark) else pos
+				Vfx.shadow_burst(host, at4, rd, col)
+				Fx.shake(p, 0.35)
+				Sfx.play("sk_explosion", -3.0, 1.4)
+				if is_instance_valid(mark) and mark.alive:
+					p.crit_next = true
+					hit(p, mark, m, at4)
+				for e in in_radius(tree, at4, rd):
+					if e != mark:
+						hit(p, e, m * 0.6, at4))
+		"shadow_clones":
+			var targets: Array[Enemy] = []
+			var pool := enemies(tree)
+			pool.sort_custom(func(a: Enemy, b: Enemy) -> bool: return flat(a.global_position - pos).length() < flat(b.global_position - pos).length())
+			for e in pool:
+				if flat(e.global_position - pos).length() <= float(sk["range"]) and targets.size() < int(sk["count"]):
+					targets.append(e)
+			Vfx.shadow_puff(host, pos, 1.2, col)
+			for k in targets.size():
+				var tg := targets[k]
+				_later(p, 0.1 + 0.12 * k, func() -> void:
+					if is_instance_valid(p) and is_instance_valid(tg):
+						_clone_strike(p, host, tg, m, col))
+		"eclipse":
+			var re := area(sk)
+			var dur2 := float(sk["dur"])
+			var ev := float(sk["every"])
+			Vfx.dark_dome(host, pos, re, dur2)
+			Vfx.shadow_puff(host, pos, 1.5, col)
+			for k in int(dur2 / ev):
+				_later(p, 0.25 + ev * k, func() -> void:
+					if not is_instance_valid(p):
+						return
+					var inside := in_radius(tree, pos, re)
+					if inside.is_empty():
+						Vfx.blood_slash(host, pos + Vector3(randf_range(-re, re) * 0.6, 1.0, randf_range(-re, re) * 0.6), randf() * TAU, 2.0)
+						return
+					var vic: Enemy = inside[randi() % inside.size()]
+					Vfx.blood_slash(host, vic.global_position + Vector3(0, float(vic.data["height"]) * 0.6, 0), randf() * TAU, 2.2)
+					Sfx.play("swing", -9.0, randf_range(1.1, 1.4))
+					hit(p, vic, m, pos))
+			_later(p, dur2 + 0.1, func() -> void:
+				if not is_instance_valid(p):
+					return
+				Vfx.shadow_burst(host, pos, re, Color(0.9, 0.1, 0.15))
+				Fx.shake(p, 0.5)
+				Sfx.play("sk_explosion", -2.0, 0.9)
+				for e in in_radius(tree, pos, re):
+					hit(p, e, m * float(sk["final"]), pos))
 		"storm_chain":
 			_storm_chain(p, host, point, float(sk["range"]), chain_hops(sk, lvl), float(sk["jump"]), m, col, float(sk["stun"]))
 		"meteor_rain":
@@ -910,6 +999,36 @@ static func _trap(p: Player, host: Node, at: Vector3, r: float, m: float, stun: 
 				for e in in_radius(tree, at, r):
 					hit(p, e, m, at, {"stun": stun})
 			trap.queue_free())
+
+
+## Clone de sombra: cópia escura do herói que surge, salta no inimigo, corta e se desfaz.
+static func _clone_strike(p: Player, host: Node, tg: Enemy, m: float, col: Color) -> void:
+	var start := p.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+	var to := flat(tg.global_position - start)
+	var dest := tg.global_position - to.normalized() * (tg.radius + 0.9)
+	dest.y = p.global_position.y
+	var clone := Node3D.new()
+	host.add_child(clone)
+	clone.global_position = start
+	clone.rotation.y = atan2(-to.x, -to.z)
+	var kit := ModelKit.load_kit("hero_assassino_%s" % String(p.armor.get("rarity", "comum")), 0.02)
+	if kit != null:
+		clone.add_child(kit.root)
+		kit.set_tint(Color(0.12, 0.04, 0.22), 0.85)
+		kit.play("sk_as1", 1.4, true)
+	Vfx.emit(host, start, {"tex": "smoke", "add": false, "shot": false, "amount": 30, "life": 0.5, "dur": 0.45, "size": [0.8, 1.4],
+			"shape": "sphere", "r": 0.5, "vel": [0.2, 0.8], "colors": Vfx.SHADOW})
+	var tw := clone.create_tween()
+	tw.tween_property(clone, "global_position", dest, 0.18).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void:
+		if is_instance_valid(tg) and is_instance_valid(p):
+			Vfx.blood_slash(host, tg.global_position + Vector3(0, float(tg.data["height"]) * 0.6, 0), randf() * TAU, 2.0)
+			Sfx.play("sk_slash", -8.0, randf_range(1.0, 1.3))
+			hit(p, tg, m, dest))
+	tw.tween_interval(0.25)
+	tw.tween_callback(func() -> void:
+		Vfx.shadow_puff(host, clone.global_position, 0.8, col)
+		clone.queue_free())
 
 
 ## Fúria do Trovão: raio do céu no inimigo mais perto do ponto e depois saltos para os vizinhos.

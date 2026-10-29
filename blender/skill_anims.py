@@ -175,8 +175,45 @@ def assassino():
             "thigh_l": [(X, -0.3 * up)], "calf_l": [(X, 0.6 * up)], "calf_r": [(X, 0.5 * up)],
             "_loc": V(0, -0.1 * strike, 0.4 * up)})
 
+    def fan(t):
+        # Leque de Adagas: cruza as adagas no peito e abre os dois braços arremessando
+        load = pulse(t, 0.0, 0.3, 0.32, 0.42)
+        throw = pulse(t, 0.36, 0.5, 0.65, 1.0)
+        return merge(crouch(0.25 * throw), {
+            "upperarm_l": [(X, -0.4 * load - 1.2 * throw), (Y, 0.5 * load - 0.6 * throw)], "lowerarm_l": [(X, -0.8 * load + 0.9 * throw)],
+            "upperarm_r": [(X, -0.4 * load - 1.2 * throw), (Y, -0.5 * load + 0.6 * throw)], "lowerarm_r": [(X, -0.8 * load + 0.9 * throw)],
+            "spine_03": [(X, 0.15 * load - 0.05 * throw)], "_loc": V(0, -0.06 * throw, 0)})
+
+    def mark(t):
+        # Marca da Morte: aponta a adaga para o alvo, a outra mão perto do rosto
+        k = pulse(t, 0.0, 0.25, 0.7, 1.0)
+        return {"upperarm_r": [(X, -1.4 * k)], "lowerarm_r": [(X, 1.0 * k)],
+                "upperarm_l": [(X, -0.9 * k), (Y, 0.4 * k)], "lowerarm_l": [(X, -1.2 * k)],
+                "spine_01": [(Z, -0.25 * k)], "spine_03": [(Z, -0.15 * k)], "head": [(Z, 0.2 * k)]}
+
+    def clones(t):
+        # Clones das Sombras: abaixa, cruza os braços e os abre de uma vez chamando as sombras
+        cross = pulse(t, 0.0, 0.3, 0.35, 0.45)
+        burst = pulse(t, 0.4, 0.55, 0.7, 1.0)
+        return merge(crouch(0.6 * cross + 0.3 * burst, 0.15 * cross), {
+            "upperarm_l": [(X, -0.6 * cross), (Y, 0.5 * cross - 1.1 * burst)], "lowerarm_l": [(X, -1.0 * cross + 0.5 * burst)],
+            "upperarm_r": [(X, -0.6 * cross), (Y, -0.5 * cross + 1.1 * burst)], "lowerarm_r": [(X, -1.0 * cross + 0.5 * burst)],
+            "spine_03": [(X, 0.2 * cross - 0.1 * burst)], "neck_01": [(X, 0.2 * cross - 0.2 * burst)]})
+
+    def eclipse(t):
+        # Eclipse Sangrento: ergue as adagas para o céu escurecido e depois gira cortando, bem baixo
+        up = pulse(t, 0.0, 0.25, 0.3, 0.4)
+        spin = pulse(t, 0.35, 0.45, 0.85, 1.0)
+        w = sin(t * tau * 3)
+        return merge(crouch(0.6 * spin, 0.15 * spin), {
+            "upperarm_l": [(X, -2.3 * up + (-0.4 + 0.5 * w) * spin), (Y, -0.9 * spin)], "lowerarm_l": [(X, 0.4 * up + 0.5 * spin)],
+            "upperarm_r": [(X, -2.3 * up + (-0.4 - 0.5 * w) * spin), (Y, 0.9 * spin)], "lowerarm_r": [(X, 0.4 * up + 0.5 * spin)],
+            "spine_03": [(X, -0.2 * up), (Z, 0.3 * w * spin)], "neck_01": [(X, -0.25 * up)], "_loc": V(0, 0, 0.08 * up)})
+
     return {"sk_as1": (16, shadow_step, False), "sk_as2": (22, poison, False), "sk_as3": (20, stealth, False),
-            "sk_as4": (20, blades, False), "sk_as5": (18, void, False), "sk_as6": (26, execute, False)}
+            "sk_as4": (20, blades, False), "sk_as5": (18, void, False), "sk_as6": (26, execute, False),
+            "sk_as7": (16, fan, False), "sk_as8": (22, mark, False), "sk_as9": (22, clones, False),
+            "sk_as10": (30, eclipse, False)}
 
 
 # =================================================================== MECÂNICO (ferramenta na direita apontando p/ frente)
