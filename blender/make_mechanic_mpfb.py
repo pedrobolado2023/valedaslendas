@@ -114,6 +114,14 @@ def goggles(c, strap, rim, lens):
         rigid(c, ln, "head")
 
 
+def gorget(c, mat):
+    """Protetor de pescoço: fecha o vão entre o capacete e o peitoral."""
+    neck = K.bone_head(c.arm, "neck_01")
+    for k, (z, sx) in enumerate(((-0.02, 0.27), (0.03, 0.23))):
+        g = prim("torus", "Gola", mat, neck + Vector((0, 0.005, z)), (sx, sx * 0.9, 0.5), rot=(0.12, 0, 0), minor=0.09)
+        rigid(c, g, "spine_03" if k == 0 else "neck_01")
+
+
 def robot_helmet(c, mat, ring_mat, eye):
     """Capacete fechado com um olho redondo brilhante no meio."""
     neck_z = K.bone_head(c.arm, "neck_01").z
@@ -272,6 +280,7 @@ def epica(c):
     piece(c, c.tights, "Bracadeira", LOWER + ["hand_l", "hand_r"], plate, offset=0.018, thresh=0.5, zmax=c.elbow_z - 0.04)
     gloves(c, plate, 0.012)
     robot_helmet(c, plate, suit, glow)
+    gorget(c, plate)
     A.pauldrons(c, plate, suit, size=0.15, gem=glow)
     for side, bone in ((1, "thigh_l"), (-1, "thigh_r")):   # faixas de luz nas coxas
         hd, tl = K.bone_head(c.arm, bone), K.bone_tail(c.arm, bone)
@@ -297,6 +306,7 @@ def lendaria(c):
     piece(c, c.tights, "Bracadeira", LOWER + ["hand_l", "hand_r"], gold, offset=0.018, thresh=0.5, zmax=c.elbow_z - 0.04)
     gloves(c, gold, 0.012)
     A.helmet(c, gold, dark)
+    gorget(c, gold2)
     s = (c.head_top - c.head).length
     cy, rx, ry = head_ring(c, c.eye_z)
     bar = prim("box", "VisorV", dark, Vector((0, cy - ry - 0.03, c.eye_z - s * 0.2)), (0.022, 0.012, s * 0.4))

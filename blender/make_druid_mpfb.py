@@ -188,8 +188,48 @@ def hair_cap(c, mat, extra=0.01, back_long=0.0):
     fr = prim("sphere", "Franja", mat, Vector((s * 0.15, h.y - s * 0.45, c.eye_z + s * 0.4)), (s * 0.95, s * 0.35, s * 0.28), rot=(0.3, 0, -0.25))
     rigid(c, fr, "head")
     if back_long > 0:
-        tail = prim("cone", "Rabo", mat, h + Vector((0, s * 0.55, -back_long * 0.35)), (s * 0.55, s * 0.4, back_long), rot=(math.pi - 0.15, 0, 0), r2=0.12)
-        rigid(c, tail, "head")
+        ponytail(c, mat, h + Vector((0, s * 0.62, s * 0.15)), back_long, s * 0.24)
+    return o
+
+
+def ponytail(c, mat, top, length, radius):
+    """Rabo de cavalo com 3 ossos próprios (balança com o corpo, como a capa)."""
+    rings, segs = 14, 10
+    me = bpy.data.meshes.new("Rabo")
+    verts, faces = [], []
+    for i in range(rings + 1):
+        k = i / rings
+        r = radius * (0.55 + 0.45 * math.sin(math.pi * min(1.0, k * 1.6 + 0.15))) * (1.0 - 0.75 * k)
+        z = -length * k
+        y = 0.08 * math.sin(k * math.pi) * length   # leve curva para trás
+        for j in range(segs):
+            a = j / segs * math.tau
+            verts.append((math.cos(a) * r, y + math.sin(a) * r * 0.8, z))
+    for i in range(rings):
+        for j in range(segs):
+            a, b = i * segs + j, i * segs + (j + 1) % segs
+            faces.append((a, b, b + segs, a + segs))
+    verts.append((0, 0.08 * math.sin(math.pi) * length, -length - 0.01))
+    tip = len(verts) - 1
+    for j in range(segs):
+        faces.append((rings * segs + j, rings * segs + (j + 1) % segs, tip))
+    me.from_pydata(verts, [], faces)
+    o = bpy.data.objects.new("Rabo", me)
+    bpy.context.collection.objects.link(o)
+    o.location = top
+    for p in o.data.polygons:
+        p.use_smooth = True
+    o.data.materials.append(mat)
+    bpy.context.view_layer.update()
+    bottom = top + Vector((0, 0.05, -length))
+    K.add_chain(c.arm, K.HAIR, top, bottom, "head")
+    K.bind_chain(o, c.arm, K.HAIR, top.z, bottom.z)
+    o["capa"] = True
+    c.parts.append(o)
+    # amarração do cabelo
+    tie = prim("torus", "Liga", K.color_mat("druida_liga", (0.55, 0.85, 0.35), rough=0.6), top + Vector((0, 0, -length * 0.08)),
+               (radius * 2.6, radius * 2.3, 0.6), rot=(0.1, 0, 0), minor=0.16)
+    rigid(c, tie, "head")
     return o
 
 
@@ -253,7 +293,7 @@ def comum(c):
     piece(c, c.skirt, "TunicaSaia", ["pelvis", "thigh_l", "thigh_r"], tunic, offset=0.012, thresh=0.05, zmin=c.knee_z + 0.12)
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, boot, offset=0.012, thresh=0.3, zmax=c.knee_z - 0.12)
     belt(c, rope, c.hip_z + 0.06)
-    hair_cap(c, hair, 0.008, back_long=0.0)
+    hair_cap(c, hair, 0.008, back_long=0.55)
 
 
 def rara(c):

@@ -377,6 +377,15 @@ def bind_chain(obj, arm, names, top_z, bottom_z):
 
 
 CAPE = ("cape_01", "cape_02", "cape_03")
+HAIR = ("hair_01", "hair_02", "hair_03")
+
+
+def hair_motion(anim, t):
+    """Rabo de cavalo: mesmo balanço da capa, um pouco mais solto para os lados."""
+    out = {}
+    for (b, ops), hb in zip(cape_motion(anim, t).items(), HAIR):
+        out[hb] = [(ax, a * (0.8 if ax.x else 1.6)) for ax, a in ops]
+    return out
 
 
 def cape_motion(anim, t):
@@ -511,6 +520,9 @@ def write_actions(arm, anims, base_pose):
                 pose.setdefault(b, []).extend(ops)
             if CAPE[0] in arm.pose.bones:
                 for b, ops in cape_motion(name, t).items():
+                    pose.setdefault(b, []).extend(ops)
+            if HAIR[0] in arm.pose.bones:
+                for b, ops in hair_motion(name, t).items():
                     pose.setdefault(b, []).extend(ops)
             for pb in arm.pose.bones:
                 pb.rotation_mode = "QUATERNION"
@@ -676,7 +688,31 @@ def paint_clothes(objs):
         unwrap_to_density(o, TEX_TILE[kinds[0]])
 
 
+## Limite de vértices por peça (deixa os arquivos leves sem mudar o visual na distância da câmera do jogo).
+VERT_CAP = {"Luva": 2500, "Mascara": 4000, "Barba": 4000, "Capuz": 6000, "Cabelo": 5000}
+VERT_CAP_DEFAULT = 7000
+
+
+def lighten(objs):
+    """Reduz peças pesadas (Decimate antes do esqueleto, para não "congelar" a pose)."""
+    for o in objs:
+        if o.type != "MESH" or o.name.split(".")[0] == "base" or o.name.startswith("high-poly") or o.parent_type == "BONE":
+            continue
+        cap = VERT_CAP.get(o.name.split(".")[0], VERT_CAP_DEFAULT)
+        n = len(o.data.vertices)
+        if n <= cap:
+            continue
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select_set(True)
+        bpy.context.view_layer.objects.active = o
+        md = o.modifiers.new("Leve", "DECIMATE")
+        md.ratio = cap / n
+        bpy.ops.object.modifier_move_to_index(modifier=md.name, index=0)
+        bpy.ops.object.modifier_apply(modifier=md.name)
+
+
 def export_glb(path, objs):
+    lighten(objs)
     paint_clothes(objs)
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
