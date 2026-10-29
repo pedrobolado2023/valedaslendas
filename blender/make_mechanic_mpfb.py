@@ -62,16 +62,7 @@ def gear(name, mat, hole, r, teeth=8, thick=0.08):
     return g
 
 
-HAND_BONES = [f"hand_{s}" for s in ("l", "r")] + [f"{f}_{k}_{s}" for f in ("thumb", "index", "middle", "ring", "pinky")
-                                                  for k in ("01", "02", "03") for s in ("l", "r")]
-
-
-def gloves(c, mat, offset=0.008):
-    """Luvas recortadas da própria mão do corpo (os moldes de roupa não cobrem os dedos)."""
-    o = K.duplicate(c.body, "Luva")
-    K.region(o, HAND_BONES, 0.3)
-    K.finish_piece(o, mat, 0.004 / c.sc, 1, offset / c.sc)
-    c.parts.append(o)
+gloves = D.gloves
 
 
 def head_ring(c, z, band=0.012):
@@ -164,7 +155,7 @@ def torso_size(c, z):
     rx = ry = 0.0
     ys = []
     for o in c.parts + [c.body]:
-        if o.type != "MESH" or o.parent_type == "BONE":
+        if o.type != "MESH" or o.parent_type == "BONE" or o.get("capa"):
             continue
         for v in o.data.vertices:
             pt = o.matrix_world @ v.co

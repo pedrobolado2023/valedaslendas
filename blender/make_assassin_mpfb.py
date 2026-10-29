@@ -96,7 +96,7 @@ def bandolier(c, mat, buckle=None):
     z = K.bone_head(c.arm, "spine_02").z
     rx = ry = 0.0
     for o in c.parts:
-        if o.type != "MESH" or o.parent_type == "BONE":
+        if o.type != "MESH" or o.parent_type == "BONE" or o.get("capa"):
             continue
         for v in o.data.vertices:
             p = o.matrix_world @ v.co
@@ -260,7 +260,7 @@ def rara(c):
     piece(c, c.tights, "Calca", ["pelvis"] + LEGS, pants, offset=0.004, zmin=c.ankle_z + 0.08)
     piece(c, c.tights, "Gibao", TORSO + UPPER + LOWER, jerk, offset=0.01, zmin=c.hip_z - 0.06)
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, boot, offset=0.014, thresh=0.3, zmax=c.knee_z - 0.04)
-    piece(c, c.tights, "Luva", ["hand_l", "hand_r"], glove, offset=0.006, thresh=0.3)
+    D.gloves(c, glove)
     D.hood(c, black, point=True)
     mask(c, black)
     D.cape(c, K.color_mat("assassino_capa_azul", (0.15, 0.25, 0.55), rough=0.8), 1.05, 0.44)
@@ -276,7 +276,8 @@ def epica(c):
     piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, suit, offset=0.005, zmin=c.ankle_z + 0.05)
     piece(c, c.tights, "Peitoral", ["spine_02", "spine_03"], armor, offset=0.02, thresh=0.5)
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, armor, offset=0.016, thresh=0.3, zmax=c.knee_z + 0.02)
-    piece(c, c.tights, "Bracadeira", LOWER + ["hand_l", "hand_r"], armor, offset=0.014, thresh=0.5, zmax=c.elbow_z - 0.05)
+    piece(c, c.tights, "Bracadeira", LOWER, armor, offset=0.014, thresh=0.5, zmax=c.elbow_z - 0.05)
+    D.gloves(c, armor, 0.01)
     helmet(c, armor, glow)
     h, s = c.head, (c.head_top - c.head).length
     crest = prim("cone", "Crista", armor, c.head_top + Vector((0, s * 0.25, -s * 0.05)), (0.05, 0.22, 0.24), rot=(-0.5, 0, 0), seg=4)
@@ -295,7 +296,8 @@ def lendaria(c):
     piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, black, offset=0.005, zmin=c.ankle_z + 0.05)
     piece(c, c.tights, "Peitoral", ["spine_01", "spine_02", "spine_03"], gold, offset=0.02, thresh=0.5)
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, gold, offset=0.018, thresh=0.3, zmax=c.knee_z + 0.03)
-    piece(c, c.tights, "Bracadeira", LOWER + ["hand_l", "hand_r"], gold, offset=0.014, thresh=0.5, zmax=c.elbow_z - 0.05)
+    piece(c, c.tights, "Bracadeira", LOWER, gold, offset=0.014, thresh=0.5, zmax=c.elbow_z - 0.05)
+    D.gloves(c, gold, 0.01)
     helmet(c, gold, glow)
     h, s = c.head, (c.head_top - c.head).length
     for k in range(5):  # crista de dragão, da testa até a nuca

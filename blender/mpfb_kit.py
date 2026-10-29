@@ -267,6 +267,75 @@ def attach_to_bone(obj, arm, bone):
     obj.matrix_world = mw
 
 
+def add_chain(arm, names, top, bottom, parent):
+    """Cria uma corrente de ossos (de top até bottom, no mundo) filha de parent — usada na capa."""
+    bpy.ops.object.select_all(action="DESELECT")
+    arm.select_set(True)
+    bpy.context.view_layer.objects.active = arm
+    bpy.ops.object.mode_set(mode="EDIT")
+    eb = arm.data.edit_bones
+    inv = arm.matrix_world.inverted()
+    prev = eb[parent]
+    n = len(names)
+    for i, name in enumerate(names):
+        b = eb.new(name)
+        b.head = inv @ top.lerp(bottom, i / n)
+        b.tail = inv @ top.lerp(bottom, (i + 1) / n)
+        b.roll = 0.0
+        b.parent = prev
+        b.use_connect = i > 0
+        prev = b
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def bind_chain(obj, arm, names, top_z, bottom_z):
+    """Pesa cada vértice nos ossos da corrente pela altura (em cima = 1º osso, embaixo = último) e liga no esqueleto."""
+    n = len(names)
+    groups = [obj.vertex_groups.new(name=nm) for nm in names]
+    mw = obj.matrix_world
+    for v in obj.data.vertices:
+        t = min(max((top_z - (mw @ v.co).z) / max(top_z - bottom_z, 1e-6), 0.0), 1.0)
+        s = t * n - 0.5                       # posição ao longo da corrente, em "ossos"
+        ws = [max(0.0, 1.0 - abs(s - i)) for i in range(n)]
+        if s <= 0:
+            ws = [1.0] + [0.0] * (n - 1)
+        elif s >= n - 1:
+            ws = [0.0] * (n - 1) + [1.0]
+        tot = sum(ws) or 1.0
+        for g, w in zip(groups, ws):
+            if w > 0:
+                g.add([v.index], w / tot, "REPLACE")
+    am = obj.modifiers.new("Esqueleto", "ARMATURE")
+    am.object = arm
+    keep = obj.matrix_world.copy()
+    obj.parent = arm
+    obj.matrix_world = keep
+
+
+CAPE = ("cape_01", "cape_02", "cape_03")
+
+
+def cape_motion(anim, t):
+    """Balanço da capa em cada animação (positivo em X = ponta da capa vai para trás)."""
+    p = t * math.tau
+    s = math.sin
+    if anim == "idle":
+        lift, amp, side, waves = (0.03, 0.02, 0.03), 0.04, 0.02, 1
+    elif anim == "walk":
+        lift, amp, side, waves = (0.12, 0.1, 0.08), 0.06, 0.03, 2
+    elif anim == "run":
+        lift, amp, side, waves = (0.35, 0.18, 0.14), 0.1, 0.04, 2
+    else:   # ataque: a capa chicoteia uma vez e assenta
+        k = math.sin(math.pi * t) ** 2
+        return {b: [(Vector((1, 0, 0)), (0.25, 0.2, 0.15)[i] * k), (Vector((0, 1, 0)), 0.06 * s(p) * (i + 1))]
+                for i, b in enumerate(CAPE)}
+    out = {}
+    for i, b in enumerate(CAPE):
+        ph = p * waves - i * 0.9                    # a onda desce pela capa
+        out[b] = [(Vector((1, 0, 0)), lift[i] + amp * s(ph)), (Vector((0, 1, 0)), side * s(p + i * 0.6))]
+    return out
+
+
 def bone_head(arm, name):
     return arm.matrix_world @ arm.data.bones[name].head_local
 
@@ -333,6 +402,9 @@ def write_actions(arm, anims, base_pose):
             loc = extra.pop("_loc", Vector((0, 0, 0)))
             for b, ops in extra.items():
                 pose.setdefault(b, []).extend(ops)
+            if CAPE[0] in arm.pose.bones:
+                for b, ops in cape_motion(name, t).items():
+                    pose.setdefault(b, []).extend(ops)
             for pb in arm.pose.bones:
                 pb.rotation_mode = "QUATERNION"
                 pb.rotation_quaternion = pose_rot(arm, pb.name, pose.get(pb.name, []))

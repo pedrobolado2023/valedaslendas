@@ -80,11 +80,23 @@ def piece(c, src, name, bones, mat, offset=0.006, thick=0.006, subdiv=1, thresh=
     return o
 
 
+HAND_BONES = [f"hand_{s}" for s in ("l", "r")] + [f"{f}_{k}_{s}" for f in ("thumb", "index", "middle", "ring", "pinky")
+                                                  for k in ("01", "02", "03") for s in ("l", "r")]
+
+
+def gloves(c, mat, offset=0.008):
+    """Luvas recortadas da própria mão do corpo (os moldes de roupa não cobrem as mãos)."""
+    o = K.duplicate(c.body, "Luva")
+    K.region(o, HAND_BONES, 0.3)
+    K.finish_piece(o, mat, 0.004 / c.sc, 1, offset / c.sc)
+    c.parts.append(o)
+
+
 def belt(c, mat, z, name="Cinto", buckle=None):
     """Cinto ajustado à roupa naquela altura (mede o maior contorno das peças)."""
     rx = ry = 0.0
     for o in c.parts:
-        if o.type != "MESH" or o.parent_type == "BONE":
+        if o.type != "MESH" or o.parent_type == "BONE" or o.get("capa"):
             continue
         for v in o.data.vertices:
             p = o.matrix_world @ v.co
@@ -205,10 +217,16 @@ def cape(c, mat, length=1.15, width=0.5, trim=None):
     md2 = o.modifiers.new("Suave", "SUBSURF")
     md2.levels = 1
     K.apply_modifiers(o, keep=())
-    rigid(c, o, "spine_03")
+    # capa com 3 ossos próprios (o balanço é gravado nas animações por mpfb_kit.cape_motion)
+    top = o.location.copy()
+    bottom = top + Vector((0, 0.06, -length))
+    K.add_chain(c.arm, K.CAPE, top, bottom, "spine_03")
+    K.bind_chain(o, c.arm, K.CAPE, top.z, bottom.z)
+    o["capa"] = True        # fica fora das medidas do tronco (cinto, correias)
+    c.parts.append(o)
     if trim is not None:
         b = prim("box", "CapaBarra", trim, neck + Vector((0, 0.17, -length + 0.02)), (width * 1.25, 0.02, 0.04))
-        rigid(c, b, "spine_03")
+        rigid(c, b, K.CAPE[-1])
     return o
 
 
@@ -241,7 +259,7 @@ def rara(c):
     piece(c, c.tights, "Gibao", TORSO + UPPER + LOWER, jerk, offset=0.01, zmin=c.hip_z - 0.05)
     piece(c, c.skirt, "Barra", ["pelvis", "thigh_l", "thigh_r"], jerk, offset=0.012, thresh=0.05, zmin=c.knee_z + 0.2)
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, boot, offset=0.014, thresh=0.3, zmax=c.knee_z - 0.05)
-    piece(c, c.tights, "Luva", ["hand_l", "hand_r"], glove, offset=0.006, thresh=0.3)
+    gloves(c, glove)
     hood(c, cloak)
     cape(c, cloak, 1.1, 0.46)
     rx, ry = belt(c, K.color_mat("druida_couro", (0.2, 0.11, 0.05)), c.hip_z + 0.06, buckle=gold)
