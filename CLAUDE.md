@@ -128,6 +128,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   (attack/bite/fire/heal/shield/loot), nível por mortes em `player.pet_levels` (até `PET_MAX_LEVEL`).
 - **Montarias (loja, kind "mount"; R monta/desmonta):** modelos de monstros com `height`/`seat`/`fly`; bônus montado
   em `speed`, `regen`, `def`, `trail` (rastro de fogo). Atacar/skill desmonta; fora de combate andando 2 s monta sozinho.
+- **Recompensas (tecla O):** `scripts/rewards.gd` (login de 7 dias pela data do PC + 19 conquistas com gemas) e
+  `ui/rewards_panel.gd`. Save: `stats` (kills/bosses/global/quests/logins), `login`, `achieved`.
 - **Monstros no estilo novo:** `blender/creature_kit.py` (esqueleto → corpo de metaballs → remesh → pesos automáticos
   → peças rígidas e asas de membrana → cores por vértice → animações) e `blender/make_monsters.py` (rodar com
   `blender -b -P blender/make_monsters.py -- nome1,nome2`). Todos os 20 feitos (lobos, dragões, golens, yetis,

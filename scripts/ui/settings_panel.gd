@@ -54,7 +54,7 @@ func setup(g: Node) -> void:
 	right.add_theme_constant_override("separation", 6)
 	cols.add_child(right)
 	right.add_child(UiTheme.title("Atalhos", 20))
-	var keys := "WASD / setas: andar\nClique / Espaço: ataque básico\n1-9 e 0: skills\nE: falar / usar\nK: skills   I: equipamento\nJ: missões   L: loja   P: pets   R: montaria\nM: mapa   T: auto-combate\nRoda do mouse: zoom\nEsc: este menu"
+	var keys := "WASD / setas: andar\nClique / Espaço: ataque básico\n1-9 e 0: skills\nE: falar / usar\nK: skills   I: equipamento\nJ: missões   L: loja   P: pets   R: montaria   O: recompensas\nM: mapa   T: auto-combate\nRoda do mouse: zoom\nEsc: este menu"
 	right.add_child(UiTheme.label(keys, 15, Color(0.85, 0.8, 0.7)))
 	var foot := HBoxContainer.new()
 	foot.add_theme_constant_override("separation", 10)

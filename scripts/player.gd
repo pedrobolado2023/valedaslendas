@@ -32,6 +32,10 @@ var pet_levels: Dictionary = {}  # id -> [nível, xp] de cada pet
 var _pet_node: Pet
 # montaria (loja): R monta/desmonta; atacar desmonta; fora de combate, andando, monta sozinho
 var mount := ""
+# recompensas: contadores (kills, bosses, global, quests, logins), login diário e conquistas resgatadas
+var stats: Dictionary = {}
+var login: Dictionary = {}
+var achieved: Array = []
 var riding := false
 var _mount_kit: ModelKit
 var _ride_t := 0.0
@@ -872,6 +876,10 @@ func pet_gain(n: int = 1) -> bool:
 		up = true
 	pet_levels[pet] = lv
 	return up
+
+
+func stat_add(k: String, n: int = 1) -> void:
+	stats[k] = int(stats.get(k, 0)) + n
 
 
 func set_riding(on: bool) -> void:

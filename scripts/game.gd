@@ -26,6 +26,7 @@ var missions := MissionBook.new()
 var events: WorldEvents          # boss global (horários, covil, recompensas)
 var shop_panel: ShopPanel
 var pet_panel: PetPanel
+var rewards_panel: RewardsPanel
 var settings_panel: SettingsPanel
 var tutorial: Tutorial
 var tutorial_done := false
@@ -260,6 +261,8 @@ func start_game(key: String, save: Dictionary) -> void:
 	_cam_target = player.global_position
 
 	_build_ui()
+	if Rewards.can_claim_daily(player):
+		toast("Recompensa diária disponível — aperte O", 4.0)
 
 	events = WorldEvents.new()
 	events.game = self
@@ -297,6 +300,9 @@ func _apply_save(d: Dictionary) -> void:
 	player.shop_bonus = d.get("shop_bonus", {})
 	player.pet = String(d.get("pet", ""))
 	player.mount = String(d.get("mount", ""))
+	player.stats = d.get("stats", {})
+	player.login = d.get("login", {})
+	player.achieved = d.get("achieved", [])
 	player.pet_levels = d.get("pet_levels", {})
 	player.xp_boost_until = float(d.get("xp_boost_until", 0.0))
 	player.purchases = d.get("purchases", [])
@@ -344,7 +350,7 @@ func save_now() -> void:
 	SaveGame.write({
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
-		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "pet_levels": player.pet_levels,
+		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
@@ -385,6 +391,9 @@ func _build_ui() -> void:
 	pet_panel = PetPanel.new()
 	add_child(pet_panel)
 	pet_panel.setup(player)
+	rewards_panel = RewardsPanel.new()
+	add_child(rewards_panel)
+	rewards_panel.setup(player)
 	settings_panel = SettingsPanel.new()
 	add_child(settings_panel)
 	settings_panel.setup(self)
@@ -587,6 +596,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			gear_panel.toggle()
 		KEY_R:
 			player.toggle_ride()
+		KEY_O:
+			rewards_panel.toggle()
 		KEY_P:
 			pet_panel.toggle()
 		KEY_L:
@@ -603,13 +614,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
 			gear_panel.visible = false
 			shop_panel.visible = false
 			pet_panel.visible = false
+			rewards_panel.visible = false
 			admin_panel.visible = false
 			if not any_open:
 				settings_panel.toggle()
@@ -919,6 +931,7 @@ func turn_in() -> void:
 		return
 	dialog.close()
 	player.add_gold(int(q["gold"]))
+	player.stat_add("quests")
 	var got := player.gain_xp(GameData.quest_xp(q))
 	Sfx.play("quest", 0.0, 1.2)
 	Sfx.play("coin", -4.0)
@@ -973,6 +986,7 @@ func _mission_done(kind: String) -> void:
 	var mis := missions.complete(kind)
 	if mis.is_empty():
 		return
+	player.stat_add("quests")
 	var got := player.gain_xp(int(mis["xp"]))
 	player.add_gold(int(mis["gold"]))
 	Sfx.play("quest", -3.0, 1.15)
@@ -1003,6 +1017,9 @@ func _on_killed(e: Enemy) -> void:
 	if player == null:
 		return
 	player.gain_xp(int(e.data["xp"]))
+	player.stat_add("kills")
+	if e.boss:
+		player.stat_add("global" if String(e.data.get("name", "")) == String(GameData.enemy("dragon_global")["name"]) else "bosses")
 	if player.pet_gain():
 		toast("Seu pet subiu para o nível %d!" % player.pet_level(), 2.0)
 	var g: Vector2i = e.data["gold"]

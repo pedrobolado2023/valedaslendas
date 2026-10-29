@@ -118,6 +118,6 @@ func _on_boss_died(e: Enemy) -> void:
 		game._drop("gold", int(cfg["reward_gold"]) / 20, "Ouro", at + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4)))
 	Vfx.explosion(game.actors, at, 8.0)
 	Fx.shake(p, 0.8)
-	game.hud.banner("Dragão Ancestral derrotado!", "+%d XP   +%d de ouro   +%d gemas   ·   próximo boss global às %s" % [xp, int(cfg["reward_gold"]), int(cfg["reward_gems"]), next_text()], 5.0)
+	game.hud.banner("Dragão de Lava derrotado!", "+%d XP   +%d de ouro   +%d gemas   ·   próximo boss global às %s" % [xp, int(cfg["reward_gold"]), int(cfg["reward_gems"]), next_text()], 5.0)
 	p.stats_changed.emit()
 	game.save_now()
