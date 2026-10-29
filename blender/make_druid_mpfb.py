@@ -13,6 +13,7 @@ from mathutils import Euler, Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mpfb_kit as K  # noqa: E402
+import skill_anims as SA  # noqa: E402
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 OUT = os.path.join(ROOT, "models")
@@ -504,7 +505,7 @@ def anims(c):
                 "_loc": Vector((0, -0.06 * hit, -0.05 * hit - 0.015 * up))}
 
     K.write_actions(c.arm, {"idle": (48, idle, True), "walk": (32, walk, True), "run": (20, run, True),
-                            "attack": (18, attack, False)}, base_pose)
+                            "attack": (18, attack, False), **SA.druida()}, base_pose)
 
 
 # =================================================================== montagem

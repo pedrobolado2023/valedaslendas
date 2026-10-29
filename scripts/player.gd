@@ -48,6 +48,7 @@ var _dash_vel := Vector3.ZERO
 var _dash_t := 0.0
 var _leaping := false
 var _act_t := 0.0
+var _skill_anim_t := 0.0
 var _kit: ModelKit
 var _vis: Node3D
 var _buff_fx: Node3D
@@ -186,6 +187,7 @@ func cast_skill(i: int, point: Vector3) -> bool:
 	_since_action = 0.0
 	_break_stealth()
 	Skills.cast(self, i, point)
+	play_skill(String(skill(i)["id"]))
 	_add_heat()
 	stats_changed.emit()
 	return true
@@ -238,6 +240,7 @@ func basic_attack(point: Vector3) -> void:
 		dir = facing
 	dir = dir.normalized()
 	face_dir(dir)
+	_skill_anim_t = 0.0   # o ataque básico sempre aparece (interrompe a animação de skill)
 	attack_visual()
 	var host := get_parent()
 	var trim: Color = cdata["trim"]
@@ -331,7 +334,7 @@ func leap_to(target: Vector3, time: float) -> void:
 	var tw := create_tween()
 	tw.tween_method(arc, 0.0, 1.0, time)
 	tw.tween_callback(land)
-	if _kit != null:
+	if _kit != null and _skill_anim_t <= 0.0:
 		_kit.play("attack", 0.8, true)
 
 
@@ -342,8 +345,19 @@ func spin_visual() -> void:
 	attack_visual()
 
 
+## Animação própria da skill ("sk_<id>", feita em blender/skill_anims.py). Enquanto ela toca,
+## os ataques chamados de dentro da skill (attack_visual) não a interrompem.
+func play_skill(id: String) -> void:
+	if _kit == null or not _kit.has_anim("sk_" + id):
+		return
+	var L := _kit.length("sk_" + id)
+	_kit.play("sk_" + id, 1.0, true)
+	_skill_anim_t = L
+	_act_t = maxf(_act_t, minf(L, 0.7))
+
+
 func attack_visual() -> void:
-	if _kit != null:
+	if _kit != null and _skill_anim_t <= 0.0:
 		var L := _kit.length("attack")
 		_kit.play("attack", maxf(1.0, L / 0.32), true)
 		_act_t = maxf(_act_t, minf(L, 0.32))
@@ -406,6 +420,7 @@ func _timers(delta: float) -> void:
 		skill_cd[i] = maxf(0.0, skill_cd[i] - delta)
 	basic_cd -= delta
 	_act_t -= delta
+	_skill_anim_t -= delta
 	invuln_t -= delta
 	_since_hit += delta
 	_since_action += delta

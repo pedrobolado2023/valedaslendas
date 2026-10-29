@@ -451,6 +451,49 @@ def apply_pose(arm, pose):
     bpy.context.view_layer.update()
 
 
+# ------------------------------------------------------------------- blocos para animações de skill
+# Sinais (eixos do mundo, antes do giro final): braço p/ frente/cima = -X no upperarm; cotovelo dobra = -X no lowerarm;
+# braço esquerdo p/ o lado (abrir) = -Y, direito = +Y; tronco p/ frente = +X; ombro direito p/ trás = +Z no tronco;
+# joelho dobra = +X; cabeça olha p/ cima = -X.
+WX, WY, WZ = Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))
+
+
+def ease(x):
+    x = min(max(x, 0.0), 1.0)
+    return x * x * (3 - 2 * x)
+
+
+def pulse(t, a, b, c, d):
+    """Sobe de a até b, fica até c e desce até d (0..1)."""
+    return ease((t - a) / max(b - a, 1e-6)) * (1 - ease((t - c) / max(d - c, 1e-6)))
+
+
+def crouch(k, lean=0.0):
+    """Agacha as duas pernas (k=1 bem baixo) mantendo os pés no chão."""
+    out = {}
+    for s in ("l", "r"):
+        out[f"thigh_{s}"] = [(WX, -0.55 * k)]
+        out[f"calf_{s}"] = [(WX, 1.1 * k)]
+        out[f"foot_{s}"] = [(WX, -0.5 * k)]
+    out["spine_01"] = [(WX, 0.25 * k + lean)]
+    out["_loc"] = Vector((0, 0, -0.13 * k))
+    return out
+
+
+def merge(*parts):
+    """Junta vários dicionários de pose (as listas de rotação se somam, "_loc" se soma)."""
+    out = {}
+    loc = Vector((0, 0, 0))
+    for p in parts:
+        for b, ops in p.items():
+            if b == "_loc":
+                loc = loc + ops
+            else:
+                out.setdefault(b, []).extend(ops)
+    out["_loc"] = loc
+    return out
+
+
 def write_actions(arm, anims, base_pose):
     """anims: {nome: (frames, fn(t) -> {osso: [ops...], "_loc": Vector}, loop)}; base_pose: {osso: [ops...]}"""
     ad = arm.animation_data_create()

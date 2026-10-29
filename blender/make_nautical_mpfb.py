@@ -15,6 +15,7 @@ from mathutils import Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mpfb_kit as K  # noqa: E402
+import skill_anims as SA  # noqa: E402
 import make_druid_mpfb as D  # noqa: E402
 import make_assassin_mpfb as A  # noqa: E402
 import make_mechanic_mpfb as Mc  # noqa: E402
@@ -284,7 +285,7 @@ def anims(c):
                 "_loc": Vector((0, 0.03 * back - 0.12 * hit, -0.06 * hit))}
 
     K.write_actions(c.arm, {"idle": (56, idle, True), "walk": (32, walk, True), "run": (20, run, True),
-                            "attack": (18, attack, False)}, base_pose)
+                            "attack": (18, attack, False), **SA.nautico()}, base_pose)
 
 
 # =================================================================== montagem

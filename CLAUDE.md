@@ -82,6 +82,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - **Peças de cabeça lisas:** máscaras, elmos, bonés e capuz usam `D.head_shell` (esfera encolhida até a pele com folga),
   sem copiar nariz/boca. Foto real do Godot das 16 skins: `godot --path . -s C:\Users\pedro\vale-tools\shot_heroes.gd -- saida.png`
   (com janela, `--rendering-driver opengl3`).
+- **Animações de skill:** `blender/skill_anims.py` tem uma animação "sk_<id>" por skill ativa (21 no total; passivas
+  não têm), somada à pose parada da classe; blocos `K.pulse`, `K.crouch`, `K.merge` em `mpfb_kit.py` (com os sinais
+  dos eixos). No jogo, `Player.play_skill` toca a animação depois de `Skills.cast`; enquanto ela toca, os
+  `attack_visual`/`leap_to` de dentro da skill não a cortam (o ataque básico corta). Folhas de quadros em
+  `docs/skills_<classe>.png` (`C:\Users\pedro\vale-tools\skill_sheet.py`).
 - Ver um modelo exportado de frente/lado/3/4: `C:\Users\pedro\vale-tools\views.py` (Blender, EEVEE, rápido).
 - Ferramentas nesta máquina (Windows): `C:\Users\pedro\vale-tools\` — Blender 5.2.3 portátil, Godot 4.3 (console),
   mpfb2, makehuman (só `data/eyes`), backup dos modelos antigos do Assassino em `backup_assassino\`.
@@ -90,7 +95,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 ## Próximos passos combinados com o dono
 1. ~~Humanizar as 4 classes com MPFB2~~ — feito (Druida, Assassino, Mecânico, Náutico). Falta o dono testar jogando.
 2. Cabelo melhor (com balanço). Já feitos: capa com balanço, texturas de tecido/couro/metal e barras nas roupas.
-3. Animações específicas por skill.
+3. ~~Animações específicas por skill~~ — feito (afinar depois de jogar).
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).
 - Limitações conhecidas: arquivos da Druida têm 4-6 MB cada (dá para reduzir malha); sem GPU no ambiente
   original, por isso nada de IA de imagem→3D (Hunyuan3D precisa de NVIDIA).

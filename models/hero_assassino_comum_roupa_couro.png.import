@@ -2,13 +2,10 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://f7u78xe30iu7"
+uid="uid://1g4ltt7fv5l6"
 path="res://.godot/imported/hero_assassino_comum_roupa_couro.png-cd324d34c05488d2abb72e2984134a8a.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "c7f65c9915d939e4c6d45c7050e413a6"
 }
 
 [deps]
@@ -24,7 +21,7 @@ compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

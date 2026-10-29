@@ -16,6 +16,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mpfb_kit as K  # noqa: E402
+import skill_anims as SA  # noqa: E402
 import make_druid_mpfb as D  # noqa: E402
 import make_assassin_mpfb as A  # noqa: E402
 
@@ -420,7 +421,7 @@ def anims(c):
                 "_loc": Vector((0, -0.05 * hit, 0.01 * up - 0.07 * hit))}
 
     K.write_actions(c.arm, {"idle": (48, idle, True), "walk": (32, walk, True), "run": (20, run, True),
-                            "attack": (20, attack, False)}, base_pose)
+                            "attack": (20, attack, False), **SA.mecanico()}, base_pose)
 
 
 # =================================================================== montagem
