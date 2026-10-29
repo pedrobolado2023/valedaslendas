@@ -92,10 +92,7 @@ def short_hair(c, mat):
 def cap(c, mat):
     """Boné: o topo da cabeça um pouco maior e a aba na frente."""
     s = (c.head_top - c.head).length
-    o = K.duplicate(c.body, "Bone")
-    K.region(o, ["head"], 0.5, zmin=c.eye_z + s * 0.3)
-    K.finish_piece(o, mat, 0.01 / c.sc, 1, 0.02 / c.sc)
-    c.parts.append(o)
+    A.head_shell(c, "Bone", mat, 0.02, lambda p: p.z > c.eye_z + s * 0.3)
     cy, rx, ry = head_ring(c, c.eye_z + s * 0.32)
     brim = prim("sphere", "Aba", mat, Vector((0, cy - ry - 0.03, c.eye_z + s * 0.33)), (rx * 1.7, 0.1, 0.014), rot=(-0.12, 0, 0))
     rigid(c, brim, "head")
@@ -118,10 +115,8 @@ def goggles(c, strap, rim, lens):
 
 def robot_helmet(c, mat, ring_mat, eye):
     """Capacete fechado com um olho redondo brilhante no meio."""
-    o = K.duplicate(c.body, "Capacete")
-    K.region(o, ["head"], 0.5, zmin=K.bone_head(c.arm, "neck_01").z)
-    K.finish_piece(o, mat, 0.01 / c.sc, 1, 0.022 / c.sc)
-    c.parts.append(o)
+    neck_z = K.bone_head(c.arm, "neck_01").z
+    A.head_shell(c, "Capacete", mat, 0.022, lambda p: p.z > neck_z)
     s = (c.head_top - c.head).length
     ez = c.eye_z + s * 0.12
     cy, rx, ry = head_ring(c, ez)

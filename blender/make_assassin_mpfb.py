@@ -68,24 +68,21 @@ def base(macros=None, targets=None, cls="assassino", skin=(0.86, 0.64, 0.5)):
 
 # =================================================================== peças do assassino
 
+head_shell = D.head_shell
+
+
 def mask(c, mat):
     """Lenço/máscara cobrindo nariz, boca e pescoço (os olhos ficam de fora)."""
     s = (c.head_top - c.head).length
-    o = K.duplicate(c.body, "Mascara")
-    K.region(o, ["head", "neck_01"], 0.3, zmin=K.bone_head(c.arm, "neck_01").z - 0.03,
-             keep_fn=lambda p: p.z < c.eye_z - s * 0.12)
-    K.finish_piece(o, mat, 0.008 / c.sc, 2, 0.014 / c.sc)
-    c.parts.append(o)
-    return o
+    neck_z = K.bone_head(c.arm, "neck_01").z
+    return head_shell(c, "Mascara", mat, 0.016, lambda p: neck_z - 0.03 < p.z < c.eye_z - s * 0.12, 0.008, 2)
 
 
 def helmet(c, mat, visor):
     """Elmo fechado: a cabeça inteira um pouco maior, com fenda brilhante na altura dos olhos."""
     h, s = c.head, (c.head_top - c.head).length
-    o = K.duplicate(c.body, "Elmo")
-    K.region(o, ["head"], 0.5, zmin=K.bone_head(c.arm, "neck_01").z)
-    K.finish_piece(o, mat, 0.01 / c.sc, 1, 0.02 / c.sc)
-    c.parts.append(o)
+    neck_z = K.bone_head(c.arm, "neck_01").z
+    o = head_shell(c, "Elmo", mat, 0.022, lambda p: p.z > neck_z)
     v = prim("sphere", "Visor", visor, Vector((0, h.y - s * 0.74, c.eye_z)), (s * 0.62, 0.012, 0.02))
     rigid(c, v, "head")
     return o

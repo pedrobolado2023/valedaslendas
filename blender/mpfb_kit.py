@@ -197,6 +197,28 @@ def region(obj, bones, thresh=0.35, zmin=None, zmax=None, keep_fn=None):
     bm.free()
 
 
+def wrap_shell(name, body, center, radius, keep, offset, segs=40, rings=28):
+    """Casca lisa em volta do corpo: esfera encolhida até a pele (com folga `offset`), recortada por keep(p_mundo).
+    Fica lisa mesmo sobre nariz e boca (bom para máscaras, capacetes e bonés)."""
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=center, segments=segs, ring_count=rings)
+    o = bpy.context.active_object
+    o.name = name
+    o.data.name = name
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    mw = o.matrix_world
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not keep(mw @ v.co)], context="VERTS")
+    bm.to_mesh(o.data)
+    bm.free()
+    md = o.modifiers.new("Encolher", "SHRINKWRAP")
+    md.target = body
+    md.wrap_method = "NEAREST_SURFACEPOINT"
+    md.offset = offset
+    bpy.context.view_layer.objects.active = o
+    bpy.ops.object.modifier_apply(modifier=md.name)
+    return o
+
+
 def inflate(obj, amount):
     """Empurra a peça para fora (ao longo das normais) para não atravessar o corpo."""
     obj.data.update()
@@ -204,9 +226,51 @@ def inflate(obj, amount):
         v.co += v.normal * amount
 
 
-def finish_piece(obj, mat, thick=0.004, subdiv=1, offset=0.0):
+def hem_colors(obj, width=0.04, dark=0.55):
+    """Barra da roupa: escurece os vértices perto das bordas abertas da peça (cor por vértice "Barra").
+    A espessura e a suavização copiam essa cor, e o shader do jogo multiplica por ela."""
+    import heapq
+    mw = obj.matrix_world
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    dist = [1e9] * len(bm.verts)
+    heap = []
+    for e in bm.edges:
+        if len(e.link_faces) == 1:
+            for v in e.verts:
+                if dist[v.index] > 0:
+                    dist[v.index] = 0.0
+                    heapq.heappush(heap, (0.0, v.index))
+    wpos = [mw @ v.co for v in bm.verts]
+    while heap:
+        d, i = heapq.heappop(heap)
+        if d > dist[i] or d > width:
+            continue
+        for e in bm.verts[i].link_edges:
+            j = e.other_vert(bm.verts[i]).index
+            nd = d + (wpos[i] - wpos[j]).length
+            if nd < dist[j]:
+                dist[j] = nd
+                heapq.heappush(heap, (nd, j))
+    bm.free()
+    attr = obj.data.color_attributes.get("Barra") or obj.data.color_attributes.new("Barra", "BYTE_COLOR", "POINT")
+    for i, d in enumerate(dist):
+        t = min(d / width, 1.0)
+        k = dark + (1.0 - dark) * t * t * (3 - 2 * t)
+        attr.data[i].color = (k, k, k, 1.0)
+    obj.data.color_attributes.active_color = attr
+
+
+def finish_piece(obj, mat, thick=0.004, subdiv=1, offset=0.0, smooth=0):
+    """smooth > 0 alisa a peça (máscaras e capacetes copiados do rosto ficam sem nariz/lábios marcados)."""
     if offset:
         inflate(obj, offset)
+    hem_colors(obj)
+    if smooth > 0:
+        md = obj.modifiers.new("Liso", "SMOOTH")
+        md.factor = 0.6
+        md.iterations = smooth
     obj.data.materials.clear()
     obj.data.materials.append(mat)
     for poly in obj.data.polygons:
@@ -422,11 +486,160 @@ def write_actions(arm, anims, base_pose):
         pb.location = (0, 0, 0)
 
 
+# =================================================================== texturas pintadas das roupas
+# Texturas cinzas que se repetem (o jogo multiplica pela cor do material). Ficam em textures/roupa_<tipo>.png.
+
+TEX_DIR = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "textures"))
+TEX_SIZE = 512
+TEX_TILE = {"tecido": 0.6, "couro": 0.7, "metal": 0.9}     # tamanho de uma repetição, em unidades do jogo
+LEATHER = ("couro", "bota", "luva", "cinto", "correia", "bolsa", "bainha", "avental", "gibao", "casca", "tira")
+NO_TEX = ("pele", "olho", "eye", "cabelo", "barba", "bigode", "sobrancelha", "costeleta", "folha", "brilho", "runa",
+          "luz", "lente", "vidro", "_prev")
+
+
+def _noise(rng, n, kc, aniso=1.0):
+    """Ruído que se repete nas bordas (filtrado na frequência)."""
+    import numpy as np
+    f = np.fft.fftfreq(n) * n
+    kx, ky = np.meshgrid(f, f)
+    filt = np.exp(-((kx * aniso) ** 2 + ky ** 2) / (kc * kc))
+    out = np.real(np.fft.ifft2(np.fft.fft2(rng.standard_normal((n, n))) * filt))
+    out -= out.min()
+    return out / max(out.max(), 1e-9)
+
+
+def _cloth_pixels(kind):
+    import numpy as np
+    n = TEX_SIZE
+    rng = np.random.default_rng({"tecido": 11, "couro": 23, "metal": 37}[kind])
+    y, x = np.mgrid[0:n, 0:n] / n
+    # escala pensada para a câmera do jogo (~1 cm por pixel): manchas de pincel de 5-15 cm, detalhes de 2-3 cm
+    if kind == "tecido":
+        f = 22                                   # trama grossa (cada fio ~2,5 cm), bem suave
+        u, v = x * f, y * f
+        over = (np.floor(u) + np.floor(v)) % 2
+        thread = np.where(over > 0, np.sin(np.pi * (v % 1.0)), np.sin(np.pi * (u % 1.0)))
+        folds = _noise(rng, n, 5, aniso=2.5)     # pinceladas compridas na vertical (dobras do pano)
+        blot = _noise(rng, n, 3)
+        val = 0.95 + 0.05 * (np.sqrt(np.clip(thread, 0, 1)) - 0.8) + 0.13 * (folds - 0.5) + 0.07 * (blot - 0.5)
+    elif kind == "couro":
+        blot = _noise(rng, n, 4)
+        wear = _noise(rng, n, 7)                              # couro gasto: partes mais claras
+        scuff = _noise(rng, n, 30)
+        val = 0.95 + 0.13 * (blot - 0.5) + 0.06 * np.clip(wear - 0.6, 0, 1) + 0.06 * (scuff - 0.5)
+    else:
+        brushed = _noise(rng, n, 40, aniso=10.0)  # riscos de lixa numa direção
+        dents = _noise(rng, n, 4)
+        scratch = np.abs(_noise(rng, n, 12, aniso=6.0) - 0.5) < 0.012
+        val = 0.95 + 0.07 * (brushed - 0.5) + 0.11 * (dents - 0.5) + 0.08 * scratch
+    val = np.clip(val, 0, 1)
+    rgba = np.ones((n, n, 4), dtype=np.float32)
+    rgba[..., 0] = rgba[..., 1] = rgba[..., 2] = val
+    return rgba
+
+
+def cloth_image(kind):
+    name = "roupa_" + kind
+    img = bpy.data.images.get(name)
+    if img is not None:
+        return img
+    path = os.path.join(TEX_DIR, name + ".png")
+    if os.path.exists(path):
+        img = bpy.data.images.load(path)
+    else:
+        img = bpy.data.images.new(name, TEX_SIZE, TEX_SIZE, alpha=False)
+        img.pixels.foreach_set(_cloth_pixels(kind).ravel())
+        img.filepath_raw = path
+        img.file_format = "PNG"
+        img.save()
+    img.name = name
+    return img
+
+
+def cloth_kind(mat):
+    """Qual textura o material recebe (ou None): metal, couro ou tecido."""
+    if mat.get("roupa"):
+        return mat["roupa"]            # já texturizado (material reaproveitado de outra raridade)
+    n = mat.name.lower()
+    if any(k in n for k in NO_TEX) or not mat.use_nodes:
+        return None
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf is None or bsdf.inputs["Base Color"].is_linked or bsdf.inputs["Emission Strength"].default_value > 0:
+        return None
+    if bsdf.inputs["Metallic"].default_value >= 0.5:
+        return "metal"
+    if any(k in n for k in LEATHER):
+        return "couro"
+    return "tecido"
+
+
+def texture_material(mat, kind):
+    if mat.get("roupa"):
+        return
+    mat["roupa"] = kind
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    t = nt.nodes.new("ShaderNodeTexImage")
+    t.image = cloth_image(kind)
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.blend_type = "MULTIPLY"
+    mix.inputs["Factor"].default_value = 1.0
+    mix.inputs["B"].default_value = tuple(bsdf.inputs["Base Color"].default_value)
+    nt.links.new(t.outputs["Color"], mix.inputs["A"])
+    nt.links.new(mix.outputs["Result"], bsdf.inputs["Base Color"])
+
+
+def unwrap_to_density(obj, tile):
+    """Desdobra a malha (UV) e ajusta a escala para a textura repetir a cada `tile` unidades em todas as peças."""
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="SELECT")
+    bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.01, scale_to_bounds=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    me = obj.data
+    uv = me.uv_layers.active.data
+    s = obj.matrix_world.to_scale()
+    sc2 = ((abs(s.x) + abs(s.y) + abs(s.z)) / 3) ** 2
+    world_a = sum(p.area for p in me.polygons) * sc2
+    uv_a = 0.0
+    for p in me.polygons:
+        pts = [uv[i].uv for i in p.loop_indices]
+        uv_a += abs(sum(pts[i].x * pts[i - 1].y - pts[i - 1].x * pts[i].y for i in range(len(pts)))) / 2
+    if uv_a <= 0 or world_a <= 0:
+        return
+    k = math.sqrt(world_a / uv_a) / tile
+    for d in uv:
+        d.uv = d.uv * k
+
+
+def paint_clothes(objs):
+    """Põe as texturas de tecido/couro/metal nas peças e desdobra cada uma na mesma densidade."""
+    done = set()
+    for o in objs:
+        if o.type != "MESH" or not o.data.materials:
+            continue
+        kinds = [cloth_kind(m) for m in o.data.materials if m is not None]
+        kinds = [k for k in kinds if k]
+        if not kinds:
+            continue
+        for m in o.data.materials:
+            k = cloth_kind(m) if m is not None else None
+            if k and m.name not in done:
+                texture_material(m, k)
+                done.add(m.name)
+        unwrap_to_density(o, TEX_TILE[kinds[0]])
+
+
 def export_glb(path, objs):
+    paint_clothes(objs)
     bpy.ops.object.select_all(action="DESELECT")
     for o in objs:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True,
                               export_cameras=False, export_lights=False, export_animations=True,
-                              export_animation_mode="NLA_TRACKS", export_skins=True, export_apply=False)
+                              export_animation_mode="NLA_TRACKS", export_skins=True, export_apply=False,
+                              export_vertex_color="ACTIVE")
     print("OK", path)

@@ -92,6 +92,16 @@ def gloves(c, mat, offset=0.008):
     c.parts.append(o)
 
 
+def head_shell(c, name, mat, offset, keep_fn, thick=0.01, subdiv=1, smooth=2):
+    """Peça lisa em volta da cabeça (máscara, elmo, boné): casca encolhida até a pele, presa ao esqueleto."""
+    s = (c.head_top - c.head).length
+    center = c.head.lerp(c.head_top, 0.45)
+    o = K.wrap_shell(name, c.body, center, s * 1.1, keep_fn, offset)
+    K.bind_to_body(o, c.body, c.arm)
+    K.finish_piece(o, mat, thick, subdiv, 0.0, smooth)
+    c.parts.append(o)
+    return o
+
 def belt(c, mat, z, name="Cinto", buckle=None):
     """Cinto ajustado à roupa naquela altura (mede o maior contorno das peças)."""
     rx = ry = 0.0
@@ -186,11 +196,9 @@ def hood(c, mat, point=True):
     h, s = c.head, (c.head_top - c.head).length
     chin = c.head.z - s * 0.6
     brow = c.eye_z + s * 0.3
-    o = K.duplicate(c.body, "Capuz")
-    K.region(o, ["head", "neck_01"], 0.3, zmin=chin - 0.02,
-             keep_fn=lambda p: not (p.y < h.y - s * 0.05 and chin < p.z < brow and abs(p.x) < s * 0.62))
-    K.finish_piece(o, mat, 0.012 / c.sc, 2, 0.035 / c.sc)
-    c.parts.append(o)
+    head_shell(c, "Capuz", mat, 0.035,
+               lambda p: p.z > chin - 0.02 and not (p.y < h.y - s * 0.05 and chin < p.z < brow and abs(p.x) < s * 0.62),
+               0.012, 2)
     if point:
         tip = prim("cone", "CapuzPonta", mat, h + Vector((0, s * 0.75, s * 0.55)), (s * 0.7, s * 0.6, s * 1.1), rot=(-2.1, 0, 0), r2=0.05)
         rigid(c, tip, "head")
@@ -283,10 +291,7 @@ def epica(c):
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, bark, offset=0.016, thresh=0.3, zmax=c.knee_z - 0.02)
     piece(c, c.tights, "Bracadeira", LOWER, bark, offset=0.016, thresh=0.6, zmax=c.elbow_z - 0.08)
     # máscara: parte de cima da cabeça do próprio corpo, um pouco maior
-    mask = K.duplicate(c.body, "Mascara")
-    K.region(mask, ["head"], 0.5, zmin=c.eye_z - 0.035)
-    K.finish_piece(mask, leaf_d, 0.008 / c.sc, 1, 0.012 / c.sc)
-    c.parts.append(mask)
+    head_shell(c, "Mascara", leaf_d, 0.014, lambda p: p.z > c.eye_z - 0.035, 0.008)
     h, s = c.head, (c.head_top - c.head).length
     for side in (-1, 1):
         eye = prim("sphere", "OlhoBrilho", glow, Vector((side * s * 0.21, h.y - s * 0.66, c.eye_z)), (0.05, 0.012, 0.016), rot=(0, side * -0.25, 0))
@@ -321,10 +326,7 @@ def lendaria(c):
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, gold, offset=0.018, thresh=0.3, zmax=c.knee_z + 0.03)
     piece(c, c.tights, "Bracadeira", LOWER + ["hand_l", "hand_r"], gold, offset=0.014, thresh=0.5, zmax=c.elbow_z - 0.05)
     piece(c, c.skirt, "Saia", ["pelvis", "thigh_l", "thigh_r"], white, offset=0.014, thresh=0.05, zmin=c.knee_z)
-    helm = K.duplicate(c.body, "Elmo")
-    K.region(helm, ["head"], 0.5, zmin=c.eye_z - 0.035)
-    K.finish_piece(helm, gold, 0.01 / c.sc, 1, 0.016 / c.sc)
-    c.parts.append(helm)
+    head_shell(c, "Elmo", gold, 0.018, lambda p: p.z > c.eye_z - 0.035)
     h, s = c.head, (c.head_top - c.head).length
     visor = prim("sphere", "Visor", sun, Vector((0, h.y - s * 0.7, c.eye_z)), (s * 0.7, 0.01, 0.018))
     rigid(c, visor, "head")

@@ -57,7 +57,7 @@ def beard(c, mat):
     o = K.duplicate(c.body, "Barba")
     K.region(o, ["head", "neck_01"], 0.3, zmin=K.bone_head(c.arm, "neck_01").z,
              keep_fn=lambda p: p.z < c.eye_z - s * 0.28 and p.y < cy + ry * 0.25)
-    K.finish_piece(o, mat, 0.01 / c.sc, 2, 0.02 / c.sc)
+    K.finish_piece(o, mat, 0.01 / c.sc, 2, 0.02 / c.sc, smooth=6)
     c.parts.append(o)
     mus = prim("sphere", "Bigode", mat, Vector((0, cy - ry - 0.012, c.eye_z - s * 0.27)), (0.09, 0.03, 0.025), rot=(0.1, 0, 0))
     rigid(c, mus, "head")
@@ -81,10 +81,7 @@ def stripes(c, mat, n=4):
 def sea_helm(c, mat, fin):
     """Capacete de marinheiro arredondado com barbatana no topo."""
     s = (c.head_top - c.head).length
-    o = K.duplicate(c.body, "Elmo")
-    K.region(o, ["head"], 0.5, zmin=c.eye_z + s * 0.22)
-    K.finish_piece(o, mat, 0.012 / c.sc, 1, 0.024 / c.sc)
-    c.parts.append(o)
+    D.head_shell(c, "Elmo", mat, 0.026, lambda p: p.z > c.eye_z + s * 0.22, 0.012)
     f = prim("sphere", "Barbatana", fin, c.head_top + Vector((0, s * 0.1, s * 0.05)), (0.025, 0.2, 0.12), rot=(-0.25, 0, 0))
     rigid(c, f, "head")
 

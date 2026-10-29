@@ -15,17 +15,21 @@ uniform float rim_strength : hint_range(0.0, 2.0) = 0.35;
 uniform float flash : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 tint : source_color = vec4(1.0);
 uniform float tint_amount : hint_range(0.0, 1.0) = 0.0;
+// personagens: cor por vértice escurece as barras das roupas (desligado no resto, onde COLOR é cor de instância)
+uniform bool use_vertex_color = false;
 
 varying vec3 lpos;
 varying vec3 lnrm;
+varying vec3 vcol;
 
 void vertex() {
 	lpos = VERTEX;
 	lnrm = NORMAL;
+	vcol = use_vertex_color ? COLOR.rgb : vec3(1.0);
 }
 
 void fragment() {
-	vec3 col = texture(albedo_tex, UV * uv_scale).rgb * albedo.rgb;
+	vec3 col = texture(albedo_tex, UV * uv_scale).rgb * albedo.rgb * vcol;
 	if (detail_strength > 0.0) {
 		vec3 w = pow(abs(normalize(lnrm)), vec3(4.0));
 		w /= (w.x + w.y + w.z + 0.0001);

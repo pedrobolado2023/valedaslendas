@@ -74,6 +74,14 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `mpfb_kit.write_actions` grava o balanço sozinho em toda animação quando esses ossos existem (`cape_motion`:
   ondula parada, levanta andando, voa correndo, chicoteia no ataque). Peças marcadas `o["capa"]` ficam fora das
   medidas do tronco. Luvas sempre com `D.gloves` (recorte da mão do corpo) — `piece()` com ossos da mão sai vazio.
+- **Texturas pintadas das roupas:** `mpfb_kit.paint_clothes` (chamado em `export_glb`) põe `textures/roupa_tecido|couro|metal.png`
+  (cinzas, repetem; geradas por código com numpy se não existirem) nos materiais e desdobra cada peça (UV) na mesma
+  densidade. Tipo pelo material: metálico ≥ 0,5 → metal; nomes em `LEATHER` → couro; resto → tecido; `NO_TEX` fica liso.
+  Barras das roupas: cor por vértice "Barra" (`hem_colors`, escurece perto das bordas); o shader toon só usa a cor por
+  vértice com `use_vertex_color` (ligado pelo ModelKit nos personagens). Textura não tira mais o contorno (só olhos).
+- **Peças de cabeça lisas:** máscaras, elmos, bonés e capuz usam `D.head_shell` (esfera encolhida até a pele com folga),
+  sem copiar nariz/boca. Foto real do Godot das 16 skins: `godot --path . -s C:\Users\pedro\vale-tools\shot_heroes.gd -- saida.png`
+  (com janela, `--rendering-driver opengl3`).
 - Ver um modelo exportado de frente/lado/3/4: `C:\Users\pedro\vale-tools\views.py` (Blender, EEVEE, rápido).
 - Ferramentas nesta máquina (Windows): `C:\Users\pedro\vale-tools\` — Blender 5.2.3 portátil, Godot 4.3 (console),
   mpfb2, makehuman (só `data/eyes`), backup dos modelos antigos do Assassino em `backup_assassino\`.
@@ -81,7 +89,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 
 ## Próximos passos combinados com o dono
 1. ~~Humanizar as 4 classes com MPFB2~~ — feito (Druida, Assassino, Mecânico, Náutico). Falta o dono testar jogando.
-2. Texturas pintadas nas roupas (costuras, desenhos); cabelo melhor (com balanço). Capa com balanço já feita.
+2. Cabelo melhor (com balanço). Já feitos: capa com balanço, texturas de tecido/couro/metal e barras nas roupas.
 3. Animações específicas por skill.
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).
 - Limitações conhecidas: arquivos da Druida têm 4-6 MB cada (dá para reduzir malha); sem GPU no ambiente

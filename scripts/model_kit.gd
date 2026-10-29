@@ -72,8 +72,8 @@ static func convert_material(src_mat: Material, outline: float, detail: float, c
 			e = Color(e.r / mx, e.g / mx, e.b / mx)
 		return Toon.glow_mat(e)
 	var tex: Texture2D = src.albedo_texture if src != null else null
-	if tex != null:
-		outline = 0.0   # olhos e partes texturizadas sem contorno
+	if tex != null and "eye" in tex.resource_path.to_lower():
+		outline = 0.0   # olhos sem contorno (roupas com textura de tecido mantêm o contorno)
 	var sm := Toon.make(src.albedo_color if src != null else Color.WHITE, outline, tex, Vector2.ONE, detail)
 	if collect != null:
 		collect.append(sm)
@@ -88,6 +88,8 @@ func _convert(n: Node, outline: float, detail: float) -> void:
 		for s in mi.mesh.get_surface_count():
 			var collected: Array = []
 			var m := convert_material(mi.mesh.surface_get_material(s), outline * (0.6 if skinned else 1.0), detail * (0.35 if skinned else 1.0), collected)
+			if skinned and m is ShaderMaterial:
+				(m as ShaderMaterial).set_shader_parameter("use_vertex_color", true)
 			for c in collected:
 				mats.append(c as ShaderMaterial)
 			mi.set_surface_override_material(s, m)
