@@ -40,11 +40,11 @@ func _ready() -> void:
 			_trail(color, 0.12 if big else 0.06)
 		"wind":
 			for k in 3:
-				var w := Toon.glow_part(Toon.cyl(0.9 - k * 0.2, 0.9 - k * 0.2, 0.08, 18), color, Vector3(0, 0, -k * 0.45), 0.55 - k * 0.12, true)
+				var w := Toon.glow_part(Toon.cyl(0.9 - k * 0.2, 0.9 - k * 0.2, 0.08, 18), color, Vector3(0, 0, -k * 0.45), 0.25 - k * 0.06, true)
 				w.rotation_degrees.x = 90.0
 				add_child(w)
-			_light(color, 1.2)
-			_trail(color, 0.2)
+			_light(color, 0.8)
+			_wind_fx.call_deferred()
 		"dagger":
 			add_child(Toon.part(Toon.box(Vector3(0.12, 0.03, 0.6)), Color(0.85, 0.88, 0.95), Vector3(0, 0, -0.1), 0.01))
 			add_child(Toon.part(Toon.box(Vector3(0.3, 0.05, 0.06)), Color(0.3, 0.2, 0.35), Vector3(0, 0, 0.22), 0.0))
@@ -76,6 +76,11 @@ func _ready() -> void:
 			if big or gold:
 				_trail(color, 0.08)
 	rotation.y = atan2(-dir.x, -dir.z)
+
+
+## Rastro de vento (precisa da posição final, por isso roda depois de entrar na cena).
+func _wind_fx() -> void:
+	Vfx.wind_trail(self, color)
 
 
 func _light(c: Color, e: float) -> void:

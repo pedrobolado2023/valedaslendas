@@ -8,7 +8,7 @@ extends RefCounted
 static var _tex := {}
 static var _mats := {}
 
-const ALL_TEX := ["soft", "dot", "ring", "beam", "smoke", "flame", "crack", "crack_glow", "frost", "scorch"]
+const ALL_TEX := ["soft", "dot", "ring", "beam", "smoke", "flame", "crack", "crack_glow", "crack_white", "frost", "scorch", "leaf"]
 
 
 ## Gera todas as texturas de uma vez (chamado ao entrar no jogo, para a primeira skill não travar).
@@ -40,9 +40,13 @@ static func _make(name: String) -> Image:
 		"flame":
 			return _flame()
 		"crack":
-			return _cracks(256, false)
+			return _cracks(256, 0)
 		"crack_glow":
-			return _cracks(256, true)
+			return _cracks(256, 1)
+		"crack_white":
+			return _cracks(256, 2)
+		"leaf":
+			return _leaf()
 		"frost":
 			return _ground(256, Color(0.55, 0.75, 0.9), 0.35, 11)
 		"scorch":
@@ -89,6 +93,21 @@ static func _cloud(n: int, seed: int, hard: float) -> Image:
 	return img
 
 
+## Folha (ou pétala): elipse pontuda com nervura no meio.
+static func _leaf() -> Image:
+	var n := 64
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var u := (x + 0.5) / n * 2.0 - 1.0
+			var v := (y + 0.5) / n * 2.0 - 1.0
+			var half := 0.55 * (1.0 - v * v)
+			var a := clampf((half - absf(u)) * 12.0, 0.0, 1.0)
+			var vein := 1.0 - 0.35 * exp(-u * u * 400.0)
+			img.set_pixel(x, y, Color(vein, vein, vein, a))
+	return img
+
+
 ## Labareda: gota (larga embaixo, ponta em cima) com ruído esticado na vertical. Usada em quads mais altos que largos.
 static func _flame() -> Image:
 	var noise := FastNoiseLite.new()
@@ -128,8 +147,11 @@ static func _ground(n: int, col: Color, strength: float, seed: int) -> Image:
 	return img
 
 
-## Rachaduras saindo do centro com um buraco queimado no meio. glow=true devolve só o brilho de lava das fendas.
-static func _cracks(n: int, glow: bool) -> Image:
+## Rachaduras saindo do centro com um buraco no meio. mode 0 = fendas escuras; 1 = brilho de lava; 2 = brilho branco
+## (para tingir com a cor da skill, ex.: raízes verdes).
+static func _cracks(n: int, mode: int) -> Image:
+	var glow := mode > 0
+	var white := mode == 2
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 	var rng := RandomNumberGenerator.new()
@@ -142,7 +164,8 @@ static func _cracks(n: int, glow: bool) -> Image:
 			if d < 0.34:
 				var k := clampf((0.34 - d) / 0.1, 0.0, 1.0)
 				if glow:
-					img.set_pixel(x, y, Color(0.9, 0.25, 0.05, 0.7 * k * clampf((0.24 - d) / 0.12, 0.0, 1.0)))
+					if not white:   # a versão branca (tingida) não tem miolo brilhante, só as fendas
+						img.set_pixel(x, y, Color(0.9, 0.25, 0.05, 0.7 * k * clampf((0.24 - d) / 0.12, 0.0, 1.0)))
 				else:
 					img.set_pixel(x, y, Color(0.03, 0.02, 0.02, k))
 	# fendas: caminhadas aleatórias com galhos
@@ -162,13 +185,13 @@ static func _cracks(n: int, glow: bool) -> Image:
 			p += Vector2(cos(ang), sin(ang)) * step
 			left -= step
 			w *= 0.985
-			_stamp(img, p, w, glow)
+			_stamp(img, p, w, glow, white)
 			if rng.randf() < 0.025:
 				stack.append([p, ang + rng.randf_range(-1.0, 1.0), left * 0.5, w * 0.7])
 	return img
 
 
-static func _stamp(img: Image, p: Vector2, w: float, glow: bool) -> void:
+static func _stamp(img: Image, p: Vector2, w: float, glow: bool, white: bool = false) -> void:
 	var n := img.get_width()
 	var r := int(ceil(w + 2.0))
 	for y in range(int(p.y) - r, int(p.y) + r + 1):
@@ -179,7 +202,7 @@ static func _stamp(img: Image, p: Vector2, w: float, glow: bool) -> void:
 			if glow:
 				var a := clampf(1.0 - d / (w * 0.6 + 0.6), 0.0, 1.0)
 				if a > img.get_pixel(x, y).a:
-					img.set_pixel(x, y, Color(1.0, 0.3 + 0.25 * a, 0.06, a))
+					img.set_pixel(x, y, Color(1, 1, 1, a) if white else Color(1.0, 0.3 + 0.25 * a, 0.06, a))
 			else:
 				var a2 := clampf(1.0 - (d - w) / 2.0, 0.0, 1.0)
 				var old := img.get_pixel(x, y)
@@ -416,7 +439,7 @@ static func marker(host: Node, pos: Vector3, col: Color, radius: float, time: fl
 
 
 ## Marca no chão (Decal) que aparece, fica e some. emis = textura de brilho opcional (rachaduras em brasa).
-static func ground_mark(host: Node, pos: Vector3, tex_name: String, size: float, life: float, emis_name: String = "", emis_energy: float = 3.0, grow: float = 0.0) -> Decal:
+static func ground_mark(host: Node, pos: Vector3, tex_name: String, size: float, life: float, emis_name: String = "", emis_energy: float = 3.0, grow: float = 0.0, tint: Color = Color(1, 1, 1)) -> Decal:
 	if not _ok(host):
 		return null
 	var d := Decal.new()
@@ -427,6 +450,7 @@ static func ground_mark(host: Node, pos: Vector3, tex_name: String, size: float,
 		d.emission_energy = emis_energy
 	d.upper_fade = 0.3
 	d.lower_fade = 0.3
+	d.modulate = tint
 	host.add_child(d)
 	d.global_position = pos + Vector3(0, 0.5, 0)
 	d.rotation.y = randf() * TAU
@@ -745,3 +769,105 @@ static func fissure(host: Node, at: Vector3, radius: float, dur: float) -> void:
 		var p := at + Vector3(cos(a), 0, sin(a)) * radius * randf_range(0.35, 0.8)
 		host.get_tree().create_timer(0.1 + i * 0.05).timeout.connect(func() -> void:
 			fire_column(host, p, randf_range(1.0, 1.8), dur - 0.2, 0.7))
+
+
+# =================================================================== natureza (skills antigas da Druida)
+
+const LEAF := [[0.0, Color(0.55, 0.85, 0.3, 0.0)], [0.1, Color(0.5, 0.8, 0.28, 1.0)], [0.8, Color(0.35, 0.6, 0.2, 1.0)], [1.0, Color(0.3, 0.5, 0.15, 0.0)]]
+
+
+## Folhas voando (redemoinho que sobe e cai).
+static func leaves(host: Node, pos: Vector3, amount: int = 24, speed: float = 5.0, life: float = 1.6, cols: Array = LEAF) -> void:
+	emit(host, pos, {"tex": "leaf", "add": false, "amount": amount, "life": life, "size": [0.25, 0.45], "vel": [speed * 0.5, speed],
+			"gravity": Vector3(0, -3.5, 0), "damp": [1.0, 2.0], "spread": 70.0, "spin": 360.0, "colors": cols,
+			"curve": [[0, 1], [1, 0.8]], "explode": 0.85})
+
+
+## Chamado das Raízes: fendas verdes no chão, poeira, folhas e brilho verde subindo enquanto dura.
+static func roots(host: Node, at: Vector3, r: float, dur: float) -> void:
+	if not _ok(host):
+		return
+	ground_mark(host, at, "crack", r * 2.2, dur + 1.0, "crack_white", 0.28, 0.3, Color(0.45, 0.85, 0.3))
+	shockwave(host, at, Color(0.45, 0.8, 0.3), r * 1.2, 0.45)
+	emit(host, at + Vector3(0, 0.3, 0), {"tex": "smoke", "add": false, "amount": 16, "life": 1.1, "size": [1.2, 2.4],
+			"shape": "ring", "r": r * 0.5, "vel": [1.5, 3.5], "dir": Vector3.UP, "spread": 70.0, "damp": [1.5, 2.5],
+			"colors": [[0, Color(0.45, 0.36, 0.26, 0.0)], [0.15, Color(0.42, 0.34, 0.25, 0.5)], [1, Color(0.3, 0.25, 0.2, 0.0)]],
+			"curve": [[0, 0.5], [1, 1.3]], "spin": 25.0})
+	leaves(host, at + Vector3(0, 0.4, 0), 30, 6.0, 1.8)
+	emit(host, at + Vector3(0, 0.2, 0), {"tex": "dot", "shot": false, "amount": 26, "life": 1.4, "dur": dur, "size": [0.08, 0.16],
+			"shape": "sphere", "r": r * 0.8, "vel": [0.6, 1.6], "dir": Vector3.UP, "spread": 15.0,
+			"colors": [[0, Color(0.5, 0.85, 0.3, 0.0)], [0.3, Color(0.5, 0.85, 0.3, 0.8)], [1, Color(0.4, 0.7, 0.2, 0.0)]]})
+	light(host, at + Vector3(0, 1.0, 0), Color(0.5, 0.9, 0.35), 0.6, r * 1.2, dur, true)
+
+
+## Bênção da Flora: círculo de luz verde no chão, luzinhas subindo e pétalas caindo enquanto dura.
+static func heal_field(host: Node, at: Vector3, r: float, dur: float) -> void:
+	if not _ok(host):
+		return
+	marker(host, at, Color(0.5, 1.0, 0.55), r, dur)
+	shockwave(host, at, Color(0.5, 1.0, 0.55), r, 0.6)
+	emit(host, at + Vector3(0, 0.1, 0), {"tex": "dot", "shot": false, "amount": 46, "life": 1.8, "dur": dur, "size": [0.08, 0.2],
+			"shape": "ring", "r": r * 0.9, "r_in": 0.0, "vel": [1.0, 2.4], "dir": Vector3.UP, "spread": 8.0,
+			"colors": [[0, Color(0.6, 1.0, 0.6, 0.0)], [0.2, Color(0.55, 0.95, 0.55, 0.75)], [1, Color(0.8, 1.0, 0.7, 0.0)]]})
+	emit(host, at + Vector3(0, 4.5, 0), {"tex": "leaf", "add": false, "shot": false, "amount": 20, "life": 3.2, "dur": dur,
+			"size": [0.18, 0.3], "shape": "box", "box": Vector3(r * 0.8, 0.2, r * 0.8), "vel": [0.2, 0.6], "dir": Vector3.DOWN,
+			"gravity": Vector3(0, -1.2, 0), "spin": 200.0,
+			"colors": [[0, Color(1.0, 0.8, 0.9, 0.0)], [0.1, Color(1.0, 0.8, 0.9, 0.9)], [0.85, Color(0.95, 0.75, 0.85, 0.9)], [1, Color(1, 0.8, 0.9, 0.0)]]})
+	light(host, at + Vector3(0, 1.5, 0), Color(0.5, 1.0, 0.55), 0.5, r * 1.2, dur)
+
+
+## Pulso de cura no herói (a cada tique da Bênção).
+static func heal_pulse(host: Node, at: Vector3) -> void:
+	shockwave(host, at, Color(0.5, 1.0, 0.55), 1.6, 0.35)
+	emit(host, at + Vector3(0, 1.0, 0), {"tex": "dot", "amount": 8, "life": 0.7, "size": [0.1, 0.2], "shape": "sphere", "r": 0.5,
+			"vel": [1.0, 2.0], "dir": Vector3.UP, "spread": 30.0,
+			"colors": [[0, Color(0.7, 1.0, 0.7, 0.9)], [1, Color(0.5, 1.0, 0.5, 0.0)]]})
+
+
+## Casca de Carvalho: lascas de madeira voando e folhas girando em volta do herói enquanto dura.
+static func bark_aura(p: Node3D, dur: float) -> void:
+	if not _ok(p):
+		return
+	var host := p.get_parent()
+	var chip := BoxMesh.new()
+	chip.size = Vector3(0.16, 0.06, 0.1)
+	var cm := StandardMaterial3D.new()
+	cm.albedo_color = Color(0.5, 0.33, 0.17)
+	chip.material = cm
+	emit(host, p.global_position + Vector3(0, 1.0, 0), {"mesh": chip, "amount": 22, "life": 0.9, "size": [0.7, 1.4], "vel": [4.0, 8.0],
+			"gravity": Vector3(0, -16, 0), "spin": 500.0, "curve": [[0, 1], [0.8, 1], [1, 0]],
+			"colors": [[0, Color(1, 1, 1)], [1, Color(1, 1, 1)]]})
+	shockwave(host, p.global_position, Color(0.75, 0.55, 0.3), 3.0, 0.4)
+	var e := emit(p, p.global_position + Vector3(0, 0.2, 0), {"tex": "leaf", "add": false, "shot": false, "local": true, "amount": 18,
+			"life": 1.4, "dur": dur, "size": [0.22, 0.36], "shape": "ring", "r": 1.15, "r_in": 1.0, "vel": [0.6, 1.4],
+			"dir": Vector3.UP, "spread": 10.0, "spin": 250.0, "colors": LEAF})
+	if e != null:
+		e.tangential_accel_min = 6.0
+		e.tangential_accel_max = 9.0
+
+
+## Fúria dos Ventos: rajada que acompanha o projétil (redemoinhos claros + folhas).
+static func wind_trail(proj: Node3D, col: Color) -> void:
+	emit(proj, proj.global_position, {"tex": "smoke", "shot": false, "amount": 40, "life": 0.45, "size": [0.9, 1.7],
+			"shape": "sphere", "r": 0.5, "vel": [0.2, 1.0], "spin": 220.0,
+			"colors": [[0, Color(col.r, col.g, col.b, 0.0)], [0.2, Color(col.r * 0.7, col.g * 0.75, col.b * 0.7, 0.35)], [1, Color(col.r, col.g, col.b, 0.0)]],
+			"curve": [[0, 0.4], [1, 1.4]]})
+	emit(proj, proj.global_position, {"tex": "leaf", "add": false, "shot": false, "amount": 14, "life": 0.7, "size": [0.2, 0.32],
+			"shape": "sphere", "r": 0.7, "vel": [0.5, 2.0], "spin": 500.0, "colors": LEAF})
+
+
+## Despertar Lendário: coluna de luz dourada, duas ondas de choque, faíscas de sol subindo e marca dourada no chão.
+static func radiance(host: Node, at: Vector3, r: float) -> void:
+	if not _ok(host):
+		return
+	var gold := Color(1.0, 0.82, 0.35)
+	emit(host, at + Vector3(0, 0.2, 0), {"tex": "beam", "amount": 3, "life": 1.0, "quad": Vector2(2.6, 18.0), "size": [1.0, 1.3],
+			"vel": [0, 0], "spin": 0.0, "colors": [[0, Color(1, 0.85, 0.45, 0.0)], [0.15, Color(0.8, 0.65, 0.3, 0.7)], [1, Color(0.8, 0.6, 0.2, 0.0)]],
+			"curve": [[0, 0.3], [0.2, 1.0], [1, 1.2]]})
+	shockwave(host, at, gold, r, 0.6)
+	host.get_tree().create_timer(0.18).timeout.connect(func() -> void: shockwave(host, at, Color(1.0, 0.95, 0.7), r * 0.6, 0.5))
+	emit(host, at + Vector3(0, 0.3, 0), {"tex": "dot", "amount": 70, "life": 1.6, "size": [0.1, 0.22], "shape": "sphere", "r": r * 0.5,
+			"vel": [2.0, 6.0], "dir": Vector3.UP, "spread": 25.0, "damp": [0.5, 1.5],
+			"colors": [[0, Color(1.0, 0.95, 0.7, 1.0)], [0.5, Color(1.0, 0.75, 0.3, 0.9)], [1, Color(1.0, 0.6, 0.2, 0.0)]]})
+	marker(host, at, gold, r, 1.4)
+	light(host, at + Vector3(0, 3.0, 0), gold, 1.6, r * 1.4, 0.8)

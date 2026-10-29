@@ -319,39 +319,35 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			var at := pos + flat(point - pos).limit_length(float(sk["range"]))
 			var ticks := int(sk["ticks"])
 			var every := float(sk["every"])
-			Fx.disc(host, at + Vector3(0, 0.05, 0), Color(0.25, 0.4, 0.12), rz, every * ticks, 0.4)
+			Vfx.roots(host, at, rz, every * ticks)
 			for k in 10:
 				var a := TAU * k / 10.0 + randf() * 0.4
 				_vine(host, at + Vector3(cos(a), 0, sin(a)) * rz * randf_range(0.3, 0.9), col, every * ticks)
 			for k in ticks:
 				_later(p, 0.1 + every * k, func() -> void:
-					Fx.burst(host, at + Vector3(0, 0.2, 0), Color(0.45, 0.35, 0.2), 6, 3.0, 0.08)
+					Vfx.leaves(host, at + Vector3(randf_range(-rz, rz) * 0.5, 0.3, randf_range(-rz, rz) * 0.5), 6, 3.0, 1.0)
 					for e in in_radius(tree, at, rz):
 						hit(p, e, m, at, {"stun": float(sk["stun"])}))
 		"heal_zone":
 			var rh := area(sk)
 			var at2 := pos
 			var amount := p.max_hp * shield_pct(sk, lvl)
-			Fx.disc(host, at2 + Vector3(0, 0.05, 0), col, rh, float(sk["dur"]), 0.25)
-			Fx.ring(host, at2 + Vector3(0, 0.1, 0), col, rh, 0.6)
+			Vfx.heal_field(host, at2, rh, float(sk["dur"]))
 			for k in int(sk["ticks"]):
 				_later(p, float(sk["every"]) * (k + 1), func() -> void:
 					if not is_instance_valid(p):
 						return
-					Fx.burst(host, at2 + Vector3(randf_range(-rh, rh) * 0.6, 0.3, randf_range(-rh, rh) * 0.6), col, 6, 2.0, 0.08, 1.0, 3.0)
 					if flat(p.global_position - at2).length() <= rh:
 						p.heal(amount)
+						Vfx.heal_pulse(host, p.global_position)
 						Fx.damage_number(host, p.global_position + Vector3(0, 2.6, 0), "+%d" % int(amount), Color(0.45, 1.0, 0.5)))
 		"guard":
 			p.add_guard(buff_amount(sk, lvl), float(sk["dur"]))
 			_bark(p, col, float(sk["dur"]))
-			Fx.burst(host, pos + Vector3(0, 1.0, 0), Color(0.55, 0.38, 0.2), 24, 4.0, 0.12)
+			Vfx.bark_aura(p, float(sk["dur"]))
 		"awaken":
 			var ra := area(sk)
-			Fx.light_flash(host, pos + Vector3(0, 3, 0), col, 14.0, 24.0, 0.9)
-			Fx.disc(host, pos + Vector3(0, 0.05, 0), Color(1.0, 0.95, 0.7), ra, 0.7, 0.5)
-			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, ra, 0.6, 0.15)
-			Fx.burst(host, pos + Vector3(0, 2.5, 0), col, 60, 10.0, 0.12, 1.0, 2.0)
+			Vfx.radiance(host, pos, ra)
 			Fx.shake(p, 0.35)
 			p.add_dmg_buff(buff_amount(sk, lvl), float(sk["dur"]), col)
 			p.cc_immune_t = float(sk["dur"])
