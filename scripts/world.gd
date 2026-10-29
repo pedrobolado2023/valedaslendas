@@ -439,7 +439,7 @@ func _house_angle(radius: float, half: Vector2) -> float:
 		for u in _used_angles:
 			sep = minf(sep, _ang_dist(a, u))
 		# primeiro garante folga da trilha (4 m além da parede); depois espalha as casas
-		var score := minf(clear - 4.0, 0.0) * 10.0 + minf(sep, 1.0)
+		var score := minf(clear - 4.0, 0.0) * 10.0 + minf(sep - 0.62, 0.0) * 40.0 + minf(sep, 1.0)   # casas não se encostam
 		if score > best_score:
 			best_score = score
 			best = a

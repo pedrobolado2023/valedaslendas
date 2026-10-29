@@ -25,6 +25,9 @@ var map_id := "vale"
 var missions := MissionBook.new()
 var events: WorldEvents          # boss global (horários, covil, recompensas)
 var shop_panel: ShopPanel
+var settings_panel: SettingsPanel
+var tutorial: Tutorial
+var tutorial_done := false
 var return_map := "vale"         # mapa para onde o herói volta ao sair de um mapa de evento (o save não guarda o covil)
 
 var quest_index := 0
@@ -143,6 +146,7 @@ func _build_map(id: String, with_zones: bool) -> void:
 	world = World.new()
 	add_child(world)
 	world.build(id)
+	Settings.apply_world(world)
 	var md: Dictionary = GameData.MAPS[id]
 	npc = Npc.new()
 	npc.npc_name = String(md["npc"])
@@ -275,6 +279,8 @@ func start_game(key: String, save: Dictionary) -> void:
 	var md: Dictionary = GameData.MAPS[map_id]
 	if save.is_empty():
 		hud.banner(String(md["hub"]), "Fale com o %s (!) para receber uma missão" % String(md["npc"]))
+	if not tutorial_done:
+		start_tutorial(false)
 	else:
 		hud.banner("Bem-vindo de volta!", "%s  ·  Nível %d" % [String(md["name"]), player.level])
 	save_now()
@@ -291,6 +297,7 @@ func _apply_save(d: Dictionary) -> void:
 	player.pet = String(d.get("pet", ""))
 	player.xp_boost_until = float(d.get("xp_boost_until", 0.0))
 	player.purchases = d.get("purchases", [])
+	tutorial_done = bool(d.get("tutorial_done", true))   # saves antigos: quem já jogava não precisa
 	var sk: Array = d.get("skills", [1])
 	for i in player.skill_levels.size():
 		player.skill_levels[i] = int(sk[i]) if i < sk.size() else 0
@@ -312,6 +319,11 @@ func _apply_save(d: Dictionary) -> void:
 	player.give_all_skins(player.weapon.is_empty() or player.armor.is_empty())
 
 
+func start_tutorial(_again: bool) -> void:
+	if tutorial != null:
+		tutorial.begin()
+
+
 func save_now() -> void:
 	if player == null:
 		return
@@ -319,7 +331,7 @@ func save_now() -> void:
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
 		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet,
-		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases,
+		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"weapon_uid": int(player.weapon.get("uid", -1)), "armor_uid": int(player.armor.get("uid", -1)),
 		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_state": quest_state, "quest_kills": quest_kills,
@@ -356,6 +368,15 @@ func _build_ui() -> void:
 	shop_panel = ShopPanel.new()
 	add_child(shop_panel)
 	shop_panel.setup(player)
+	settings_panel = SettingsPanel.new()
+	add_child(settings_panel)
+	settings_panel.setup(self)
+	tutorial = Tutorial.new()
+	add_child(tutorial)
+	tutorial.setup(self)
+	tutorial.finished.connect(func() -> void:
+		tutorial_done = true
+		save_now())
 	hud.admin_pressed.connect(func() -> void: admin_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
@@ -363,7 +384,7 @@ func _build_ui() -> void:
 
 
 func _free_ui() -> void:
-	for n in [hud, dialog, skill_panel, board_panel, gear_panel, shop_panel, admin_panel]:
+	for n in [hud, dialog, skill_panel, board_panel, gear_panel, shop_panel, settings_panel, tutorial, admin_panel]:
 		if n != null:
 			(n as Node).queue_free()
 
@@ -562,11 +583,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
 			gear_panel.visible = false
+			shop_panel.visible = false
 			admin_panel.visible = false
+			if not any_open:
+				settings_panel.toggle()
 
 
 func _interactable_at(p: Vector3, r: float) -> String:

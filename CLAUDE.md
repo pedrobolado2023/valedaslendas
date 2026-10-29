@@ -137,6 +137,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   XP da história escala com a curva (`quest_xp`). Classes perto umas das outras com `skill_power` (Assassino 1,17,
   Náutico 1,4). Simulação: `godot --headless --path . -s C:\Users\pedro\vale-tools\sim_balance.gd`.
   A mana normal já cobre as skills; `TEST_MP_REGEN` (+25/s) continua ligado a pedido do dono.
+- **Pré-lançamento:** `scripts/settings.gd` (user://config.cfg: volumes por canal Musica/Efeitos, tela cheia, V-Sync,
+  FPS, qualidade, resolução 3D, tremor, números de dano) + `ui/settings_panel.gd` (Esc quando nada está aberto).
+  `ui/tutorial.gd`: 8 dicas que avançam com as ações (só no 1º personagem; `tutorial_done` no save; rever em Esc).
+  `SaveGame` agora usa um backend trocável (`LocalBackend` com .bak e gravação segura); o save tem `schema` e
+  `account_id` (id local) para o banco de dados.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).
@@ -156,6 +161,6 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).
 - Limitações conhecidas: modelos dos heróis têm 5-9 MB cada (dá para reduzir malha). O PC atual do dono tem
   NVIDIA GeForce RTX 2070 — dá para tentar IA de imagem→3D (Hunyuan3D) no futuro.
-- Lembretes: o dono não testou jogando com teclado/mouse ainda; antes de lançar trocar `ADMIN_ENABLED` para false
+- Lembretes: `ADMIN_ENABLED` e `TEST_MP_REGEN` desligam sozinhos no executável release (`OS.is_debug_build()`); `FORCE_RELEASE` força nos testes. Antes:
   e `TEST_MP_REGEN` para 0.0 (data.gd; +25 de mana/s só para testes). Mana base subiu 50% e a recarga normal é
   `MP_REGEN_FLAT` + `MP_REGEN_PCT` × mana máxima por segundo.

@@ -1,7 +1,7 @@
 class_name AdminPanel
 extends CanvasLayer
 ## Menu de administrador (F1): coloca qualquer item no personagem e ajusta nível, ouro, skills, mapas e missões.
-## Para desligar no jogo final: GameData.ADMIN_ENABLED = false (scripts/data.gd).
+## Some sozinho no executável final (release); ver GameData.ADMIN_ENABLED em scripts/data.gd.
 
 var game: Node
 var _cls: OptionButton

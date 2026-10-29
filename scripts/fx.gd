@@ -43,7 +43,7 @@ static func burst(parent: Node, pos: Vector3, color: Color, amount: int = 14, sp
 
 
 static func damage_number(parent: Node, pos: Vector3, text: String, color: Color, big: bool = false) -> void:
-	if not _valid(parent):
+	if not _valid(parent) or not bool(Settings.get_v("damage_numbers")):
 		return
 	var l := Label3D.new()
 	l.text = text
@@ -233,7 +233,7 @@ static func telegraph(parent: Node, pos: Vector3, radius: float, color: Color, t
 
 
 static func shake(node: Node, strength: float = 0.15) -> void:
-	if node == null or not node.is_inside_tree():
+	if node == null or not node.is_inside_tree() or not bool(Settings.get_v("shake")):
 		return
 	var cam := node.get_viewport().get_camera_3d()
 	if cam == null:

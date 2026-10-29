@@ -7,9 +7,12 @@ const MAX_LEVEL := 1000
 ## Último nível dos 4 mapas feitos à mão; depois dele vêm os mapas gerados (ver _static_init / _gen_maps).
 const BASE_MAX_LEVEL := 60
 ## Menu de administrador (F1). Troque para false antes de lançar o jogo para os jogadores.
-const ADMIN_ENABLED := true
-## Mana extra por segundo só para testes (todas as classes). Troque para 0.0 antes de lançar, junto com ADMIN_ENABLED.
-const TEST_MP_REGEN := 25.0
+## Menu de administrador (F1) e mana extra de teste: ligados no editor/versão de teste e DESLIGADOS sozinhos no
+## executável final (exportado como "release"). Para forçar desligado também nos testes, troque FORCE_RELEASE.
+const FORCE_RELEASE := false
+static var ADMIN_ENABLED: bool = OS.is_debug_build() and not FORCE_RELEASE
+## Mana extra por segundo só para testes (todas as classes); 0 no jogo final.
+static var TEST_MP_REGEN: float = 25.0 if (OS.is_debug_build() and not FORCE_RELEASE) else 0.0
 ## Recarga normal de mana por segundo: fixa + porcentagem da mana máxima.
 const MP_REGEN_FLAT := 4.0
 const MP_REGEN_PCT := 0.04

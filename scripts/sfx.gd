@@ -12,12 +12,15 @@ var muted := false
 
 func _ready() -> void:
 	inst = self
+	Settings.apply_global(get_tree())
 	for i in 20:
 		var p := AudioStreamPlayer.new()
+		p.bus = "Efeitos"
 		add_child(p)
 		_pool.append(p)
 	_music = AudioStreamPlayer.new()
 	_music.volume_db = -9.0
+	_music.bus = "Musica"
 	add_child(_music)
 	_music.finished.connect(func() -> void: _music.play())
 
