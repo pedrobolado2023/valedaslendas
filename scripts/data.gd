@@ -3,7 +3,9 @@ extends RefCounted
 ## Todos os números do jogo num lugar só: classes, skills, inimigos, zonas e missões.
 ## Para balancear, mude aqui.
 
-const MAX_LEVEL := 60
+const MAX_LEVEL := 1000
+## Último nível dos 4 mapas feitos à mão; depois dele vêm os mapas gerados (ver _static_init / _gen_maps).
+const BASE_MAX_LEVEL := 60
 ## Menu de administrador (F1). Troque para false antes de lançar o jogo para os jogadores.
 const ADMIN_ENABLED := true
 ## Mana extra por segundo só para testes (todas as classes). Troque para 0.0 antes de lançar, junto com ADMIN_ENABLED.
@@ -250,19 +252,199 @@ static func enemy(id: String) -> Dictionary:
 		return BASE_ENEMIES[id]
 	if _enemy_cache.has(id):
 		return _enemy_cache[id]
-	var d: Dictionary = MOBS[id].duplicate()
+	var d: Dictionary = (MOBS[id] if MOBS.has(id) else GEN_ENEMIES[id]).duplicate()
 	var L := float(d["level"])
 	var boss := bool(d.get("boss", false))
-	d["hp"] = int((10.0 * pow(L, 1.5) + 40.0) * (6.0 if boss else 1.0))
-	d["dmg"] = int((4.0 + 1.3 * pow(L, 1.15)) * (2.2 if boss else 1.0))
+	# até o nível 60 a curva antiga; depois cresce em linha reta, no mesmo ritmo do herói (ataque e vida ~ nível)
+	var Lc := minf(L, 60.0)
+	var grow := maxf(1.0, L / 60.0)
+	d["hp"] = int((10.0 * pow(Lc, 1.5) + 40.0) * grow * (6.0 if boss else 1.0))
+	d["dmg"] = int((4.0 + 1.3 * pow(Lc, 1.15)) * grow * (2.2 if boss else 1.0))
 	d["xp"] = int(10.0 * pow(L, 1.55) * (15.0 if boss else 1.0))
 	d["gold"] = Vector2i(int(L), int(L * 3.0)) * (20 if boss else 1)
 	_enemy_cache[id] = d
 	return d
 
 
+# =================================================================== mapas gerados (níveis 61 a 1000)
+# Cada mapa novo cobre 15 níveis, tem 3 zonas (monstro + chefe) e usa um dos 8 biomas abaixo, cada um com nomes,
+# cores, vegetação, lago, luz e monstros próprios (modelos existentes com cor e nome novos). As posições de
+# trilhas, zonas e lago mudam em cada mapa. Montados uma vez quando o jogo abre (_static_init).
+
+static var MAPS := {}
+static var ZONES := {}
+static var MAP_ORDER: Array = []
+static var GEN_ENEMIES := {}
+
+const MAP_SPAN := 15
+
+## mobs: [modelo_base, nome, cor, força_da_cor]; o 1º é o comum de cada zona, o chefe usa o modelo de chefe do par.
+const BIOMES := [
+	{"key": "encantada", "ground": "grass", "path": "dirt", "lake": "water", "music": "music_field", "npc_model": "npc_elder", "hub_style": "vila",
+		"names": ["Floresta Encantada", "Bosque das Fadas", "Mata dos Sussurros", "Clareira Lunar", "Floresta Ancestral", "Bosque Eterno", "Selva Esmeralda", "Floresta dos Mil Olhos"],
+		"hubs": ["Aldeia Lumen", "Refúgio das Fadas", "Vila do Orvalho", "Posto da Lua", "Aldeia das Raízes", "Bosque Velho", "Vila Esmeralda", "Torre da Vigília"],
+		"ground_tint": Color(0.42, 0.55, 0.62), "forest_tint": Color(0.45, 0.42, 0.7), "path_tint": Color(0.62, 0.5, 0.6), "stone_tint": Color(0.5, 0.5, 0.7),
+		"trees": {"tree_a": 0.4, "tree_c": 0.6}, "forest_trees": {"tree_pine": 0.5, "tree_c": 0.5}, "grass": Color(0.45, 0.65, 0.6), "forest_grass": Color(0.4, 0.45, 0.7),
+		"grass_count": 18000, "flowers": 6000, "props": {"bush_a": 0.4, "bush_b": 0.3, "rock_a": 0.3}, "forest_props": {"mushroom": 1.0}, "glow_prop": "mushroom",
+		"glow_color": Color(0.7, 0.4, 1.0), "sun": Color(0.9, 0.75, 1.0), "sun_energy": 0.95, "ambient": Color(0.45, 0.4, 0.75), "ambient_energy": 0.65, "houses": ["house_a", "house_b"],
+		"mobs": [["wolf", "Lobo Fantasma", Color(0.6, 0.45, 1.0), 0.45], ["slime", "Gosma Encantada", Color(1.0, 0.5, 0.9), 0.55], ["golem_minion", "Guardião de Musgo", Color(0.4, 0.8, 0.4), 0.4]]},
+	{"key": "pantano", "ground": "grass", "path": "dirt", "lake": "water", "music": "music_field", "npc_model": "npc_elder", "hub_style": "vila",
+		"names": ["Pântano Sombrio", "Brejo dos Afogados", "Charco Venenoso", "Mangue Esquecido", "Lamaçal das Bruxas", "Pântano da Névoa", "Brejo Fétido", "Atoleiro Antigo"],
+		"hubs": ["Palafita Velha", "Cabana da Bruxa", "Posto do Brejo", "Vila Úmida", "Aldeia do Junco", "Ponte Podre", "Casa de Pedra", "Abrigo do Pescador"],
+		"ground_tint": Color(0.36, 0.42, 0.3), "forest_tint": Color(0.3, 0.38, 0.28), "path_tint": Color(0.42, 0.36, 0.28), "stone_tint": Color(0.4, 0.45, 0.38),
+		"trees": {"dead_tree": 0.6, "tree_pine": 0.4}, "forest_trees": {"dead_tree": 0.5, "tree_b": 0.5}, "grass": Color(0.42, 0.5, 0.3), "forest_grass": Color(0.35, 0.42, 0.28),
+		"grass_count": 16000, "flowers": 0, "props": {"bush_b": 0.4, "rock_b": 0.3, "bones": 0.3}, "forest_props": {"mushroom": 1.0}, "glow_prop": "mushroom",
+		"glow_color": Color(0.5, 1.0, 0.4), "sun": Color(0.8, 0.9, 0.7), "sun_energy": 0.8, "ambient": Color(0.35, 0.45, 0.4), "ambient_energy": 0.65, "houses": ["house_dark", "house_a"],
+		"mobs": [["scorpion", "Escorpião do Brejo", Color(0.35, 0.7, 0.3), 0.5], ["skeleton", "Afogado", Color(0.4, 0.7, 0.55), 0.45], ["slime", "Lodo Tóxico", Color(0.6, 0.9, 0.2), 0.6]]},
+	{"key": "cristal", "ground": "sand", "path": "dirt", "lake": "oasis", "music": "music_desert", "npc_model": "npc_desert", "hub_style": "tendas",
+		"names": ["Deserto de Cristal", "Dunas Prismáticas", "Vale dos Espelhos", "Areias Cintilantes", "Cânion de Quartzo", "Planície Ametista", "Deserto Arco-Íris", "Mar de Vidro"],
+		"hubs": ["Oásis Prisma", "Tenda do Joalheiro", "Posto Cristal", "Acampamento Brilho", "Miragem Azul", "Tenda Ametista", "Oásis Raro", "Abrigo de Vidro"],
+		"ground_tint": Color(0.85, 0.72, 0.8), "forest_tint": Color(0.7, 0.85, 0.85), "path_tint": Color(0.6, 0.5, 0.6), "stone_tint": Color(0.75, 0.65, 0.85),
+		"trees": {"cactus_a": 0.5, "cactus_b": 0.5}, "forest_trees": {"palm": 1.0}, "grass": Color(0.8, 0.6, 0.75), "forest_grass": Color(0.5, 0.75, 0.7),
+		"grass_count": 4000, "flowers": 0, "props": {"rock_a": 0.5, "sand_crystal": 0.5}, "forest_props": {"bush_a": 1.0}, "glow_prop": "sand_crystal",
+		"glow_color": Color(1.0, 0.5, 1.0), "sun": Color(1.0, 0.8, 0.9), "sun_energy": 1.1, "ambient": Color(0.6, 0.45, 0.65), "ambient_energy": 0.6, "houses": ["tent", "tent"],
+		"mobs": [["golem_sand", "Golem de Quartzo", Color(0.8, 0.5, 1.0), 0.5], ["scorpion", "Escorpião Prismático", Color(0.4, 0.9, 1.0), 0.5], ["skeleton", "Espectro de Vidro", Color(0.8, 0.9, 1.0), 0.4]]},
+	{"key": "tundra", "ground": "snow", "path": "dirt", "lake": "ice", "music": "music_snow", "npc_model": "npc_ice", "hub_style": "cabanas", "glow_threshold": 1.4, "exposure": 0.92,
+		"names": ["Tundra Eterna", "Geleira Uivante", "Picos da Aurora", "Vale Congelado", "Estepe Polar", "Montanhas Brancas", "Fiorde Gélido", "Coroa de Gelo"],
+		"hubs": ["Forte da Aurora", "Cabana do Caçador", "Posto Polar", "Vila Branca", "Abrigo do Fiorde", "Refúgio da Coroa", "Cabana Gélida", "Forte Norte"],
+		"ground_tint": Color(0.62, 0.68, 0.85), "forest_tint": Color(0.55, 0.62, 0.82), "path_tint": Color(0.5, 0.48, 0.55), "stone_tint": Color(0.55, 0.65, 0.85),
+		"trees": {"pine_snow": 0.7, "dead_tree_frost": 0.3}, "forest_trees": {"pine_snow": 1.0}, "grass": Color(0.7, 0.8, 0.95), "forest_grass": Color(0.6, 0.7, 0.85),
+		"grass_count": 0, "flowers": 0, "props": {"rock_a": 0.5, "rock_b": 0.5}, "forest_props": {"ice_crystal": 1.0}, "glow_prop": "ice_crystal",
+		"glow_color": Color(0.4, 1.0, 0.8), "sun": Color(0.75, 0.85, 1.0), "sun_energy": 0.9, "ambient": Color(0.4, 0.5, 0.85), "ambient_energy": 0.6, "houses": ["house_snow", "house_snow"],
+		"mobs": [["yeti", "Yeti da Aurora", Color(0.5, 1.0, 0.85), 0.35], ["wolf_ice", "Lobo Boreal", Color(0.4, 0.9, 0.8), 0.4], ["golem_ice", "Golem Glacial", Color(0.7, 0.6, 1.0), 0.4]]},
+	{"key": "sombrias", "ground": "ash", "path": "stone", "lake": "lava", "music": "music_volcano", "npc_model": "npc_volcano", "hub_style": "fortaleza",
+		"names": ["Terras Sombrias", "Necrópole Esquecida", "Campos do Pesadelo", "Vale das Almas", "Reino Assombrado", "Planície Morta", "Cemitério Sem Fim", "Trono das Sombras"],
+		"hubs": ["Capela Negra", "Torre do Exorcista", "Forte Cinzento", "Abrigo da Vela", "Mosteiro Partido", "Portão das Almas", "Posto Funesto", "Bastião Final"],
+		"ground_tint": Color(0.55, 0.5, 0.65), "forest_tint": Color(0.5, 0.4, 0.6), "path_tint": Color(0.42, 0.38, 0.48), "stone_tint": Color(0.4, 0.35, 0.5),
+		"trees": {"dead_tree_burnt": 1.0}, "forest_trees": {"dead_tree_burnt": 1.0}, "grass": Color(0, 0, 0), "forest_grass": Color(0, 0, 0),
+		"grass_count": 0, "flowers": 0, "props": {"bones": 0.5, "rock_a": 0.5}, "forest_props": {"ice_crystal": 1.0}, "glow_prop": "ice_crystal",
+		"glow_color": Color(0.6, 0.4, 1.0), "sun": Color(0.6, 0.55, 0.85), "sun_energy": 0.7, "ambient": Color(0.38, 0.3, 0.5), "ambient_energy": 0.65, "houses": ["house_dark", "house_dark"],
+		"mobs": [["skeleton", "Cavaleiro Sombrio", Color(0.5, 0.3, 0.8), 0.5], ["imp", "Diabrete Espectral", Color(0.5, 0.4, 1.0), 0.5], ["wolf", "Cão Infernal Sombrio", Color(0.3, 0.2, 0.5), 0.55]]},
+	{"key": "celeste", "ground": "grass", "path": "stone", "lake": "water", "music": "music_field", "npc_model": "npc_elder", "hub_style": "vila",
+		"names": ["Jardim Celeste", "Ilhas do Céu", "Campos Dourados", "Santuário Alado", "Planalto Solar", "Templo das Nuvens", "Pradaria Divina", "Cidadela do Alvorecer"],
+		"hubs": ["Templo do Sol", "Vila das Nuvens", "Mirante Dourado", "Posto Alado", "Santuário Branco", "Torre do Sino", "Jardim do Monge", "Portão Solar"],
+		"ground_tint": Color(0.75, 0.72, 0.5), "forest_tint": Color(0.8, 0.7, 0.45), "path_tint": Color(0.85, 0.8, 0.7), "stone_tint": Color(0.85, 0.82, 0.75),
+		"trees": {"tree_b": 0.5, "tree_c": 0.5}, "forest_trees": {"tree_a": 1.0}, "grass": Color(0.8, 0.75, 0.45), "forest_grass": Color(0.75, 0.7, 0.4),
+		"grass_count": 16000, "flowers": 8000, "props": {"rock_a": 0.4, "bush_a": 0.6}, "forest_props": {"mushroom": 1.0}, "glow_prop": "sand_crystal",
+		"glow_color": Color(1.0, 0.85, 0.4), "sun": Color(1.0, 0.9, 0.7), "sun_energy": 1.1, "ambient": Color(0.6, 0.55, 0.5), "ambient_energy": 0.6, "houses": ["house_a", "house_b"],
+		"mobs": [["golem_minion", "Guardião de Mármore", Color(1.0, 0.95, 0.85), 0.6], ["imp", "Querubim Caído", Color(1.0, 0.85, 0.5), 0.6], ["dragon_whelp", "Grifo Dourado", Color(1.0, 0.8, 0.35), 0.5]]},
+	{"key": "estelar", "ground": "ash", "path": "stone", "lake": "ice", "music": "music_snow", "npc_model": "npc_ice", "hub_style": "fortaleza",
+		"names": ["Abismo Estelar", "Vazio Cósmico", "Ruínas Astrais", "Nebulosa Caída", "Fenda do Infinito", "Mar de Estrelas", "Reino Eclipse", "Horizonte de Eventos"],
+		"hubs": ["Observatório", "Âncora Astral", "Posto Lunar", "Torre Estelar", "Portal Cósmico", "Farol do Vazio", "Base Eclipse", "Santuário Final"],
+		"ground_tint": Color(0.35, 0.38, 0.6), "forest_tint": Color(0.4, 0.3, 0.65), "path_tint": Color(0.3, 0.32, 0.5), "stone_tint": Color(0.35, 0.35, 0.6),
+		"trees": {"dead_tree_frost": 1.0}, "forest_trees": {"dead_tree_frost": 1.0}, "grass": Color(0, 0, 0), "forest_grass": Color(0, 0, 0),
+		"grass_count": 0, "flowers": 0, "props": {"rock_a": 0.5, "ice_crystal": 0.5}, "forest_props": {"ice_crystal": 1.0}, "glow_prop": "ice_crystal",
+		"glow_color": Color(0.5, 0.6, 1.0), "sun": Color(0.6, 0.65, 1.0), "sun_energy": 0.75, "ambient": Color(0.35, 0.35, 0.7), "ambient_energy": 0.7, "houses": ["house_dark", "house_snow"],
+		"mobs": [["imp", "Viajante do Vazio", Color(0.3, 0.5, 1.0), 0.55], ["golem_ice", "Colosso Estelar", Color(0.5, 0.3, 1.0), 0.5], ["dragon_whelp", "Serpe Cósmica", Color(0.3, 0.5, 1.0), 0.55]]},
+	{"key": "brasas", "ground": "ash", "path": "stone", "lake": "lava", "music": "music_volcano", "npc_model": "npc_volcano", "hub_style": "fortaleza",
+		"names": ["Vulcão Negro", "Terras em Brasa", "Forja dos Titãs", "Caldeira Rubra", "Inferno de Cinzas", "Rio de Magma", "Coração Ardente", "Trono de Fogo"],
+		"hubs": ["Forja Anã", "Fortaleza Rubra", "Posto da Cinza", "Bastião Ardente", "Forte do Magma", "Cidadela Negra", "Abrigo da Brasa", "Trono Fortificado"],
+		"ground_tint": Color(0.8, 0.62, 0.6), "forest_tint": Color(0.75, 0.5, 0.45), "path_tint": Color(0.45, 0.38, 0.38), "stone_tint": Color(0.42, 0.32, 0.32),
+		"trees": {"dead_tree_burnt": 1.0}, "forest_trees": {"dead_tree_burnt": 1.0}, "grass": Color(0, 0, 0), "forest_grass": Color(0, 0, 0),
+		"grass_count": 0, "flowers": 0, "props": {"rock_a": 0.5, "fire_crystal": 0.5}, "forest_props": {"fire_crystal": 1.0}, "glow_prop": "fire_crystal",
+		"glow_color": Color(1.0, 0.35, 0.1), "sun": Color(1.0, 0.45, 0.3), "sun_energy": 0.8, "ambient": Color(0.5, 0.28, 0.32), "ambient_energy": 0.62, "houses": ["house_dark", "house_dark"],
+		"mobs": [["golem_magma", "Titã de Obsidiana", Color(1.0, 0.4, 0.1), 0.35], ["imp", "Demônio de Brasa", Color(1.0, 0.3, 0.1), 0.45], ["dragon_whelp", "Dragão de Magma", Color(1.0, 0.25, 0.05), 0.4]]},
+]
+
+## Chefe de cada modelo comum (mesmo esqueleto, maior).
+const BOSS_OF := {"wolf": "wolf_alpha", "wolf_ice": "wolf_glacial", "slime": "slime_king", "golem_minion": "golem_boss", "golem_sand": "golem_sand_boss",
+		"golem_ice": "golem_ice_boss", "golem_magma": "golem_magma_boss", "scorpion": "scorpion_queen", "skeleton": "skeleton_king",
+		"yeti": "yeti_ancient", "imp": "imp_lord", "dragon_whelp": "dragon_ancient"}
+
+
+static func _static_init() -> void:
+	MAPS = BASE_MAPS.duplicate(true)
+	ZONES = BASE_ZONES.duplicate(true)
+	MAP_ORDER = BASE_MAP_ORDER.duplicate()
+	_gen_maps()
+
+
+static func _template(model_id: String) -> Dictionary:
+	if BASE_ENEMIES.has(model_id):
+		return BASE_ENEMIES[model_id]
+	return MOBS[model_id]
+
+
+static func _gen_maps() -> void:
+	var count := int(ceil(float(MAX_LEVEL - BASE_MAX_LEVEL) / MAP_SPAN))
+	for i in count:
+		var bi := i % BIOMES.size()
+		var b: Dictionary = BIOMES[bi]
+		var round_n := i / BIOMES.size()            # 0..7: qual nome do bioma e quanto a cor muda
+		var lo := BASE_MAX_LEVEL + 1 + i * MAP_SPAN
+		var hi := mini(lo + MAP_SPAN - 1, MAX_LEVEL)
+		var id := "m%d" % (i + 1)
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7919 * (i + 1)
+		var base_ang := rng.randf() * TAU
+		var zone_ids := []
+		var centers := []
+		for k in 3:
+			var a := base_ang + TAU * k / 3.0 + rng.randf_range(-0.35, 0.35)
+			var dist := rng.randf_range(56.0, 68.0)
+			var c := Vector3(cos(a), 0, sin(a)) * dist
+			centers.append(c)
+			var mob: Array = b["mobs"][(k + round_n) % 3]
+			var col: Color = mob[2]
+			col = Color.from_hsv(fposmod(col.h + 0.07 * round_n, 1.0), col.s, col.v)
+			var zl := lo + k * 5
+			var zid := "%s_z%d" % [id, k]
+			var mob_id := zid + "_m"
+			var boss_id := zid + "_b"
+			var tm := _template(String(mob[0])).duplicate()
+			tm.merge({"name": String(mob[1]), "level": zl + 2, "tint": col, "tint_amt": float(mob[3])}, true)
+			for key in ["hp", "dmg", "xp", "gold", "boss", "slam_r"]:
+				tm.erase(key)
+			GEN_ENEMIES[mob_id] = tm
+			var tb := _template(String(BOSS_OF.get(String(mob[0]), mob[0]))).duplicate()
+			tb.merge({"name": "%s Supremo" % String(mob[1]), "level": zl + 4, "tint": col, "tint_amt": float(mob[3]), "boss": true,
+					"style": "slam", "slam_r": float(tb.get("slam_r", 5.5))}, true)
+			for key in ["hp", "dmg", "xp", "gold"]:
+				tb.erase(key)
+			GEN_ENEMIES[boss_id] = tb
+			var zone_names := ["Entrada", "Coração", "Profundezas"]
+			ZONES[zid] = {"map": id, "name": "%s: %s" % [zone_names[k], String(b["names"][round_n % 8])], "levels": "Nv %d-%d" % [zl, zl + 4],
+					"lvl": Vector2i(zl, zl + 4), "center": c, "radius": 17.0, "enemy": mob_id, "boss": boss_id, "count": 11,
+					"boss_pos": c + c.normalized() * 14.0, "color": col}
+			zone_ids.append(zid)
+		var lake_a := base_ang + TAU / 6.0 + rng.randf_range(-0.2, 0.2)
+		var lake_c := Vector2(cos(lake_a), sin(lake_a)) * rng.randf_range(42.0, 52.0)
+		var theme := {}
+		for key in ["ground", "path", "ground_tint", "forest_tint", "path_tint", "stone_tint", "trees", "forest_trees", "grass", "forest_grass",
+				"grass_count", "flowers", "props", "forest_props", "glow_prop", "glow_color", "sun", "sun_energy", "ambient", "ambient_energy", "houses"]:
+			theme[key] = b[key]
+		for key in ["glow_threshold", "exposure"]:
+			if b.has(key):
+				theme[key] = b[key]
+		theme["tree_keep"] = 0.12
+		theme["forest_keep"] = 0.7
+		theme["lava"] = 1.0 if String(b["lake"]) == "lava" else 0.0
+		var shift := 0.04 * round_n   # cada volta pelos biomas muda um pouco a cor
+		for key in ["ground_tint", "forest_tint"]:
+			var tc: Color = theme[key]
+			theme[key] = Color.from_hsv(fposmod(tc.h + shift, 1.0), tc.s, tc.v)
+		var c0: Vector3 = centers[0]
+		var c2: Vector3 = centers[2]
+		MAPS[id] = {"name": String(b["names"][round_n % 8]), "levels": "Nv %d-%d" % [lo, hi], "min_level": lo - 1,
+				"hub": String(b["hubs"][round_n % 8]), "hub_style": String(b["hub_style"]), "npc": "Guardião %s" % String(b["hubs"][round_n % 8]).split(" ")[-1],
+				"npc_model": String(b["npc_model"]), "music": String(b["music"]), "zones": zone_ids, "biome": String(b["key"]),
+				"lake": {"c": lake_c, "r": Vector2(rng.randf_range(10, 15), rng.randf_range(7, 10)), "type": String(b["lake"])},
+				"regions": [{"type": "forest", "c": Vector2(c0.x, c0.z), "r": 32.0}, {"type": "stone", "c": Vector2(c2.x, c2.z), "r": 18.0}],
+				"theme": theme}
+		MAP_ORDER.append(id)
+
+
+## Mapa mais alto que o herói já alcança (para o modo automático caçar onde rende mais).
+static func best_map(level: int) -> String:
+	var best := "vale"
+	for id in MAP_ORDER:
+		if level >= int(MAPS[id]["min_level"]):
+			best = String(id)
+	return best
+
+
 ## Mapas. Cada mapa tem 3 zonas de caça (cada uma com um chefe) e um acampamento com NPC, portal e quadro de missões.
-const MAPS := {
+const BASE_MAPS := {
 	"vale": {"name": "Vale das Lendas", "levels": "Nv 1-15", "min_level": 1, "hub": "Vila Aurora", "hub_style": "vila",
 		"npc": "Ancião Bóris", "npc_model": "npc_elder", "music": "music_field", "zones": ["campo", "floresta", "ruinas"],
 		"lake": {"c": Vector2(-56, 44), "r": Vector2(16, 11), "type": "water"},
@@ -332,10 +514,10 @@ const SHOP := [
 const GEMS_START := 300
 const GEMS_PER_LEVEL := 5
 
-const MAP_ORDER :=["vale", "deserto", "gelo", "vulcao"]
+const BASE_MAP_ORDER := ["vale", "deserto", "gelo", "vulcao"]
 
 ## Zonas de caça. "center" e "boss_pos" ficam nas pontas das trilhas.
-const ZONES := {
+const BASE_ZONES := {
 	"arena_dragao": {"map": "covil", "name": "Ninho do Dragão Ancestral", "levels": "Boss global", "lvl": Vector2i(1, 60), "center": Vector3(0, 0, -56), "radius": 30.0,
 		"enemy": "dragon_hatchling", "boss": "dragon_global", "count": 0, "boss_pos": Vector3(0, 0, -62), "color": Color(1.0, 0.45, 0.15)},
 	"campo": {"map": "vale", "name": "Campo das Flores", "levels": "Nv 1-5", "lvl": Vector2i(1, 5), "center": Vector3(58, 0, 32), "radius": 17.0,

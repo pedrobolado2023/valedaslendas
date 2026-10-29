@@ -192,11 +192,14 @@ func _hero_col() -> Control:
 func _world_col() -> Control:
 	var v := _col("Mundo e missões")
 	v.add_child(UiTheme.label("Viajar (sem limite de nível):", 14, Color(0.8, 0.75, 0.65)))
-	for id in GameData.MAP_ORDER:
+	for id in GameData.BASE_MAP_ORDER:
 		var mid := String(id)
 		_btn(v, String(GameData.MAPS[mid]["name"]), func() -> void:
 			visible = false
 			game.call("travel", mid, true))
+	_btn(v, "Mapas novos (nível 61+): use o portal", func() -> void:
+		visible = false
+		game.call("open_portal"))
 	_btn(v, "Concluir missão de história atual", func() -> void:
 		game.call("admin_complete_quest")
 		_done("Missão marcada como concluída: entregue ao NPC."))

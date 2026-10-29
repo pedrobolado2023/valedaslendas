@@ -80,6 +80,7 @@ func _ready() -> void:
 		_kit.root.scale = Vector3.ONE * sc
 		_vis.add_child(_kit.root)
 		_kit.play("idle")
+		_reset_tint()
 	else:
 		_vis.add_child(Toon.part(Toon.sphere(radius), Color(0.4, 0.8, 0.4), Vector3(0, radius, 0)))
 	if boss:
@@ -153,7 +154,7 @@ func _physics_process(delta: float) -> void:
 	if _slow_t <= 0.0 and _slow > 0.0:
 		_slow = 0.0
 		if _kit != null:
-			_kit.set_tint(Color.WHITE, 0.0)
+			_reset_tint()
 	_stun_t -= delta
 	if _stun_fx != null and _stun_t <= 0.0:
 		_stun_fx.queue_free()
@@ -172,7 +173,7 @@ func _physics_process(delta: float) -> void:
 			if not alive:
 				return
 		if _poison_t <= 0.0 and _kit != null and _slow <= 0.0:
-			_kit.set_tint(Color.WHITE, 0.0)
+			_reset_tint()
 	# herói invisível (Camuflagem Sombria): os inimigos perdem o alvo
 	if _player.stealth_t > 0.0 and aggro:
 		aggro = false
@@ -283,6 +284,16 @@ func _slam_land(center: Vector3, r: float) -> void:
 func _atk_mult() -> float:
 	# veneno reduz a força/velocidade de ataque do alvo
 	return 0.75 if _poison_t > 0.0 else 1.0
+
+
+## Cor própria do monstro (variantes dos mapas gerados) — volta para ela depois de lentidão/veneno.
+func _reset_tint() -> void:
+	if _kit == null:
+		return
+	if data.has("tint"):
+		_kit.set_tint(data["tint"], float(data.get("tint_amt", 0.4)))
+	else:
+		_kit.set_tint(Color.WHITE, 0.0)
 
 
 func apply_vuln(amount: float, t: float) -> void:

@@ -126,6 +126,13 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `scripts/shop.gd` (`Shop.buy` → `_charge`; créditos em `Shop.credit_gems`) e fica em `player.purchases` — é
   aqui que o banco de dados entra. Gemas grátis por enquanto: 300 no início, 5 por nível, 25 no boss global,
   admin "+1000 gemas". Ainda sem venda de gemas por dinheiro real.
+- **Níveis até 1000 com mapas gerados:** `MAX_LEVEL = 1000`. `GameData._static_init` copia os 4 mapas base
+  (`BASE_MAPS`/`BASE_ZONES`/`BASE_MAP_ORDER`) e gera 63 mapas novos (`m1`..`m63`, 15 níveis cada, 61-1000)
+  a partir de 8 biomas em `GameData.BIOMES` (nomes, cores, vegetação, lago, luz e monstros por bioma). Cada mapa
+  tem 3 zonas com monstro e chefe próprios (modelos existentes com `tint`/`tint_amt` e nome novo, em
+  `GEN_ENEMIES`). Inimigos acima do 60 crescem em linha reta com o nível (mesmo ritmo do herói).
+  Portal com páginas de 6 mapas; o modo automático caça no `GameData.best_map(nível)`. Missões de história
+  continuam só nos 4 mapas base.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).
