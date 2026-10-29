@@ -94,6 +94,10 @@ func _take(j: Dictionary) -> void:
 	refresh = String(j["refresh_token"])
 	user_id = String(j["user"]["id"])
 	email = String(j["user"].get("email", ""))
+	# conta marcada como admin no Supabase (app_metadata.admin = true; só o painel/servidor muda isso): liga o F1
+	var meta: Variant = j["user"].get("app_metadata", {})
+	if meta is Dictionary and bool(meta.get("admin", false)):
+		GameData.ADMIN_ENABLED = true
 	var s := ConfigFile.new()
 	s.set_value("auth", "refresh", refresh)
 	s.set_value("auth", "user_id", user_id)
