@@ -64,6 +64,7 @@ def base(macros=None, targets=None, cls="assassino", skin=(0.86, 0.64, 0.5)):
     c.hip_z = K.bone_head(c.arm, "thigh_l").z
     c.elbow_z = K.bone_head(c.arm, "lowerarm_l").z
     c.dagger = None
+    K.standard_chains(c)
     return c
 
 
@@ -434,7 +435,7 @@ def finalize(c, tier):
         o.hide_render = True
     if PREVIEW:
         D.render(c, tier, root, "assassino")
-    K.export_glb(os.path.join(OUT, f"hero_assassino_{tier}.glb"), objs)
+    K.export_split(OUT, "assassino", tier, root, c.arm, objs)
 
 
 def main():

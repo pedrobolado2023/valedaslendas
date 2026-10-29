@@ -339,6 +339,9 @@ def add_chain(arm, names, top, bottom, parent):
     bpy.ops.object.mode_set(mode="EDIT")
     eb = arm.data.edit_bones
     inv = arm.matrix_world.inverted()
+    if names[0] in eb:          # já criada pelo padrão (standard_chains): mesma posição em todas as raridades
+        bpy.ops.object.mode_set(mode="OBJECT")
+        return
     prev = eb[parent]
     n = len(names)
     for i, name in enumerate(names):
@@ -709,6 +712,80 @@ def lighten(objs):
         md.ratio = cap / n
         bpy.ops.object.modifier_move_to_index(modifier=md.name, index=0)
         bpy.ops.object.modifier_apply(modifier=md.name)
+
+
+# =================================================================== equipamento em peças
+# Cada peça de roupa vai para um encaixe (slot). O jogo monta o herói: corpo base + uma peça de cada slot,
+# de raridades diferentes, todas no mesmo esqueleto (os ossos têm o mesmo nome em todas as raridades).
+
+SLOT_OF = {
+    "helmet": ("Capuz", "CapuzPonta", "Gola", "Mascara", "Elmo", "Visor", "VisorV", "Crista", "Escama", "ChifreDragao", "Chifre",
+               "Galho", "Bone", "Aba", "Oculos", "Lente", "TiraOculos", "Capacete", "OlhoRobo", "AroOlho", "Parafuso", "Joia",
+               "Coroa", "Coral", "Barbatana", "OrelhaFolha", "OlhoBrilho", "Runa", "Cabelo", "MechaLado", "Franja", "Rabo",
+               "Liga", "Costeleta", "Barba", "Bigode", "Sobrancelha"),
+    "chest": ("Tunica", "Gibao", "Traje", "Peitoral", "Camisa", "Colete", "Capa", "CapaBarra", "Ombreira", "OmbreiraBorda",
+              "Espinho", "GemaOmbro", "FolhaOuro", "Bandoleira", "FacaArremesso", "GemaPeito", "Sol", "Listra", "Botao",
+              "Peitilho", "HaloDisco", "HaloFuro", "Avental", "Bolso", "Ferramenta", "Mochila", "Nucleo", "Exaustor", "Aureola", "Gorjal"),
+    "pants": ("Calca", "Saia", "TunicaSaia", "Barra", "SaiaFolha", "Cinto", "CintoFivela", "Bolsa", "Bainha", "BainhaPonta",
+              "Macacao", "Faixa", "Bussola", "BussolaVidro"),
+    "gloves": ("Luva", "Bracadeira", "Faixas", "EngrenagemMao", "CanhaoL"),
+    "boots": ("Bota",),
+    "offhand": ("AdagaEsquerda",),
+}
+BASE_NAMES = ("base", "Human", "high-poly", "Weapon")
+VISUAL_SLOTS = ("helmet", "chest", "pants", "gloves", "boots", "offhand")
+
+
+def slot_of(obj):
+    n = obj.name.split(".")[0]
+    if n in BASE_NAMES or n.startswith("high-poly"):
+        return "base"
+    for slot, names in SLOT_OF.items():
+        if n in names:
+            return slot
+    print("AVISO peça sem slot (vai para o peito):", n)
+    return "chest"
+
+
+def standard_chains(c):
+    """Ossos da capa e do rabo de cavalo sempre no mesmo lugar, em todas as raridades (para as peças trocarem)."""
+    neck, head = bone_head(c.arm, "neck_01"), bone_head(c.arm, "head")
+    s = (bone_tail(c.arm, "head") - head).length
+    top = neck + Vector((0, 0.03, -0.02))
+    add_chain(c.arm, CAPE, top, top + Vector((0, 0.06, -1.1)), "spine_03")
+    ht = head + Vector((0, s * 0.62, s * 0.15))
+    add_chain(c.arm, HAIR, ht, ht + Vector((0, 0.05, -0.55)), "head")
+
+
+def export_split(out_dir, cls, tier, root, arm, objs):
+    """Exporta o corpo base (só na raridade comum, com as animações) e uma peça por slot desta raridade."""
+    lighten(objs)
+    paint_clothes(objs)
+    groups = {s: [] for s in VISUAL_SLOTS}
+    base = []
+    for o in objs:
+        if o in (root, arm):
+            continue
+        s = slot_of(o)
+        (base if s == "base" else groups[s]).append(o)
+    if tier == "comum":
+        _export(os.path.join(out_dir, f"hero_{cls}_base.glb"), [root, arm] + base, anims=True)
+    for s, parts in groups.items():
+        if parts:
+            _export(os.path.join(out_dir, f"hero_{cls}_{tier}_{s}.glb"), [root, arm] + parts, anims=False)
+    # o modelo inteiro continua existindo (prévias, telas e ferramentas antigas)
+    _export(os.path.join(out_dir, f"hero_{cls}_{tier}.glb"), objs, anims=True)
+
+
+def _export(path, objs, anims=True):
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in objs:
+        o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True,
+                              export_cameras=False, export_lights=False, export_animations=anims,
+                              export_animation_mode="NLA_TRACKS", export_skins=True, export_apply=False,
+                              export_vertex_color="ACTIVE")
+    print("OK", path)
 
 
 def export_glb(path, objs):

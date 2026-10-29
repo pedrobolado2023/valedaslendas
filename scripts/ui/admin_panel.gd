@@ -107,8 +107,12 @@ func _items_col() -> Control:
 		names.append(GameData.CLASSES[k]["name"])
 	_cls = _opt(names)
 	_row(v, "Classe", _cls)
-	_slot = _opt(["Arma", "Armadura", "Arma e armadura"])
-	_slot.selected = 2
+	var slot_names: Array = []
+	for sl in Player.ITEM_SLOTS:
+		slot_names.append(String(GameData.SLOT_INFO[sl]["name"]))
+	slot_names.append("Conjunto inteiro")
+	_slot = _opt(slot_names)
+	_slot.selected = slot_names.size() - 1
 	_row(v, "Tipo", _slot)
 	var rn: Array = []
 	for r in GameData.RARITIES:
@@ -127,7 +131,7 @@ func _items_col() -> Control:
 	_btn(v, "Todas as skins de todas as classes", func() -> void:
 		var n := 0
 		for k in GameData.CLASS_ORDER:
-			for slot in ["weapon", "armor"]:
+			for slot in Player.ITEM_SLOTS:
 				for r in GameData.RARITIES:
 					_add(String(k), slot, String(r))
 					n += 1
@@ -236,14 +240,14 @@ func _add(cls: String, slot: String, rarity: String) -> Dictionary:
 func _give(equip: bool) -> void:
 	var p: Player = game.get("player")
 	var cls := String(GameData.CLASS_ORDER[_cls.selected])
-	var slots: Array = [["weapon"], ["armor"], ["weapon", "armor"]][_slot.selected]
+	var slots: Array = Player.ITEM_SLOTS + ["ring"] if _slot.selected >= Player.ITEM_SLOTS.size() else [Player.ITEM_SLOTS[_slot.selected]]
 	var rars: Array = GameData.RARITIES if _rar.selected == 4 else [GameData.RARITIES[_rar.selected]]
 	var n := 0
 	var last := {}
 	for k in int(_qty.value):
 		for slot in slots:
 			for r in rars:
-				last[slot] = _add(cls, String(slot), String(r))
+				last["%s%d" % [slot, last.size()]] = _add(cls, String(slot), String(r))
 				n += 1
 	var msg := "%d item(ns) de %s adicionado(s)." % [n, String(GameData.CLASSES[cls]["name"])]
 	if equip:

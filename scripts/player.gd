@@ -60,10 +60,16 @@ var _vis: Node3D
 var _buff_fx: Node3D
 var _shield_fx: Node3D
 
-# equipamentos (arma e armadura com raridade) e inventário
+# equipamentos: um item por encaixe (GameData.GEAR_SLOTS: arma, elmo, peitoral, calças, luvas, botas, colar,
+# brincos e 2 anéis), cada um com raridade e refino +0..+15; e o inventário
 var inventory: Array = []
-var weapon: Dictionary = {}
-var armor: Dictionary = {}
+var gear: Dictionary = {}
+var weapon: Dictionary:
+	get:
+		return gear.get("weapon", {})
+var armor: Dictionary:   # o peitoral (era a "armadura" antes das peças separadas)
+	get:
+		return gear.get("chest", {})
 var defense := 0.0
 var god_mode := false   # menu de administrador
 # estados das skills das classes
@@ -97,7 +103,7 @@ func _ready() -> void:
 	cs.position.y = 0.95
 	add_child(cs)
 	# o herói já começa com todas as skins (Comum, Rara, Épica e Lendária) e usa a mais forte
-	give_all_skins(weapon.is_empty() or armor.is_empty())
+	give_all_skins(gear.size() < GameData.GEAR_SLOTS.size())
 	_vis = Node3D.new()
 	add_child(_vis)
 	_build_visuals()
@@ -126,11 +132,12 @@ func recalc() -> void:
 	max_mp = int(max_mp * (1.0 + float(shop_bonus.get("mp", 0.0))))
 	atk *= 1.0 + float(shop_bonus.get("atk", 0.0))
 	speed *= 1.0 + float(shop_bonus.get("speed", 0.0))
-	if not weapon.is_empty():
-		atk *= float(GameData.RARITY[weapon["rarity"]]["atk"])
-	if not armor.is_empty():
-		max_hp = int(max_hp * float(GameData.RARITY[armor["rarity"]]["hp"]))
-		defense = float(GameData.RARITY[armor["rarity"]]["def"])
+	var g := gear_stats()
+	atk *= 1.0 + float(g.get("atk", 0.0))
+	max_hp = int(max_hp * (1.0 + float(g.get("hp", 0.0))))
+	max_mp = int(max_mp * (1.0 + float(g.get("mp", 0.0))))
+	speed *= 1.0 + float(g.get("speed", 0.0))
+	defense = minf(0.6, float(g.get("def", 0.0)))
 	hp = minf(hp, max_hp)
 	mp = minf(mp, max_mp)
 
@@ -645,41 +652,128 @@ func new_item(slot: String, rarity: String) -> Dictionary:
 	return {"uid": _uid, "cls": class_key, "slot": slot, "rarity": rarity}
 
 
-## Garante uma arma e uma armadura de cada raridade da classe no inventário. Com equip_best, veste a lendária.
+## Tipos de item (anel vale para os dois encaixes de anel).
+const ITEM_SLOTS := ["weapon", "helmet", "chest", "pants", "gloves", "boots", "necklace", "earring", "ring"]
+
+
+## Garante uma peça de cada tipo e raridade da classe no inventário (2 anéis de cada). Com equip_best, veste a lendária nos encaixes vazios.
 func give_all_skins(equip_best: bool) -> void:
-	for slot in ["weapon", "armor"]:
+	for slot in ITEM_SLOTS:
 		for r in GameData.RARITIES:
-			var has := false
+			var n := 0
 			for it in inventory:
 				if String(it["cls"]) == class_key and String(it["slot"]) == slot and String(it["rarity"]) == String(r):
-					has = true
-					break
-			if not has:
+					n += 1
+			for i in (2 if slot == "ring" else 1) - n:
 				inventory.append(new_item(slot, String(r)))
 	if equip_best:
 		for it in inventory:
 			if String(it["cls"]) != class_key or String(it["rarity"]) != "lendaria":
 				continue
-			if String(it["slot"]) == "weapon":
-				weapon = it
-			else:
-				armor = it
+			var key := slot_key_for(it)
+			if not gear.has(key):   # só preenche encaixes vazios (não troca o que o jogador escolheu)
+				gear[key] = it
 		recalc()
 
 
+## Encaixe onde o item vai: anel vai no 1º encaixe vazio (ou no 1º, trocando).
+func slot_key_for(item: Dictionary) -> String:
+	var slot := String(item["slot"])
+	if slot != "ring":
+		return slot
+	for k in ["ring1", "ring2"]:
+		if not gear.has(k) or int(gear[k].get("uid", -1)) == int(item["uid"]):
+			return k
+	return "ring1"
+
+
+func is_equipped(item: Dictionary) -> bool:
+	for k in gear:
+		if int(gear[k].get("uid", -1)) == int(item.get("uid", -2)):
+			return true
+	return false
+
+
+## Soma dos atributos das peças + bônus de conjunto.
+func gear_stats() -> Dictionary:
+	var out := {}
+	for k in gear:
+		var st := GameData.item_stats(gear[k])
+		for s in st:
+			out[s] = float(out.get(s, 0.0)) + float(st[s])
+	var sb := set_bonus()
+	for s in sb["stats"]:
+		out[s] = float(out.get(s, 0.0)) + float(sb["stats"][s])
+	return out
+
+
+## Conjunto: a melhor raridade com mais peças equipadas daquela raridade ou melhor.
+## Devolve {rarity, pieces, stats} (stats somados de todas as faixas fechadas, × força da raridade).
+func set_bonus() -> Dictionary:
+	var best := {"rarity": "", "pieces": 0, "stats": {}}
+	for ri in range(GameData.RARITIES.size() - 1, 0, -1):
+		var n := 0
+		for k in gear:
+			if GameData.RARITIES.find(String(gear[k]["rarity"])) >= ri:
+				n += 1
+		if n < 2:
+			continue
+		var stats := {}
+		var mult := float(ri) / 1.5
+		for tier in GameData.SET_BONUS:
+			if n >= int(tier["pieces"]):
+				for s in tier["stats"]:
+					stats[s] = float(stats.get(s, 0.0)) + float(tier["stats"][s]) * mult
+		return {"rarity": GameData.RARITIES[ri], "pieces": n, "stats": stats}
+	return best
+
+
+## Poder total (número para comparar heróis): ataque, vida, mana, defesa, nível, refinos.
+func power() -> int:
+	var refines := 0
+	for k in gear:
+		refines += int(gear[k].get("refine", 0))
+	return int(atk * 12.0 + max_hp * 0.6 + max_mp * 0.3 + defense * 3000.0 + level * 25 + refines * 40)
+
+
+## Refina +1 pagando ouro. Devolve 1 (subiu), 0 (falhou, perdeu só o ouro), -1 (sem ouro ou já +15).
+func refine(item: Dictionary) -> int:
+	if int(item.get("refine", 0)) >= GameData.REFINE_MAX:
+		return -1
+	var cost := GameData.refine_cost(item)
+	if gold < cost:
+		return -1
+	gold -= cost
+	if randf() >= GameData.refine_chance(item):
+		Sfx.play("hit", -6.0, 0.6)
+		stats_changed.emit()
+		return 0
+	item["refine"] = int(item.get("refine", 0)) + 1
+	var frac := hp / float(max_hp)
+	recalc()
+	hp = max_hp * frac
+	Sfx.play("legendary" if int(item["refine"]) % 5 == 0 else "equip", -4.0)
+	stats_changed.emit()
+	return 1
+
+
 func add_item(item: Dictionary) -> void:
+	if String(item.get("slot", "")) == "armor":   # saves antigos: a armadura virou o peitoral
+		item["slot"] = "chest"
 	_uid = maxi(_uid, int(item.get("uid", 0)))
 	inventory.append(item)
 
 
-func equip(item: Dictionary) -> void:
+func equip(item: Dictionary, key: String = "") -> void:
 	if String(item.get("cls", "")) != class_key:
 		return
 	var frac := hp / float(max_hp)
-	if String(item["slot"]) == "weapon":
-		weapon = item
-	else:
-		armor = item
+	if key == "":
+		key = slot_key_for(item)
+	for k in gear.keys():   # o mesmo anel não fica nos dois encaixes
+		if int(gear[k].get("uid", -1)) == int(item["uid"]):
+			gear.erase(k)
+	gear[key] = item
 	recalc()
 	hp = max_hp * frac
 	_build_visuals()
@@ -687,12 +781,23 @@ func equip(item: Dictionary) -> void:
 	stats_changed.emit()
 
 
+## Raridade visível de cada parte do corpo (peça vazia = comum).
+func visual_rarities() -> Dictionary:
+	var out := {}
+	for k in ["helmet", "chest", "pants", "gloves", "boots"]:
+		out[k] = String(gear.get(k, {}).get("rarity", "comum"))
+	out["offhand"] = String(weapon.get("rarity", "comum"))
+	return out
+
+
 func _build_visuals() -> void:
 	for c in _vis.get_children():
 		c.queue_free()
 	var a_r := String(armor.get("rarity", "comum"))
 	var w_r := String(weapon.get("rarity", "comum"))
-	_kit = ModelKit.load_kit("hero_%s_%s" % [class_key, a_r], 0.035)
+	_kit = ModelKit.load_hero(class_key, visual_rarities())
+	if _kit == null:
+		_kit = ModelKit.load_kit("hero_%s_%s" % [class_key, a_r], 0.035)
 	if _kit == null:
 		_kit = ModelKit.load_kit("hero_" + class_key, 0.035)
 	if _kit == null:

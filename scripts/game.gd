@@ -302,13 +302,17 @@ func _apply_save(d: Dictionary) -> void:
 	for i in player.skill_levels.size():
 		player.skill_levels[i] = int(sk[i]) if i < sk.size() else 0
 	player.inventory = []
+	player.gear = {}
+	var eq: Dictionary = d.get("gear", {})
+	if eq.is_empty():   # saves antigos: só arma e armadura (que virou o peitoral)
+		eq = {"weapon": d.get("weapon_uid", -1), "chest": d.get("armor_uid", -1)}
 	for it in d.get("inventory", []):
-		var item := {"uid": int(it["uid"]), "cls": _cls(String(it["cls"])), "slot": String(it["slot"]), "rarity": String(it["rarity"])}
+		var item := {"uid": int(it["uid"]), "cls": _cls(String(it["cls"])), "slot": String(it["slot"]), "rarity": String(it["rarity"]),
+			"refine": int(it.get("refine", 0))}
 		player.add_item(item)
-		if item["uid"] == int(d.get("weapon_uid", -1)):
-			player.weapon = item
-		if item["uid"] == int(d.get("armor_uid", -1)):
-			player.armor = item
+		for k in eq:
+			if int(eq[k]) == int(item["uid"]):
+				player.gear[String(k)] = item
 	quest_index = int(d.get("quest_index", 0))
 	quest_state = String(d.get("quest_state", "none"))
 	quest_kills = int(d.get("quest_kills", 0))
@@ -316,7 +320,14 @@ func _apply_save(d: Dictionary) -> void:
 		quest_state = "kill"
 		quest_kills = maxi(0, int(current_quest().get("count", 1)) - 1)
 	missions.from_dict(d.get("missions", {}))
-	player.give_all_skins(player.weapon.is_empty() or player.armor.is_empty())
+	player.give_all_skins(player.gear.size() < GameData.GEAR_SLOTS.size())
+
+
+func _gear_uids() -> Dictionary:
+	var out := {}
+	for k in player.gear:
+		out[k] = int(player.gear[k].get("uid", -1))
+	return out
 
 
 func start_tutorial(_again: bool) -> void:
@@ -333,7 +344,7 @@ func save_now() -> void:
 		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet,
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
-		"weapon_uid": int(player.weapon.get("uid", -1)), "armor_uid": int(player.armor.get("uid", -1)),
+		"gear": _gear_uids(),
 		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	})
@@ -411,8 +422,7 @@ func admin_change_class(key: String) -> void:
 		return
 	player.class_key = key
 	player.cdata = GameData.CLASSES[key]
-	player.weapon = {}
-	player.armor = {}
+	player.gear = {}
 	player.give_all_skins(true)
 	player.recalc()
 	player.hp = player.max_hp
@@ -1020,7 +1030,7 @@ func _drop(kind: String, value: int, title: String, at: Vector3) -> void:
 
 
 func _drop_item(rarity: String, at: Vector3) -> void:
-	var item := player.new_item("weapon" if randf() < 0.5 else "armor", rarity)
+	var item := player.new_item(String(Player.ITEM_SLOTS.pick_random()), rarity)
 	var l := Loot.new()
 	l.kind = "item"
 	l.item = item

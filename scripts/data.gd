@@ -508,7 +508,8 @@ const SHOP := [
 	{"id": "runa_mente", "name": "Runa da Mente", "desc": "+5% de mana máxima para sempre", "price": 90, "kind": "bonus", "stat": "mp", "amount": 0.05, "max": 20, "color": Color(0.45, 0.7, 1.0)},
 	{"id": "botas_vento", "name": "Botas do Vento", "desc": "+3% de velocidade para sempre", "price": 100, "kind": "bonus", "stat": "speed", "amount": 0.03, "max": 10, "color": Color(0.8, 1.0, 0.95)},
 	{"id": "arma_lendaria", "name": "Arma Lendária", "desc": "Arma lendária da sua classe (o melhor ataque)", "price": 350, "kind": "item", "slot": "weapon", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.8, 0.3)},
-	{"id": "armadura_lendaria", "name": "Armadura Lendária", "desc": "Armadura lendária da sua classe (mais vida e defesa)", "price": 350, "kind": "item", "slot": "armor", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.8, 0.3)},
+	{"id": "armadura_lendaria", "name": "Conjunto Lendário", "desc": "Elmo, peitoral, calças, luvas e botas lendários da sua classe", "price": 600, "kind": "item", "slot": "armor_set", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.8, 0.3)},
+	{"id": "joias_lendarias", "name": "Joias Lendárias", "desc": "Colar, brincos e 2 anéis lendários", "price": 450, "kind": "item", "slot": "jewel_set", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.85, 0.45)},
 	{"id": "pocao_sabedoria", "name": "Poção de Sabedoria", "desc": "Sobe 1 nível na hora", "price": 80, "kind": "level", "amount": 1, "max": 0, "color": Color(0.8, 0.5, 1.0)},
 	{"id": "pergaminho_xp", "name": "Pergaminho de XP em Dobro", "desc": "XP em dobro por 30 minutos", "price": 60, "kind": "xp_boost", "minutes": 30, "max": 0, "color": Color(1.0, 0.9, 0.4)},
 	{"id": "saco_ouro", "name": "Saco de Ouro", "desc": "+10.000 de ouro", "price": 40, "kind": "gold", "amount": 10000, "max": 0, "color": Color(1.0, 0.82, 0.3)},
@@ -637,15 +638,70 @@ const RARITY := {
 	"epica": {"name": "Épica", "color": Color(0.72, 0.42, 1.0), "atk": 1.6, "hp": 1.5, "def": 0.12},
 	"lendaria": {"name": "Lendária", "color": Color(1.0, 0.76, 0.26), "atk": 2.2, "hp": 2.0, "def": 0.2},
 }
+## Encaixes do equipamento (anéis: dois encaixes, ring1 e ring2, para itens de slot "ring").
+const GEAR_SLOTS := ["weapon", "helmet", "chest", "pants", "gloves", "boots", "necklace", "earring", "ring1", "ring2"]
+const SLOT_INFO := {
+	"weapon": {"name": "Arma", "stats": {"atk": 0.25}},
+	"helmet": {"name": "Elmo", "stats": {"hp": 0.05, "def": 0.01}},
+	"chest": {"name": "Peitoral", "stats": {"hp": 0.10, "def": 0.02}},
+	"pants": {"name": "Calças", "stats": {"hp": 0.07, "def": 0.015}},
+	"gloves": {"name": "Luvas", "stats": {"atk": 0.05, "def": 0.005}},
+	"boots": {"name": "Botas", "stats": {"hp": 0.03, "speed": 0.02}},
+	"necklace": {"name": "Colar", "stats": {"atk": 0.05, "mp": 0.06}},
+	"earring": {"name": "Brincos", "stats": {"mp": 0.05, "def": 0.01}},
+	"ring": {"name": "Anel", "stats": {"atk": 0.04, "hp": 0.02}},
+}
+## Quanto cada raridade multiplica os atributos da peça.
+const RARITY_MULT := {"comum": 1.0, "rara": 1.6, "epica": 2.5, "lendaria": 4.0}
+## Refino +1 a +15: cada + soma 6% dos atributos da peça. Custo em ouro e chance de sucesso (falhar não perde nada).
+const REFINE_MAX := 15
+const REFINE_STEP := 0.06
+
+
+static func refine_cost(item: Dictionary) -> int:
+	var r := int(item.get("refine", 0)) + 1
+	return int(60 * r * r * (1 + RARITIES.find(String(item["rarity"]))))
+
+
+static func refine_chance(item: Dictionary) -> float:
+	var r := int(item.get("refine", 0)) + 1
+	return 1.0 if r <= 5 else maxf(0.2, 1.0 - 0.08 * (r - 5))
+
+
+## Bônus de conjunto: peças equipadas da mesma raridade (ou melhor). Vale o maior que fechar.
+const SET_BONUS := [
+	{"pieces": 2, "stats": {"hp": 0.03}},
+	{"pieces": 4, "stats": {"atk": 0.05}},
+	{"pieces": 6, "stats": {"def": 0.03, "mp": 0.05}},
+	{"pieces": 10, "stats": {"atk": 0.10, "hp": 0.10}},
+]
+
+
+## Atributos de uma peça (raridade × refino), em frações (0,25 = +25%).
+static func item_stats(item: Dictionary) -> Dictionary:
+	var slot := String(item["slot"])
+	var base: Dictionary = SLOT_INFO.get(slot, SLOT_INFO["chest"])["stats"]
+	var m := float(RARITY_MULT[String(item["rarity"])]) * (1.0 + REFINE_STEP * int(item.get("refine", 0)))
+	var out := {}
+	for k in base:
+		out[k] = float(base[k]) * m
+	return out
+
+
+## Nome da peça: armas e peitorais têm nomes próprios por classe; o resto é "<peça> <tema da raridade>".
 const GEAR_NAMES := {
 	"assassino": {"weapon": ["Adagas de Ferro", "Adagas da Lua Azul", "Lâminas do Vazio", "Adagas do Sol Dourado"],
-		"armor": ["Capuz de Viajante", "Manto Noturno", "Armadura das Sombras", "Armadura do Dragão Dourado"]},
+		"chest": ["Capuz de Viajante", "Manto Noturno", "Armadura das Sombras", "Armadura do Dragão Dourado"],
+		"theme": ["de Viajante", "Noturno", "das Sombras", "do Dragão Dourado"]},
 	"nautico": {"weapon": ["Arpão de Pescador", "Tridente das Marés", "Tridente da Tempestade", "Tridente de Poseidon"],
-		"armor": ["Camisa Listrada", "Colete do Capitão", "Armadura do Abismo", "Armadura do Rei dos Mares"]},
+		"chest": ["Camisa Listrada", "Colete do Capitão", "Armadura do Abismo", "Armadura do Rei dos Mares"],
+		"theme": ["de Pescador", "do Capitão", "do Abismo", "do Rei dos Mares"]},
 	"mecanico": {"weapon": ["Chave Inglesa", "Chave Elétrica", "Garra de Plasma", "Canhão de Engrenagens"],
-		"armor": ["Macacão de Oficina", "Avental do Inventor", "Traje Robótico", "Armadura Mecânica Dourada"]},
+		"chest": ["Macacão de Oficina", "Avental do Inventor", "Traje Robótico", "Armadura Mecânica Dourada"],
+		"theme": ["de Oficina", "do Inventor", "Robótico", "Mecânico Dourado"]},
 	"druida": {"weapon": ["Cajado de Galho", "Cajado das Runas", "Cajado do Bosque Sombrio", "Cajado do Sol Eterno"],
-		"armor": ["Túnica de Linho", "Manto do Andarilho", "Armadura de Folhas", "Armadura do Cervo Dourado"]},
+		"chest": ["Túnica de Linho", "Manto do Andarilho", "Armadura de Folhas", "Armadura do Cervo Dourado"],
+		"theme": ["de Linho", "do Andarilho", "de Folhas", "do Cervo Dourado"]},
 }
 ## Chance de cair equipamento (escasso de propósito) e chance de cada raridade quando cai.
 const DROP_CHANCE := {"mob": 0.03, "boss": 0.5}
@@ -654,7 +710,11 @@ const DROP_RARITY := {"mob": [0.78, 0.18, 0.035, 0.005], "boss": [0.0, 0.6, 0.32
 
 static func item_name(item: Dictionary) -> String:
 	var idx := RARITIES.find(String(item["rarity"]))
-	return String(GEAR_NAMES[item["cls"]][item["slot"]][idx])
+	var names: Dictionary = GEAR_NAMES[item["cls"]]
+	var slot := String(item["slot"])
+	var n := String(names[slot][idx]) if names.has(slot) else "%s %s" % [String(SLOT_INFO[slot]["name"]), String(names["theme"][idx])]
+	var r := int(item.get("refine", 0))
+	return n + (" +%d" % r if r > 0 else "")
 
 
 static func roll_rarity(table: String) -> String:

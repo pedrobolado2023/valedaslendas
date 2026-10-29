@@ -1,6 +1,7 @@
 class_name EquipmentPanel
 extends CanvasLayer
-## Equipamento (tecla I): arma e armadura com raridade, inventário e prévia 3D das skins.
+## Equipamento (tecla I): 10 encaixes (arma, elmo, peitoral, calças, luvas, botas, colar, brincos, 2 anéis),
+## refino +1..+15, bônus de conjunto, poder total, inventário com filtro e prévia 3D do herói montado.
 
 var player: Player
 var _vp: SubViewport
@@ -9,6 +10,8 @@ var _slots := {}
 var _list: VBoxContainer
 var _preview_tier := ""
 var _stats: Label
+var _filter := ""
+var _filters: HBoxContainer
 
 
 func setup(p: Player) -> void:
@@ -23,10 +26,10 @@ func setup(p: Player) -> void:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
-	panel.offset_left = -560
-	panel.offset_right = 560
-	panel.offset_top = -330
-	panel.offset_bottom = 330
+	panel.offset_left = -640
+	panel.offset_right = 640
+	panel.offset_top = -350
+	panel.offset_bottom = 350
 	panel.add_theme_stylebox_override("panel", Toon.ui_box(Color(0.06, 0.035, 0.05, 0.97), UiTheme.GOLD, 20, 10, 3))
 	root.add_child(panel)
 	var h := HBoxContainer.new()
@@ -75,32 +78,56 @@ func setup(p: Player) -> void:
 	close.focus_mode = Control.FOCUS_NONE
 	close.pressed.connect(func() -> void: visible = false)
 	head.add_child(close)
-	for slot in ["weapon", "armor"]:
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 4)
+	right.add_child(grid)
+	for slot in GameData.GEAR_SLOTS:
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		right.add_child(row)
+		row.add_theme_constant_override("separation", 6)
+		row.custom_minimum_size = Vector2(400, 0)
+		grid.add_child(row)
 		var icon := TextureRect.new()
-		icon.custom_minimum_size = Vector2(64, 64)
+		icon.custom_minimum_size = Vector2(40, 40)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		row.add_child(icon)
-		var lab := UiTheme.label("", 17)
-		lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var lab := UiTheme.label("", 13)
 		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lab)
-		_slots[slot] = {"icon": icon, "label": lab}
+		var rb := Button.new()
+		rb.focus_mode = Control.FOCUS_NONE
+		rb.add_theme_font_size_override("font_size", 12)
+		var key := String(slot)
+		rb.pressed.connect(func() -> void: _refine(key))
+		row.add_child(rb)
+		_slots[slot] = {"icon": icon, "label": lab, "refine": rb}
 	_stats = UiTheme.label("", 15, Color(0.8, 0.9, 1.0))
 	right.add_child(_stats)
 	right.add_child(UiTheme.title("Inventário", 22))
+	_filters = HBoxContainer.new()
+	_filters.add_theme_constant_override("separation", 4)
+	right.add_child(_filters)
+	for f in [""] + Player.ITEM_SLOTS:
+		var fb := Button.new()
+		fb.text = "Todos" if f == "" else String(GameData.SLOT_INFO[f]["name"])
+		fb.focus_mode = Control.FOCUS_NONE
+		fb.add_theme_font_size_override("font_size", 12)
+		var ff := String(f)
+		fb.pressed.connect(func() -> void:
+			_filter = ff
+			refresh())
+		_filters.add_child(fb)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0, 300)
+	scroll.custom_minimum_size = Vector2(0, 220)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	right.add_child(scroll)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", 6)
 	scroll.add_child(_list)
-	var hint := UiTheme.label("Itens caem dos monstros (raro), dos chefes e dos baús das missões. Lendárias são raríssimas.", 13, Color(0.75, 0.7, 0.62))
+	var hint := UiTheme.label("Itens caem dos monstros (raro), dos chefes e dos baús. Refino até +15 com ouro (do +6 em diante pode falhar, sem perder o item). Conjunto: 2/4/6/10 peças da mesma raridade dão bônus.", 13, Color(0.75, 0.7, 0.62))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(hint)
 	visible = false
@@ -151,7 +178,13 @@ func _rebuild_preview() -> void:
 	var w_r := _preview_tier if _preview_tier != "" else String(player.weapon.get("rarity", "comum"))
 	var holder := Node3D.new()
 	_pivot.add_child(holder)
-	var kit := ModelKit.load_kit("hero_%s_%s" % [player.class_key, a_r], 0.035)
+	var rars := player.visual_rarities()
+	if _preview_tier != "":
+		for k in rars:
+			rars[k] = _preview_tier
+	var kit := ModelKit.load_hero(player.class_key, rars)
+	if kit == null:
+		kit = ModelKit.load_kit("hero_%s_%s" % [player.class_key, a_r], 0.035)
 	if kit == null:
 		return
 	holder.add_child(kit.root)
@@ -168,28 +201,73 @@ func toggle() -> void:
 
 
 static func icon_for(item: Dictionary) -> Texture2D:
-	var path := "res://textures/items/%s_%s_%s.png" % [item["cls"], item["slot"], item["rarity"]]
+	if item.is_empty():
+		return null
+	var slot := String(item["slot"])
+	var path := "res://textures/items/%s_%s_%s.png" % [item["cls"], "armor" if slot == "chest" else slot, item["rarity"]]
+	if not ResourceLoader.exists(path):   # peças sem ícone da classe: ícone geral do tipo
+		path = "res://textures/items/slot_%s_%s.png" % [slot, item["rarity"]]
 	return load(path) if ResourceLoader.exists(path) else null
 
 
+const STAT_NAMES := {"atk": "ataque", "hp": "vida", "mp": "mana", "def": "defesa", "speed": "velocidade"}
+
+
+static func stats_text(stats: Dictionary) -> String:
+	var parts: Array = []
+	for k in stats:
+		parts.append("+%.1f%% %s" % [float(stats[k]) * 100.0, String(STAT_NAMES.get(k, k))])
+	return " · ".join(parts)
+
+
 static func bonus_text(item: Dictionary) -> String:
-	var r: Dictionary = GameData.RARITY[item["rarity"]]
-	if String(item["slot"]) == "weapon":
-		return "+%d%% de ataque" % int(round((float(r["atk"]) - 1.0) * 100.0))
-	return "+%d%% de vida · %d%% menos dano" % [int(round((float(r["hp"]) - 1.0) * 100.0)), int(round(float(r["def"]) * 100.0))]
+	return stats_text(GameData.item_stats(item))
+
+
+func _refine(key: String) -> void:
+	var it: Dictionary = player.gear.get(key, {})
+	if it.is_empty():
+		return
+	var r := player.refine(it)
+	var g: Node = player.get_parent()
+	while g != null and not g.has_method("toast"):
+		g = g.get_parent()
+	if g != null:
+		var msg := "Refino falhou (só o ouro foi gasto)." if r == 0 else ("Sem ouro suficiente." if r < 0 else "%s refinado!" % GameData.item_name(it))
+		g.call("toast", msg, 2.0)
+	refresh()
 
 
 func refresh() -> void:
 	if player == null:
 		return
-	for slot in ["weapon", "armor"]:
-		var it: Dictionary = player.weapon if slot == "weapon" else player.armor
+	for slot in GameData.GEAR_SLOTS:
+		var it: Dictionary = player.gear.get(slot, {})
 		var s: Dictionary = _slots[slot]
 		(s["icon"] as TextureRect).texture = icon_for(it)
 		var lab: Label = s["label"]
-		lab.text = "%s — %s\n%s" % ["Arma" if slot == "weapon" else "Armadura", GameData.item_name(it), bonus_text(it)]
+		var rb: Button = s["refine"]
+		var info_key := "ring" if String(slot).begins_with("ring") else String(slot)
+		if it.is_empty():
+			lab.text = "%s — vazio" % String(GameData.SLOT_INFO[info_key]["name"])
+			lab.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+			rb.visible = false
+			continue
+		lab.text = "%s\n%s" % [GameData.item_name(it), bonus_text(it)]
 		lab.add_theme_color_override("font_color", GameData.RARITY[it["rarity"]]["color"])
-	_stats.text = "Ataque %d  ·  Vida %d  ·  Redução de dano %d%%" % [int(player.atk), player.max_hp, int(player.defense * 100)]
+		rb.visible = true
+		if int(it.get("refine", 0)) >= GameData.REFINE_MAX:
+			rb.text = "Máx."
+			rb.disabled = true
+		else:
+			rb.text = "Refinar\n%d ouro · %d%%" % [GameData.refine_cost(it), int(GameData.refine_chance(it) * 100.0)]
+			rb.disabled = player.gold < GameData.refine_cost(it)
+	var sb := player.set_bonus()
+	var set_txt := "Sem bônus de conjunto (2+ peças da mesma raridade)"
+	if int(sb["pieces"]) >= 2:
+		set_txt = "Conjunto %s (%d peças): %s" % [String(GameData.RARITY[sb["rarity"]]["name"]), int(sb["pieces"]), stats_text(sb["stats"])]
+	_stats.text = "PODER %d   ·   Ataque %d · Vida %d · Mana %d · Redução de dano %d%% · Ouro %d\n%s" % [
+		player.power(), int(player.atk), player.max_hp, player.max_mp, int(player.defense * 100), player.gold, set_txt]
 	for c in _list.get_children():
 		c.queue_free()
 	var items := player.inventory.duplicate()
@@ -197,6 +275,8 @@ func refresh() -> void:
 		return GameData.RARITIES.find(String(a["rarity"])) > GameData.RARITIES.find(String(b["rarity"])))
 	for it in items:
 		var item: Dictionary = it
+		if _filter != "" and String(item["slot"]) != _filter:
+			continue
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
 		var icon := TextureRect.new()
@@ -205,18 +285,29 @@ func refresh() -> void:
 		icon.texture = icon_for(item)
 		row.add_child(icon)
 		var cls_tag := "" if String(item["cls"]) == player.class_key else "  · " + String(GameData.CLASSES[item["cls"]]["name"])
-		var lab := UiTheme.label("%s  (%s)%s\n%s" % [GameData.item_name(item), String(GameData.RARITY[item["rarity"]]["name"]), cls_tag, bonus_text(item)], 15, GameData.RARITY[item["rarity"]]["color"])
+		var lab := UiTheme.label("%s  (%s · %s)%s\n%s" % [GameData.item_name(item), String(GameData.SLOT_INFO[item["slot"]]["name"]), String(GameData.RARITY[item["rarity"]]["name"]), cls_tag, bonus_text(item)], 14, GameData.RARITY[item["rarity"]]["color"])
 		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lab)
 		var b := Button.new()
-		var equipped := int(item["uid"]) == int(player.weapon.get("uid", -1)) or int(item["uid"]) == int(player.armor.get("uid", -1))
+		var equipped := player.is_equipped(item)
 		var other := String(item["cls"]) != player.class_key
 		b.text = "Equipado" if equipped else ("Outra classe" if other else "Equipar")
 		b.disabled = equipped or other
 		b.focus_mode = Control.FOCUS_NONE
+		var ring := String(item["slot"]) == "ring"
+		if ring and not equipped:
+			b.text = "Anel 1"
 		b.pressed.connect(func() -> void:
-			player.equip(item)
+			player.equip(item, "ring1" if ring else "")
 			refresh())
 		row.add_child(b)
+		if ring and not equipped and not other:   # anel: escolher o encaixe
+			var b2 := Button.new()
+			b2.text = "Anel 2"
+			b2.focus_mode = Control.FOCUS_NONE
+			b2.pressed.connect(func() -> void:
+				player.equip(item, "ring2")
+				refresh())
+			row.add_child(b2)
 		_list.add_child(row)
 	_rebuild_preview()

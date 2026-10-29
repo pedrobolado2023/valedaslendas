@@ -320,7 +320,7 @@ def finalize(c, tier):
         o.hide_render = True
     if PREVIEW:
         D.render(c, tier, root, "nautico")
-    K.export_glb(os.path.join(OUT, f"hero_nautico_{tier}.glb"), objs)
+    K.export_split(OUT, "nautico", tier, root, c.arm, objs)
 
 
 def main():

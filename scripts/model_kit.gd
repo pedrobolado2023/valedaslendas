@@ -41,6 +41,65 @@ static func load_kit(model: String, outline: float = 0.03, detail: float = 0.3) 
 	return kit
 
 
+## Herói montado por peças: corpo base (hero_<cls>_base, com as animações) + uma peça por slot
+## (hero_<cls>_<raridade>_<slot>), cada uma da raridade que estiver equipada. As malhas das peças passam
+## para o esqueleto do corpo (os ossos têm os mesmos nomes). Sem o corpo base, devolve null.
+const HERO_SLOTS := ["helmet", "chest", "pants", "gloves", "boots", "offhand"]
+
+
+static func load_hero(cls: String, rarities: Dictionary, outline: float = 0.035) -> ModelKit:
+	var kit := load_kit("hero_%s_base" % cls, outline)
+	if kit == null:
+		return null
+	var skels := kit.root.find_children("*", "Skeleton3D", true, false)
+	if skels.is_empty():
+		return kit
+	var skel := skels[0] as Skeleton3D
+	for slot in HERO_SLOTS:
+		var piece := load_kit("hero_%s_%s_%s" % [cls, String(rarities.get(slot, "comum")), slot], outline)
+		if piece == null:
+			continue
+		var ps := piece.root.find_children("*", "Skeleton3D", true, false)
+		if ps.is_empty():
+			piece.root.free()
+			continue
+		var src := ps[0] as Skeleton3D
+		# ossos só da peça (cada peça rígida tem um osso próprio): copia para o esqueleto do corpo
+		for b in src.get_bone_count():
+			var bn := src.get_bone_name(b)
+			if skel.find_bone(bn) >= 0:
+				continue
+			var nb := skel.add_bone(bn)
+			var par := src.get_bone_parent(b)
+			if par >= 0:
+				skel.set_bone_parent(nb, skel.find_bone(src.get_bone_name(par)))
+			skel.set_bone_rest(nb, src.get_bone_rest(b))
+			skel.set_bone_pose(nb, src.get_bone_rest(b))
+		for c in src.get_children():
+			_unown(c)
+			if c is MeshInstance3D:
+				c.reparent(skel, false)
+				(c as MeshInstance3D).skeleton = NodePath("..")
+				c.name = "%s_%s" % [slot, c.name]
+			elif c is BoneAttachment3D:
+				# peça rígida: um encaixe novo no mesmo osso do corpo (o índice do osso muda entre esqueletos)
+				var ba := BoneAttachment3D.new()
+				ba.name = "%s_%s" % [slot, c.name]
+				ba.bone_name = (c as BoneAttachment3D).bone_name
+				skel.add_child(ba)
+				for g in c.get_children():
+					g.reparent(ba, false)
+		kit.mats.append_array(piece.mats)
+		piece.root.free()
+	return kit
+
+
+static func _unown(n: Node) -> void:
+	n.owner = null
+	for c in n.get_children():
+		_unown(c)
+
+
 ## Mesh único (com materiais cartoon) de um modelo estático, para usar em MultiMesh.
 static func static_mesh(model: String, outline: float = 0.04, detail: float = 0.3) -> ArrayMesh:
 	var key := "%s|%.3f|%.2f" % [model, outline, detail]

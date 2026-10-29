@@ -66,6 +66,7 @@ def base():
     c.ankle_z = K.bone_head(c.arm, "foot_l").z
     c.hip_z = K.bone_head(c.arm, "thigh_l").z
     c.elbow_z = K.bone_head(c.arm, "lowerarm_l").z
+    K.standard_chains(c)
     return c
 
 
@@ -569,7 +570,7 @@ def finalize(c, tier):
         o.hide_render = True
     if PREVIEW:
         render(c, tier, root)
-    K.export_glb(os.path.join(OUT, f"hero_druida_{tier}.glb"), objs)
+    K.export_split(OUT, "druida", tier, root, c.arm, objs)
 
 
 def render(c, tier, root, cls="druida"):

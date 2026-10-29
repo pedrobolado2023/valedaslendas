@@ -34,8 +34,16 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   mensais até 900/mês liberadas 30 por dia (não dá para adiantar). Usam a data do computador.
 - Modo automático ("Ir automático"): faz história (aceita, vai, mata, chefe, entrega, viaja de mapa),
   quando o nível não alcança faz diárias → semanais → mensais, e quando acaba tudo caça. Não para sozinho.
-- Equipamentos: arma e armadura em Comum/Rara/Épica/Lendária com bônus; todo herói começa com as 4 skins
-  e a Lendária equipada. Drops escassos. Loja pay-to-win ainda NÃO feita.
+- Equipamentos em 10 encaixes (`GameData.GEAR_SLOTS`): arma, elmo, peitoral, calças, luvas, botas, colar, brincos,
+  2 anéis; Comum/Rara/Épica/Lendária (`SLOT_INFO` × `RARITY_MULT`), refino +1..+15 com ouro (falha sem perder o item),
+  bônus de conjunto 2/4/6/10 peças (`SET_BONUS`) e PODER total (`Player.power()`). Save guarda `gear` {encaixe: uid};
+  saves antigos (weapon_uid/armor_uid, slot "armor") viram arma + peitoral. Todo herói começa com uma peça de cada
+  raridade e a Lendária nos encaixes vazios.
+- Herói montado por peças: o Blender exporta `hero_<cls>_base.glb` (corpo + animações) e `hero_<cls>_<raridade>_<slot>.glb`
+  (helmet/chest/pants/gloves/boots/offhand; `mpfb_kit.SLOT_OF` diz qual peça vai em qual slot — peça nova precisa entrar
+  lá) e `ModelKit.load_hero` junta tudo no esqueleto do corpo (copia os ossos das peças rígidas). Capa e rabo de cavalo
+  usam ossos padrão (`standard_chains`) iguais em todas as raridades. O modelo inteiro `hero_<cls>_<raridade>.glb`
+  continua sendo exportado (menu de classes). Ícones das peças novas: `tools/make_slot_icons.py`.
 - Menu de administrador (F1): itens, nível, ouro, skills, imortal, trocar classe, viajar, pular missões, zerar limites.
 - Salva sozinho em `user://vale_das_lendas_save.json`.
 

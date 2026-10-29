@@ -1205,7 +1205,9 @@ static func _clone_strike(p: Player, host: Node, tg: Enemy, m: float, col: Color
 	host.add_child(clone)
 	clone.global_position = start
 	clone.rotation.y = atan2(-to.x, -to.z)
-	var kit := ModelKit.load_kit("hero_assassino_%s" % String(p.armor.get("rarity", "comum")), 0.02)
+	var kit := ModelKit.load_hero("assassino", p.visual_rarities(), 0.02)
+	if kit == null:
+		kit = ModelKit.load_kit("hero_assassino_%s" % String(p.armor.get("rarity", "comum")), 0.02)
 	if kit != null:
 		clone.add_child(kit.root)
 		kit.set_tint(Color(0.12, 0.04, 0.22), 0.85)

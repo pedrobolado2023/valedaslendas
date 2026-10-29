@@ -56,8 +56,10 @@ static func _apply(p: Player, it: Dictionary) -> void:
 		"bonus":
 			p.shop_bonus[String(it["stat"])] = float(p.shop_bonus.get(String(it["stat"]), 0.0)) + float(it["amount"])
 		"item":
-			var gear := p.new_item(String(it["slot"]), String(it["rarity"]))
-			p.add_item(gear)
+			var slots: Array = {"armor_set": ["helmet", "chest", "pants", "gloves", "boots"],
+				"jewel_set": ["necklace", "earring", "ring", "ring"]}.get(String(it["slot"]), [String(it["slot"])])
+			for sl in slots:
+				p.add_item(p.new_item(String(sl), String(it["rarity"])))
 		"level":
 			for i in int(it["amount"]):
 				if p.level < GameData.MAX_LEVEL:

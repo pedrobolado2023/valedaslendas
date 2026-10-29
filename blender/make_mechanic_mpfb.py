@@ -118,7 +118,7 @@ def gorget(c, mat):
     """Protetor de pescoço: fecha o vão entre o capacete e o peitoral."""
     neck = K.bone_head(c.arm, "neck_01")
     for k, (z, sx) in enumerate(((-0.02, 0.27), (0.03, 0.23))):
-        g = prim("torus", "Gola", mat, neck + Vector((0, 0.005, z)), (sx, sx * 0.9, 0.5), rot=(0.12, 0, 0), minor=0.09)
+        g = prim("torus", "Gorjal", mat, neck + Vector((0, 0.005, z)), (sx, sx * 0.9, 0.5), rot=(0.12, 0, 0), minor=0.09)
         rigid(c, g, "spine_03" if k == 0 else "neck_01")
 
 
@@ -466,7 +466,7 @@ def finalize(c, tier):
         o.hide_render = True
     if PREVIEW:
         D.render(c, tier, root, "mecanico")
-    K.export_glb(os.path.join(OUT, f"hero_mecanico_{tier}.glb"), objs)
+    K.export_split(OUT, "mecanico", tier, root, c.arm, objs)
 
 
 def main():
