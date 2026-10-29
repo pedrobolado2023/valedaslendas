@@ -523,6 +523,7 @@ const SHOP := [
 	{"id": "arma_lendaria", "name": "Arma Lendária", "desc": "Arma lendária da sua classe (o melhor ataque)", "price": 350, "kind": "item", "slot": "weapon", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.8, 0.3)},
 	{"id": "armadura_lendaria", "name": "Conjunto Lendário", "desc": "Elmo, peitoral, calças, luvas e botas lendários da sua classe", "price": 600, "kind": "item", "slot": "armor_set", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.8, 0.3)},
 	{"id": "joias_lendarias", "name": "Joias Lendárias", "desc": "Colar, brincos e 2 anéis lendários", "price": 450, "kind": "item", "slot": "jewel_set", "rarity": "lendaria", "max": 0, "color": Color(1.0, 0.85, 0.45)},
+	{"id": "pedra_protecao", "name": "Pedra de Proteção ×5", "desc": "Se o refino falhar, a pedra quebra no lugar do item (usa sozinha)", "price": 60, "kind": "stone", "amount": 5, "max": 0, "color": Color(0.6, 0.85, 1.0)},
 	{"id": "pocao_sabedoria", "name": "Poção de Sabedoria", "desc": "Sobe 1 nível na hora", "price": 80, "kind": "level", "amount": 1, "max": 0, "color": Color(0.8, 0.5, 1.0)},
 	{"id": "pergaminho_xp", "name": "Pergaminho de XP em Dobro", "desc": "XP em dobro por 30 minutos", "price": 60, "kind": "xp_boost", "minutes": 30, "max": 0, "color": Color(1.0, 0.9, 0.4)},
 	{"id": "saco_ouro", "name": "Saco de Ouro", "desc": "+10.000 de ouro", "price": 40, "kind": "gold", "amount": 10000, "max": 0, "color": Color(1.0, 0.82, 0.3)},

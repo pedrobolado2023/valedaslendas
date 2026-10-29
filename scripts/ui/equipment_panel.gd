@@ -254,7 +254,7 @@ func _refine(key: String) -> void:
 	while g != null and not g.has_method("toast"):
 		g = g.get_parent()
 	if g != null:
-		var msg: String = {0: "Refino falhou (só o ouro foi gasto).", 2: "O item QUEBROU no refino!", -1: "Sem ouro suficiente."}.get(r, "%s refinado!" % GameData.item_name(it))
+		var msg: String = {0: "Refino falhou (só o ouro foi gasto).", 2: "O item QUEBROU no refino!", 3: "Falhou, mas a Pedra de Proteção salvou o item!", -1: "Sem ouro suficiente."}.get(r, "%s refinado!" % GameData.item_name(it))
 		g.call("toast", msg, 2.0)
 	refresh()
 
@@ -289,6 +289,7 @@ func refresh() -> void:
 	var set_txt := "Sem bônus de conjunto (2+ peças da mesma raridade)"
 	if int(sb["pieces"]) >= 2:
 		set_txt = "Conjunto %s (%d peças): %s" % [String(GameData.RARITY[sb["rarity"]]["name"]), int(sb["pieces"]), stats_text(sb["stats"])]
+	set_txt += "   ·   Pedras de Proteção: %d (loja L)" % int(player.stats.get("stones", 0))
 	_stats.text = "PODER %d   ·   Ataque %d · Vida %d · Mana %d · Redução de dano %d%% · Ouro %d\n%s" % [
 		player.power(), int(player.atk), player.max_hp, player.max_mp, int(player.defense * 100), player.gold, set_txt]
 	for c in _list.get_children():

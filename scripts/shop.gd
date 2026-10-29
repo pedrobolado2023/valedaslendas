@@ -69,6 +69,8 @@ static func _apply(p: Player, it: Dictionary) -> void:
 			p.xp_boost_until = maxf(p.xp_boost_until, now) + float(it["minutes"]) * 60.0
 		"gold":
 			p.gold += int(it["amount"])
+		"stone":
+			p.stat_add("stones", int(it["amount"]))
 		"mount":
 			p.mount = String(it["id"])
 			p.set_riding(true)

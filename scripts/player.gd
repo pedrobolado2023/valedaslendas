@@ -775,6 +775,10 @@ func refine(item: Dictionary) -> int:
 	gold -= cost
 	if randf() >= GameData.refine_chance(item):
 		Sfx.play("hit", -6.0, 0.6)
+		if int(item.get("refine", 0)) + 1 > GameData.REFINE_SAFE and int(stats.get("stones", 0)) > 0:
+			stat_add("stones", -1)   # Pedra de Proteção (loja): quebra ela no lugar do item
+			stats_changed.emit()
+			return 3
 		if int(item.get("refine", 0)) + 1 > GameData.REFINE_SAFE:   # quebrou: sai do encaixe e do inventário
 			for k in gear.keys():
 				if int(gear[k].get("uid", -1)) == int(item["uid"]):
