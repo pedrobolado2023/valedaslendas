@@ -127,7 +127,7 @@ func setup(p: Player) -> void:
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", 6)
 	scroll.add_child(_list)
-	var hint := UiTheme.label("Itens caem dos monstros (raro), dos chefes e dos baús. Refino até +15 com ouro (do +6 em diante pode falhar, sem perder o item). Conjunto: 2/4/6/10 peças da mesma raridade dão bônus.", 13, Color(0.75, 0.7, 0.62))
+	var hint := UiTheme.label("Itens caem dos monstros (raro), dos chefes e dos baús. Refino até +15 com ouro: do +4 em diante pode falhar e o item QUEBRA. Borda azul no +6, roxa no +9, dourada no +12. Conjunto: 2/4/6/10 peças da mesma raridade dão bônus.", 13, Color(0.75, 0.7, 0.62))
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	right.add_child(hint)
 	visible = false
@@ -224,6 +224,27 @@ static func bonus_text(item: Dictionary) -> String:
 	return stats_text(GameData.item_stats(item))
 
 
+## Moldura do ícone na cor do refino (azul +6, roxo +9, dourado +12).
+static func _border(icon: TextureRect, item: Dictionary) -> void:
+	for c in icon.get_children():
+		c.queue_free()
+	var col := GameData.refine_color(item) if not item.is_empty() else Color(0, 0, 0, 0)
+	if col.a <= 0.0:
+		return
+	var p := Panel.new()
+	p.set_anchors_preset(Control.PRESET_FULL_RECT)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.draw_center = false
+	sb.set_border_width_all(4)
+	sb.border_color = col
+	sb.set_corner_radius_all(8)
+	sb.shadow_color = Color(col.r, col.g, col.b, 0.5)
+	sb.shadow_size = 6
+	p.add_theme_stylebox_override("panel", sb)
+	icon.add_child(p)
+
+
 func _refine(key: String) -> void:
 	var it: Dictionary = player.gear.get(key, {})
 	if it.is_empty():
@@ -233,7 +254,7 @@ func _refine(key: String) -> void:
 	while g != null and not g.has_method("toast"):
 		g = g.get_parent()
 	if g != null:
-		var msg := "Refino falhou (só o ouro foi gasto)." if r == 0 else ("Sem ouro suficiente." if r < 0 else "%s refinado!" % GameData.item_name(it))
+		var msg: String = {0: "Refino falhou (só o ouro foi gasto).", 2: "O item QUEBROU no refino!", -1: "Sem ouro suficiente."}.get(r, "%s refinado!" % GameData.item_name(it))
 		g.call("toast", msg, 2.0)
 	refresh()
 
@@ -245,6 +266,7 @@ func refresh() -> void:
 		var it: Dictionary = player.gear.get(slot, {})
 		var s: Dictionary = _slots[slot]
 		(s["icon"] as TextureRect).texture = icon_for(it)
+		_border(s["icon"], it)
 		var lab: Label = s["label"]
 		var rb: Button = s["refine"]
 		var info_key := "ring" if String(slot).begins_with("ring") else String(slot)
@@ -260,7 +282,8 @@ func refresh() -> void:
 			rb.text = "Máx."
 			rb.disabled = true
 		else:
-			rb.text = "Refinar\n%d ouro · %d%%" % [GameData.refine_cost(it), int(GameData.refine_chance(it) * 100.0)]
+			var risk := " · quebra" if int(it.get("refine", 0)) >= GameData.REFINE_SAFE else ""
+			rb.text = "Refinar\n%d ouro · %d%%%s" % [GameData.refine_cost(it), int(GameData.refine_chance(it) * 100.0), risk]
 			rb.disabled = player.gold < GameData.refine_cost(it)
 	var sb := player.set_bonus()
 	var set_txt := "Sem bônus de conjunto (2+ peças da mesma raridade)"
@@ -284,6 +307,7 @@ func refresh() -> void:
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.texture = icon_for(item)
 		row.add_child(icon)
+		_border(icon, item)
 		var cls_tag := "" if String(item["cls"]) == player.class_key else "  · " + String(GameData.CLASSES[item["cls"]]["name"])
 		var lab := UiTheme.label("%s  (%s · %s)%s\n%s" % [GameData.item_name(item), String(GameData.SLOT_INFO[item["slot"]]["name"]), String(GameData.RARITY[item["rarity"]]["name"]), cls_tag, bonus_text(item)], 14, GameData.RARITY[item["rarity"]]["color"])
 		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL

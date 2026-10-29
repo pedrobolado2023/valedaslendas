@@ -681,6 +681,12 @@ const ITEM_SLOTS := ["weapon", "helmet", "chest", "pants", "gloves", "boots", "n
 
 ## Garante uma peça de cada tipo e raridade da classe no inventário (2 anéis de cada). Com equip_best, veste a lendária nos encaixes vazios.
 func give_all_skins(equip_best: bool) -> void:
+	# as peças iniciais só são dadas uma vez por classe (itens quebrados no refino não voltam)
+	var given: Array = stats.get("starter", [])
+	if given.has(class_key):
+		return
+	given.append(class_key)
+	stats["starter"] = given
 	for slot in ITEM_SLOTS:
 		for r in GameData.RARITIES:
 			var n := 0
@@ -769,6 +775,15 @@ func refine(item: Dictionary) -> int:
 	gold -= cost
 	if randf() >= GameData.refine_chance(item):
 		Sfx.play("hit", -6.0, 0.6)
+		if int(item.get("refine", 0)) + 1 > GameData.REFINE_SAFE:   # quebrou: sai do encaixe e do inventário
+			for k in gear.keys():
+				if int(gear[k].get("uid", -1)) == int(item["uid"]):
+					gear.erase(k)
+			inventory.erase(item)
+			recalc()
+			_build_visuals()
+			stats_changed.emit()
+			return 2
 		stats_changed.emit()
 		return 0
 	item["refine"] = int(item.get("refine", 0)) + 1

@@ -35,7 +35,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - Modo automático ("Ir automático"): faz história (aceita, vai, mata, chefe, entrega, viaja de mapa),
   quando o nível não alcança faz diárias → semanais → mensais, e quando acaba tudo caça. Não para sozinho.
 - Equipamentos em 10 encaixes (`GameData.GEAR_SLOTS`): arma, elmo, peitoral, calças, luvas, botas, colar, brincos,
-  2 anéis; Comum/Rara/Épica/Lendária (`SLOT_INFO` × `RARITY_MULT`), refino +1..+15 com ouro (falha sem perder o item),
+  2 anéis; Comum/Rara/Épica/Lendária (`SLOT_INFO` × `RARITY_MULT`), refino +1..+15 com ouro (chances em `REFINE_CHANCE`; do +4 em diante falhar QUEBRA o item; borda azul +6, roxa +9, dourada +12; peças iniciais só 1 vez por classe em `stats.starter`),
   bônus de conjunto 2/4/6/10 peças (`SET_BONUS`) e PODER total (`Player.power()`). Save guarda `gear` {encaixe: uid};
   saves antigos (weapon_uid/armor_uid, slot "armor") viram arma + peitoral. Todo herói começa com uma peça de cada
   raridade e a Lendária nos encaixes vazios.

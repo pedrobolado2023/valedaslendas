@@ -693,9 +693,26 @@ static func refine_cost(item: Dictionary) -> int:
 	return int(60 * r * r * (1 + RARITIES.find(String(item["rarity"]))))
 
 
+## Chance de subir para +1..+15 (tabela do dono). A partir do +4, falhar QUEBRA o item (some do inventário).
+const REFINE_CHANCE := [1.0, 1.0, 1.0, 0.8, 0.6, 0.5, 0.35, 0.2, 0.15, 0.15, 0.15, 0.15, 0.1, 0.1, 0.1]
+const REFINE_SAFE := 3
+
+
 static func refine_chance(item: Dictionary) -> float:
 	var r := int(item.get("refine", 0)) + 1
-	return 1.0 if r <= 5 else maxf(0.2, 1.0 - 0.08 * (r - 5))
+	return float(REFINE_CHANCE[clampi(r, 1, REFINE_CHANCE.size()) - 1])
+
+
+## Cor da borda pelo refino: +6..+8 azul, +9..+11 roxo, +12..+15 dourado (sem borda antes do +6).
+static func refine_color(item: Dictionary) -> Color:
+	var r := int(item.get("refine", 0))
+	if r >= 12:
+		return Color(1.0, 0.78, 0.25)
+	if r >= 9:
+		return Color(0.72, 0.4, 1.0)
+	if r >= 6:
+		return Color(0.3, 0.6, 1.0)
+	return Color(0, 0, 0, 0)
 
 
 ## Bônus de conjunto: peças equipadas da mesma raridade (ou melhor). Vale o maior que fechar.
