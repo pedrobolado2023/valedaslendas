@@ -9,6 +9,11 @@ extends Node
 signal connected
 signal loaded(save: Dictionary)
 signal boss_hp(hp: int, max_hp: int)
+# monstros do servidor (cliente)
+signal enemies(map: String, snap: Dictionary)
+signal enemy_attack(id: int, slam: bool, center: Vector3, r: float, wind: float)
+signal enemy_dead(id: int, credit: bool, drop: String)
+signal hurt(dmg: int, id: int)
 
 const SNAP_HZ := 10.0
 
@@ -26,6 +31,7 @@ var _players: Dictionary = {}   # peer -> {uid, name, cls, gear, map, pos, rot, 
 var _boss := {"key": "", "hp": 0, "max": 0}
 var _t := 0.0
 var _save_t := 0.0
+var world: ServerWorld
 
 
 func _ready() -> void:
@@ -58,6 +64,9 @@ func _start_server() -> void:
 		return
 	multiplayer.multiplayer_peer = peer
 	multiplayer.peer_disconnected.connect(_on_left)
+	world = ServerWorld.new()
+	world.net = self
+	add_child(world)
 	print("[servidor] Vale das Lendas ouvindo na porta %d · Supabase %s · chave secreta %s" % [port, sb_url, "OK" if sb_service != "" else "FALTANDO"])
 
 
@@ -126,7 +135,7 @@ func hello(token: String) -> void:
 
 ## Estado do herói (10x por segundo, sem garantia de entrega).
 @rpc("any_peer", "unreliable_ordered")
-func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gear: Dictionary, mount: String) -> void:
+func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gear: Dictionary, mount: String, alive: bool) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if not is_server or not _players.has(id):
 		return
@@ -138,6 +147,23 @@ func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gea
 	p["cls"] = cls
 	p["gear"] = gear
 	p["mount"] = mount
+	p["alive"] = alive
+
+
+## Golpe num monstro do servidor.
+@rpc("any_peer", "reliable")
+func enemy_hit(id: int, dmg: int) -> void:
+	var pid := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(pid) and world != null:
+		world.hit(pid, String(_players[pid].get("map", "")), id, dmg)
+
+
+## Missão pediu o chefe da zona.
+@rpc("any_peer", "reliable")
+func request_boss(zid: String, type_id: String) -> void:
+	var pid := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(pid) and world != null:
+		world.spawn_boss(String(_players[pid].get("map", "")), zid, type_id)
 
 
 ## Save do jogador: o servidor guarda e grava no Supabase (o navegador não escreve direto no banco).
@@ -254,6 +280,26 @@ func _snapshot(players: Dictionary) -> void:
 		others[int(id)] = {"name": a[0], "cls": a[1], "gear": a[2], "pos": a[3], "rot": a[4], "moving": a[5], "mount": a[6]}
 
 
+@rpc("authority", "unreliable_ordered")
+func _enemies(map: String, snap: Dictionary) -> void:
+	enemies.emit(map, snap)
+
+
+@rpc("authority", "reliable")
+func _enemy_attack(id: int, slam: bool, center: Vector3, r: float, wind: float) -> void:
+	enemy_attack.emit(id, slam, center, r, wind)
+
+
+@rpc("authority", "reliable")
+func _enemy_dead(id: int, credit: bool, drop: String) -> void:
+	enemy_dead.emit(id, credit, drop)
+
+
+@rpc("authority", "reliable")
+func _hurt(dmg: int, id: int) -> void:
+	hurt.emit(dmg, id)
+
+
 @rpc("authority", "reliable")
 func _boss_state(key: String, hp: int, max_hp: int) -> void:
 	boss_hp.emit(hp, max_hp)
@@ -262,7 +308,7 @@ func _boss_state(key: String, hp: int, max_hp: int) -> void:
 func send_state(map: String, p: Player) -> void:
 	if not online:
 		return
-	state.rpc_id(1, map, p.global_position, p.rotation.y, p.velocity.length() > 0.5, p.class_key, p.visual_rarities(), p.mount if p.riding else "")
+	state.rpc_id(1, map, p.global_position, p.rotation.y, p.velocity.length() > 0.5, p.class_key, p.visual_rarities(), p.mount if p.riding else "", p.alive)
 
 
 func send_save(data: Dictionary) -> void:

@@ -11,6 +11,13 @@ var data: Dictionary = {}
 var level := 1
 var max_hp := 10
 var crit_from_server := false   # dano vindo do servidor (boss global online): não reenvia
+# online: monstro controlado pelo servidor (ServerWorld); aqui só desenha e manda os golpes
+var net_id := 0
+var net_pos := Vector3.ZERO
+var net_moving := false
+var net_face := 0.0
+var net_credit := true
+var net_drop := ""
 var hp := 10
 var dmg := 5
 var speed := 3.0
@@ -142,6 +149,9 @@ func _quad(color: Color, size: Vector2, prio: int) -> MeshInstance3D:
 
 func _physics_process(delta: float) -> void:
 	if not alive:
+		return
+	if net_id > 0:
+		_net_process(delta)
 		return
 	if _player == null or not is_instance_valid(_player):
 		_player = get_tree().get_first_node_in_group("player") as Player
@@ -339,7 +349,11 @@ func take_damage(n: int, from: Vector3, crit: bool = false, tint: Color = Color(
 		n = int(round(n * (1.0 + _vuln)))
 	if self is WorldBoss and get_node("/root/Net").online and not crit_from_server:   # online: a vida do boss é do servidor
 		get_node("/root/Net").boss_hit.rpc_id(1, (self as WorldBoss).net_key, n, max_hp)
-	hp -= n
+	if net_id > 0:   # online: o servidor decide a vida e a morte
+		get_node("/root/Net").enemy_hit.rpc_id(1, net_id, n)
+		hp = maxi(1, hp - n)
+	else:
+		hp -= n
 	aggro = true
 	_returning = false
 	if _kit != null:
@@ -363,6 +377,60 @@ func take_damage(n: int, from: Vector3, crit: bool = false, tint: Color = Color(
 	_update_bar()
 	if hp <= 0:
 		_die()
+
+
+func _net_process(delta: float) -> void:
+	_attacking -= delta
+	_stun_t -= delta
+	if _stun_fx != null and _stun_t <= 0.0:
+		_stun_fx.queue_free()
+		_stun_fx = null
+	_slow_t -= delta
+	if _slow_t <= 0.0 and _slow > 0.0:
+		_slow = 0.0
+		if _kit != null:
+			_reset_tint()
+	var to := net_pos - global_position
+	to.y = 0.0
+	if to.length() > 8.0:
+		global_position = Vector3(net_pos.x, global_position.y, net_pos.z)
+	else:
+		global_position += to * minf(1.0, delta * 10.0)
+	_vis.rotation.y = lerp_angle(_vis.rotation.y, net_face, 8.0 * delta)
+	if _kit != null and _attacking <= 0.0:
+		_kit.play("walk" if net_moving else "idle")
+
+
+## Servidor avisou o ataque: mostra a animação (e o aviso no chão no pisão).
+func net_attack(slam: bool, center: Vector3, r: float, wind: float) -> void:
+	if not alive:
+		return
+	_attacking = wind + 0.3
+	if slam:
+		Fx.telegraph(get_parent(), center, r, Color(1.0, 0.2, 0.12), wind)
+		get_tree().create_timer(wind).timeout.connect(func() -> void:
+			if alive:
+				Fx.ring(get_parent(), center + Vector3(0, 0.1, 0), Color(1.0, 0.55, 0.25), r, 0.4)
+				Sfx.play("sk_slam", -4.0, 0.8))
+	if _kit != null and _kit.has_anim("attack"):
+		_kit.play("attack", 1.0, true)
+
+
+## Servidor mandou a vida.
+func net_set_hp(v: int) -> void:
+	if v < hp:
+		hp = v
+	elif v > hp + max_hp * 0.2:   # voltou para casa e curou
+		hp = v
+	_update_bar()
+
+
+func net_die(credit: bool, drop: String) -> void:
+	net_credit = credit
+	net_drop = drop
+	hp = 0
+	_update_bar()
+	_die()
 
 
 func _update_bar() -> void:

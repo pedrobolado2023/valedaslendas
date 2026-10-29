@@ -84,6 +84,9 @@ func _ready() -> void:
 	remote = RemotePlayers.new()
 	remote.game = self
 	add_child(remote)
+	var nm := NetMonsters.new()
+	nm.game = self
+	add_child(nm)
 	# logado: conecta no servidor do jogo (se houver) e usa o save guardado lá se for mais novo
 	cloud.ready_done.connect(func(_p: bool) -> void:
 		if await get_node("/root/Net").connect_to_server(cloud.token):
@@ -867,8 +870,9 @@ func _story_goal() -> Dictionary:
 			if z2 == null:
 				return {}
 			var bp: Vector3 = z2.data["boss_pos"]
-			if z2.boss != null and is_instance_valid(z2.boss):
-				bp = z2.boss.global_position
+			var zb: Enemy = z2.find_boss()
+			if zb != null:
+				bp = zb.global_position
 			return {"pos": bp, "kind": "boss", "near": 4.0}
 	return {}
 
@@ -1064,6 +1068,8 @@ func _mission_done(kind: String) -> void:
 func _on_killed(e: Enemy) -> void:
 	if player == null:
 		return
+	if e.net_id > 0 and not e.net_credit:   # online: outro jogador matou sem você bater
+		return
 	player.gain_xp(int(e.data["xp"]))
 	player.stat_add("kills")
 	if e.boss:
@@ -1073,7 +1079,10 @@ func _on_killed(e: Enemy) -> void:
 	var g: Vector2i = e.data["gold"]
 	_drop("gold", randi_range(g.x, g.y), "Ouro", e.global_position)
 	var table := "boss" if e.boss else "mob"
-	if randf() < float(GameData.DROP_CHANCE[table]):
+	if e.net_id > 0:   # online: o servidor sorteou o drop (para quem mais bateu)
+		if e.net_drop != "":
+			_drop_item(e.net_drop, e.global_position + Vector3(1, 0, 0))
+	elif randf() < float(GameData.DROP_CHANCE[table]):
 		_drop_item(GameData.roll_rarity(table), e.global_position + Vector3(1, 0, 0))
 	var q := current_quest()
 	if not q.is_empty() and e.zone_id == String(q["zone"]):
@@ -1081,8 +1090,11 @@ func _on_killed(e: Enemy) -> void:
 			quest_kills += 1
 			if quest_kills >= int(q["count"]):
 				quest_state = "boss"
-				var z: Zone = zones[q["zone"]]
-				z.spawn_boss(GameData.quest_boss(q))
+				if get_node("/root/Net").online and not bool(GameData.MAPS[map_id].get("event", false)):
+					get_node("/root/Net").request_boss.rpc_id(1, String(q["zone"]), GameData.quest_boss(q))
+				else:
+					var z: Zone = zones[q["zone"]]
+					z.spawn_boss(GameData.quest_boss(q))
 				Sfx.play("boss", -1.0)
 				hud.banner(String(GameData.enemy(GameData.quest_boss(q))["name"]), "O chefe apareceu!", 3.0)
 				_route_t = 0.0

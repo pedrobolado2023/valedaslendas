@@ -169,6 +169,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - **Online (Easypanel, ver `deploy/EASYPANEL.md`):** autoload `Net` (`scripts/net.gd`): o mesmo projeto vira servidor
   com `-- --server` (WebSocket na PORT, confere login no Supabase, grava saves com `SUPABASE_SERVICE_KEY`, manda os
   jogadores do mesmo mapa 10x/s, vida do boss global no servidor). Cliente: `RemotePlayers` desenha os outros.
+  Monstros online: `scripts/server_world.gd` (servidor simula as zonas de cada mapa com jogadores: alvo, andar,
+  ataque, voltar, reaparecer; XP/ouro para quem bateu, drop para quem mais bateu; chefe de missão por `request_boss`)
+  + `scripts/net_monsters.gd` (cliente cria Enemy com `net_id`; golpes vão por `enemy_hit`). Masmorra e covil seguem
+  locais. Lentidão/atordoamento/empurrão ainda só aparecem no cliente (o servidor não usa).
   Teste local sem Supabase: `VALE_DEV=1`. Fora de net.gd usar `get_node("/root/Net")` (com `-s` o nome `Net` não
   existe na compilação). Web: preset "Web" em `export_presets.cfg` (modo compatibilidade, sem os heróis inteiros),
   `deploy/Dockerfile.web` (nginx) e `deploy/Dockerfile.server`.

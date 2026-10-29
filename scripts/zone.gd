@@ -20,6 +20,8 @@ func setup(id: String, root: Node3D, w: World) -> void:
 
 
 func _ready() -> void:
+	if get_node("/root/Net").online and not bool(GameData.MAPS[String(data["map"])].get("event", false)):
+		return   # online: os monstros vêm do servidor (NetMonsters)
 	for i in int(data["count"]):
 		spawn_one()
 
@@ -56,8 +58,24 @@ func spawn_boss(type_id: String) -> Enemy:
 	return e
 
 
+## Chefe vivo da zona (online: o que o servidor mandou).
+func find_boss() -> Enemy:
+	if boss != null and is_instance_valid(boss) and boss.alive:
+		return boss
+	for e in alive_enemies():
+		if e.boss:
+			return e
+	return null
+
+
 func alive_enemies() -> Array[Enemy]:
 	var out: Array[Enemy] = []
+	if get_node("/root/Net").online:
+		for n in get_tree().get_nodes_in_group("enemy"):
+			var ne := n as Enemy
+			if ne != null and ne.alive and ne.zone_id == zone_id:
+				out.append(ne)
+		return out
 	for e in _alive:
 		if is_instance_valid(e) and e.alive:
 			out.append(e)
