@@ -62,13 +62,19 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   guarda de combate agachada, ataque em golpe duplo. Nó "Weapon" na mão direita com a lâmina em **-Z** (sai pelo lado
   do polegar, como a adaga antiga); a adaga esquerda vem no modelo (nó "AdagaEsquerda" no osso hand_l — não pode
   começar com "Weapon"). Prévias em `docs/assassino_<raridade>.png`.
+- **Mecânico humanizado:** `make_mechanic_mpfb.py` (usa funções da Druida e do Assassino). Homem forte; o pulso
+  direito é girado para a ferramenta (-Z do nó "Weapon") apontar para frente e um pouco para cima — serve para a
+  chave inglesa e para o canhão (a arma tem raridade própria, independente da armadura). Ataque = marretada.
+  Lendária tem o nó "Aureola" com o eixo de giro em +Z no Godot (o jogo gira `rotation:z`). Luvas são recortadas
+  da própria mão do corpo (`gloves`), porque os moldes de roupa não cobrem os dedos.
+- Ver um modelo exportado de frente/lado/3/4: `C:\Users\pedro\vale-tools\views.py` (Blender, EEVEE, rápido).
 - Ferramentas nesta máquina (Windows): `C:\Users\pedro\vale-tools\` — Blender 5.2.3 portátil, Godot 4.3 (console),
   mpfb2, makehuman (só `data/eyes`), backup dos modelos antigos do Assassino em `backup_assassino\`.
   `MH_DATA=C:\Users\pedro\vale-tools\makehuman\makehuman\data`; `TIER=<raridade>` gera só uma raridade.
 
 ## Próximos passos combinados com o dono
-1. Aplicar o processo MPFB2 (corpo humano, pegada correta da arma, animações naturais) em
-   **Mecânico** (chave inglesa/canhão) e **Náutico** (tridente) — Druida e Assassino já feitos.
+1. Aplicar o processo MPFB2 (corpo humano, pegada correta da arma, animações naturais) no
+   **Náutico** (tridente) — Druida, Assassino e Mecânico já feitos.
 2. Texturas pintadas nas roupas (costuras, desenhos); cabelo melhor; capa/cabelo com balanço.
 3. Animações específicas por skill.
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).

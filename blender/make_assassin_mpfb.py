@@ -40,14 +40,14 @@ X, Y, Z = D.X, D.Y, D.Z
 piece, rigid, prim, belt = D.piece, D.rigid, D.prim, D.belt
 
 
-def base():
+def base(macros=None, targets=None, cls="assassino", skin=(0.86, 0.64, 0.5)):
     K.clear_scene()
     c = D.Ctx()
-    c.body, c.arm, c.eyes = K.create_body(MACROS, TARGETS)
+    c.body, c.arm, c.eyes = K.create_body(macros or MACROS, targets or TARGETS)
     c.tights, c.skirt, c.hairm = K.split_body(c.body)
     c.sc = c.body.scale.x
     c.parts = []
-    c.skin = K.color_mat("assassino_pele", (0.86, 0.64, 0.5), rough=0.6)
+    c.skin = K.color_mat(cls + "_pele", skin, rough=0.6)
     c.body.data.materials.clear()
     c.body.data.materials.append(c.skin)
     for p in c.body.data.polygons:
@@ -178,6 +178,11 @@ def dagger(name, tier):
         wing = K.color_mat("asa_branca", WHITE)
         for s in (-1, 1):
             objs.append(prim("box", "AsaGuarda", wing, Vector((s * 0.24, 0, -0.06)), (0.22, 0.03, 0.1), rot=(0, s * 0.6, 0)))
+    return join_parts(objs, name)
+
+
+def join_parts(objs, name):
+    """Junta peças soltas (cada uma com sua posição) numa malha só, com a origem no zero."""
     for o in objs:
         o.data.transform(o.matrix_basis)
         o.matrix_basis = Matrix.Identity(4)
@@ -191,7 +196,7 @@ def dagger(name, tier):
     return d
 
 
-def grip_matrix(c, side):
+def grip_matrix(c, side, scale=DAGGER_SCALE):
     """Matriz da pegada: centro da mão fechada, -Z saindo pelo lado do polegar (para onde vai a lâmina)."""
     bpy.context.view_layer.update()
     mw = c.arm.matrix_world
@@ -207,7 +212,7 @@ def grip_matrix(c, side):
     if axis.dot(thumb) < 0:
         axis = -axis
     rot = Vector((0, 0, -1)).rotation_difference(axis).to_matrix().to_4x4()
-    return Matrix.Translation(grip) @ rot @ Matrix.Scale(DAGGER_SCALE, 4)
+    return Matrix.Translation(grip) @ rot @ Matrix.Scale(scale, 4)
 
 
 def weapon_slots(c, tier):
