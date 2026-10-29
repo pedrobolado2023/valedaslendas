@@ -323,9 +323,9 @@ static func emit(host: Node, pos: Vector3, cfg: Dictionary) -> CPUParticles3D:
 	p.scale_amount_max = float(size[1])
 	p.scale_amount_curve = _curve(cfg.get("curve", [[0.0, 0.3], [0.2, 1.0], [1.0, 0.0]]))
 	p.color_ramp = _grad(cfg.get("colors", [[0.0, Color(1, 1, 1, 1)], [1.0, Color(1, 1, 1, 0)]]))
-	p.angle_min = 0.0
-	p.angle_max = 360.0
 	var spin := float(cfg.get("spin", 40.0))
+	p.angle_min = 0.0
+	p.angle_max = 360.0 if spin > 0.0 else 0.0   # spin 0 = sprites retos (chuva, colunas de luz)
 	p.angular_velocity_min = -spin
 	p.angular_velocity_max = spin
 	match String(cfg.get("shape", "point")):
@@ -1134,3 +1134,141 @@ static func ground_slam(host: Node, at: Vector3, r: float, col: Color) -> void:
 			"curve": [[0, 1], [0.85, 1], [1, 0]], "colors": [[0, Color(1, 1, 1)], [1, Color(1, 1, 1)]]})
 	ground_mark(host, at, "crack", r * 1.8, 4.0)
 	light(host, at + Vector3(0, 1.5, 0), col, 1.6, r * 1.6, 0.4)
+
+# =================================================================== água (Náutico)
+
+const WATER := [[0.0, Color(0.3, 0.6, 0.85, 0.0)], [0.12, Color(0.25, 0.55, 0.82, 0.75)], [1.0, Color(0.15, 0.4, 0.7, 0.0)]]
+const FOAM := [[0.0, Color(0.75, 0.88, 0.95, 0.0)], [0.12, Color(0.72, 0.86, 0.94, 0.7)], [1.0, Color(0.6, 0.78, 0.9, 0.0)]]
+const DROP := [[0.0, Color(0.7, 0.88, 1.0, 0.95)], [1.0, Color(0.4, 0.7, 0.95, 0.0)]]
+
+
+## Respingo de água (acertos, bolhas estourando, tentáculos).
+static func splash(host: Node, pos: Vector3, s: float = 1.0) -> void:
+	if not _ok(host):
+		return
+	emit(host, pos + Vector3(0, 0.3, 0), {"tex": "dot", "add": false, "amount": int(26 * s), "life": 0.8, "size": [0.08 * s, 0.2 * s],
+			"vel": [3.0 * s, 7.0 * s], "dir": Vector3.UP, "spread": 50.0, "gravity": Vector3(0, -16, 0), "colors": DROP, "curve": [[0, 1], [1, 0.6]]})
+	emit(host, pos + Vector3(0, 0.3, 0), {"tex": "smoke", "add": false, "amount": int(10 * s), "life": 0.7, "size": [0.8 * s, 1.6 * s],
+			"vel": [1.5 * s, 3.0 * s], "damp": [2.0, 3.0], "spread": 70.0, "colors": FOAM, "curve": [[0, 0.5], [1, 1.2]], "spin": 40.0})
+	shockwave(host, pos, Color(0.45, 0.8, 1.0), 2.2 * s, 0.35)
+
+
+## Tsunami: parede de água que avança de `from` na direção `dir`.
+static func wave(host: Node, from: Vector3, dir: Vector3, dist: float, time: float, width: float) -> void:
+	if not _ok(host):
+		return
+	var node := Node3D.new()
+	host.add_child(node)
+	node.global_position = from
+	node.look_at(from + dir, Vector3.UP)
+	var box := Vector3(width * 0.5, 0.3, 0.4)
+	emit(node, from + Vector3(0, 0.6, 0), {"tex": "smoke", "add": false, "shot": false, "amount": 90, "life": 0.55, "dur": time,
+			"size": [1.2, 2.4], "shape": "box", "box": box, "vel": [2.0, 5.0], "dir": Vector3.UP, "spread": 25.0,
+			"gravity": Vector3(0, -6, 0), "colors": WATER, "curve": [[0, 0.5], [0.3, 1.0], [1, 0.8]], "spin": 30.0})
+	emit(node, from + Vector3(0, 1.6, 0), {"tex": "smoke", "add": false, "shot": false, "amount": 60, "life": 0.45, "dur": time,
+			"size": [0.8, 1.6], "shape": "box", "box": box, "vel": [3.0, 6.0], "dir": Vector3.UP, "spread": 30.0,
+			"gravity": Vector3(0, -9, 0), "colors": FOAM, "curve": [[0, 0.4], [1, 1.0]], "spin": 40.0})
+	emit(node, from + Vector3(0, 1.8, 0), {"tex": "dot", "add": false, "shot": false, "amount": 60, "life": 0.7, "dur": time,
+			"size": [0.08, 0.18], "shape": "box", "box": box, "vel": [4.0, 8.0], "dir": Vector3.UP, "spread": 40.0,
+			"gravity": Vector3(0, -14, 0), "colors": DROP})
+	var tw := node.create_tween()
+	tw.tween_property(node, "global_position", from + dir * dist, time)
+	tw.tween_interval(0.8)
+	tw.tween_callback(node.queue_free)
+
+
+## Bolha que prende o inimigo (fica presa nele) e estoura no fim.
+static func bubble(target: Node3D, height: float, dur: float) -> void:
+	if not _ok(target):
+		return
+	var mi := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = maxf(0.9, height * 0.8)
+	sm.height = sm.radius * 2.0
+	sm.radial_segments = 24
+	sm.rings = 12
+	mi.mesh = sm
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(0.55, 0.8, 1.0, 0.18)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.rim_enabled = true
+	m.rim = 1.0
+	m.rim_tint = 0.0
+	m.emission_enabled = true
+	m.emission = Color(0.2, 0.45, 0.7)
+	m.emission_energy_multiplier = 0.5
+	m.roughness = 0.05
+	m.metallic_specular = 1.0
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	target.add_child(mi)
+	mi.position = Vector3(0, height * 0.6, 0)
+	mi.scale = Vector3.ONE * 0.2
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK)
+	for i in int(dur / 0.4):
+		tw.tween_property(mi, "scale", Vector3(1.05, 0.95, 1.05), 0.2)
+		tw.tween_property(mi, "scale", Vector3(0.95, 1.05, 0.95), 0.2)
+	tw.tween_callback(func() -> void:
+		splash(target.get_parent(), mi.global_position - Vector3(0, 0.6, 0), 1.1)
+		mi.queue_free())
+	emit(target, target.global_position + Vector3(0, height * 0.3, 0), {"tex": "dot", "shot": false, "local": true, "amount": 8,
+			"life": 0.9, "dur": dur, "size": [0.06, 0.14], "shape": "sphere", "r": 0.5, "vel": [0.5, 1.2], "dir": Vector3.UP,
+			"colors": [[0, Color(0.8, 0.95, 1.0, 0.0)], [0.3, Color(0.75, 0.9, 1.0, 0.8)], [1, Color(0.6, 0.85, 1.0, 0.0)]]})
+
+
+## Tempestade: nuvem escura no alto e chuva caindo na área enquanto dura.
+static func storm(host: Node, at: Vector3, r: float, dur: float) -> void:
+	if not _ok(host):
+		return
+	emit(host, at + Vector3(0, 9.0, 0), {"tex": "smoke", "add": false, "shot": false, "amount": 40, "life": 1.8, "dur": dur,
+			"size": [3.5, 6.0], "shape": "box", "box": Vector3(r, 0.6, r), "vel": [0.2, 0.6], "spin": 10.0,
+			"colors": [[0, Color(0.15, 0.17, 0.22, 0.0)], [0.2, Color(0.14, 0.16, 0.21, 0.7)], [0.8, Color(0.12, 0.14, 0.18, 0.7)], [1, Color(0.1, 0.1, 0.14, 0.0)]]})
+	emit(host, at + Vector3(0, 8.0, 0), {"tex": "beam", "add": false, "shot": false, "amount": 120, "life": 0.5, "dur": dur, "quad": Vector2(0.05, 0.9),
+			"size": [1.0, 1.0], "shape": "box", "box": Vector3(r, 0.2, r), "vel": [16.0, 18.0], "dir": Vector3.DOWN, "spread": 3.0, "spin": 0.0,
+			"colors": [[0, Color(0.6, 0.75, 0.9, 0.0)], [0.1, Color(0.6, 0.75, 0.9, 0.5)], [1, Color(0.6, 0.75, 0.9, 0.5)]], "curve": [[0, 1], [1, 1]]})
+	marker(host, at, Color(0.4, 0.6, 1.0), r, dur)
+
+
+## Tentáculo do Kraken: sai do chão, se ergue e bate.
+static func tentacle(host: Node, at: Vector3, height: float, face: Vector3) -> void:
+	if not _ok(host):
+		return
+	var root := Node3D.new()
+	host.add_child(root)
+	root.global_position = at
+	root.rotation.y = atan2(-face.x, -face.z)
+	var segs := 7
+	var parent: Node3D = root
+	var skin := Color(0.35, 0.15, 0.45)
+	var joints: Array[Node3D] = []
+	for i in segs:
+		var j := Node3D.new()
+		j.position = Vector3(0, height / segs if i > 0 else 0.0, 0)
+		parent.add_child(j)
+		var rad_b := lerpf(0.5, 0.08, float(i) / segs)
+		var rad_t := lerpf(0.5, 0.08, float(i + 1) / segs)
+		j.add_child(Toon.part(Toon.cyl(rad_t, rad_b, height / segs, 10), skin, Vector3(0, height / segs * 0.5, 0), 0.025))
+		if i % 2 == 0 and i < segs - 1:   # ventosas
+			j.add_child(Toon.part(Toon.sphere(rad_b * 0.35, 8), Color(0.85, 0.65, 0.75), Vector3(0, height / segs * 0.5, -rad_b * 0.9), 0.0))
+		joints.append(j)
+		parent = j
+	splash(host, at, 1.3)
+	ground_mark(host, at, "crack", 3.0, 3.0)
+	root.scale = Vector3(1, 0.05, 1)
+	var curl := func(k: float) -> void:   # enrola para trás (preparando)
+		for j in joints:
+			j.rotation.x = 0.18 * k
+	var whip := func(k: float) -> void:   # chicoteia para frente
+		for j in joints:
+			j.rotation.x = 0.18 - 0.42 * k
+	var slam := func() -> void:
+		splash(host, at - Vector3(sin(root.rotation.y), 0, cos(root.rotation.y)) * height * 0.8, 1.4)
+	var tw := root.create_tween()
+	tw.tween_property(root, "scale", Vector3.ONE, 0.25).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	tw.tween_method(curl, 0.0, 1.0, 0.3)
+	tw.tween_method(whip, 0.0, 1.0, 0.15)
+	tw.tween_callback(slam)
+	tw.tween_interval(0.4)
+	tw.tween_property(root, "scale", Vector3(1, 0.05, 1), 0.3).set_ease(Tween.EASE_IN)
+	tw.tween_callback(root.queue_free)

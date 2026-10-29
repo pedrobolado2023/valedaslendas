@@ -730,7 +730,7 @@ static func add_gear_effects(vis: Node3D, kit: ModelKit, w_r: String, a_r: Strin
 		slot.add_child(sp)
 	if a_r == "epica" or a_r == "lendaria":
 		var col2: Color = GameData.RARITY[a_r]["color"]
-		vis.add_child(Toon.glow_part(Toon.cyl(1.0, 1.0, 0.02, 32), col2, Vector3(0, 0.04, 0), 0.2 if a_r == "lendaria" else 0.12, true))
+		vis.add_child(Toon.glow_part(Toon.cyl(1.0, 1.0, 0.02, 32), col2 * 0.7, Vector3(0, 0.04, 0), 0.1 if a_r == "lendaria" else 0.06, true))
 	var key := cls + "_" + a_r
 	match key:
 		"druida_epica":

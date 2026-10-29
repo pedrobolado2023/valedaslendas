@@ -94,8 +94,9 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   as8 Marca da Morte (`death_mark`), as9 Clones das Sombras (`shadow_clones`: cópias escuras do herói com
   `ModelKit.set_tint`), as10 Eclipse Sangrento (`eclipse`). Mecânico também: me7 Enxame de Mísseis (`missiles`,
   projétil "rocket" teleguiado), me8 Lança-Chamas a Vapor (`flamethrower`), me9 Bombardeio Orbital (`orbital`),
-  me10 Torre Tesla (`tesla`). Náutico ainda tem 6 (skills novas escolhidas por mim com o tema da classe; o dono
-  aprova ou troca).
+  me10 Torre Tesla (`tesla`). Náutico também: na7 Tsunami (`tsunami`), na8 Prisão de Bolhas (`bubbles`), na9
+  Tempestade Marítima (`sea_storm`), na10 Fúria do Kraken (`kraken`, tentáculos de segmentos que chicoteiam).
+  As skills 7-10 de Assassino/Mecânico/Náutico foram escolhidas por mim com o tema da classe (o dono aprovou seguir).
 - **Área das skills:** `GameData.AREA_MULT = 1.4`; sempre ler o raio com `Skills.area(sk)` (nunca `sk["r"]` direto).
 - **Efeitos bonitos (`scripts/vfx.gd`, classe `Vfx`):** texturas geradas por código no Godot (brilho, chama em gota,
   fumaça, anel, rachaduras, geada, queimado) + `emit()` (partículas com cor no tempo), `ground_mark()` (Decal),
@@ -113,9 +114,9 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 1. ~~Humanizar as 4 classes com MPFB2~~ — feito (Druida, Assassino, Mecânico, Náutico). Falta o dono testar jogando.
 2. Cabelo melhor (com balanço). Já feitos: capa com balanço, texturas de tecido/couro/metal e barras nas roupas.
 3. ~~Animações específicas por skill~~ — feito (afinar depois de jogar).
-3b. +4 skills (7 a 10) para Assassino, Mecânico e Náutico (dono vai dizer quais); refazer os efeitos das 6 skills
-    antigas de cada classe com o `Vfx` (Druida já feita: `roots`, `heal_field`, `bark_aura`, `wind_trail`, `radiance`).
-    Decalques grandes com brilho próprio estouram a tela no Vulkan: para áreas use `Vfx.marker` (anel discreto).
+3b. ~~10 skills por classe e efeitos novos nas antigas~~ — feito nas 4 classes. Falta o dono jogar e pedir ajustes
+    (tamanho/brilho/duração dos efeitos, dano). Decalques grandes com brilho próprio estouram a tela no Vulkan:
+    para áreas use `Vfx.marker` (anel discreto). Sprites com `spin: 0` ficam retos (chuva, colunas).
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).
 - Limitações conhecidas: modelos dos heróis têm 5-9 MB cada (dá para reduzir malha). O PC atual do dono tem
   NVIDIA GeForce RTX 2070 — dá para tentar IA de imagem→3D (Hunyuan3D) no futuro.

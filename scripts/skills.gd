@@ -204,6 +204,10 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					p.attack_visual()
 					var side := dir.cross(Vector3.UP) * (0.35 * (k - 1))
 					Fx.streak(host, o + Vector3(0, 1.1, 0) + side, o + dir * rng + Vector3(0, 1.1, 0) + side, col, 0.45, 0.22)
+					Vfx.emit(host, o + dir * rng * 0.5 + Vector3(0, 1.1, 0), {"tex": "smoke", "add": false, "amount": 14, "life": 0.5,
+							"size": [0.6, 1.2], "shape": "box", "box": Vector3(0.3, 0.3, 0.3) + (dir * rng * 0.45).abs(), "vel": [1.0, 3.0],
+							"colors": Vfx.FOAM, "spin": 40.0})
+					Vfx.splash(host, o + dir * rng, 0.8)
 					Sfx.play("swing", -6.0, 1.1 + 0.1 * k)
 					for e in in_cone(tree, o, dir, rng, 0.82):
 						hit(p, e, m, o, _opts(sk)))
@@ -224,6 +228,9 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			var r6 := area(sk)
 			Fx.slash(host, pos + Vector3(0, 1.0, 0), _ang(dir), r6, 400.0, col, 1.4, 0.4)
 			Fx.slash(host, pos + Vector3(0, 0.7, 0), _ang(dir) + 1.0, r6 * 0.6, 400.0, Color(1, 1, 1), 0.7, 0.35)
+			Vfx.emit(host, pos + Vector3(0, 0.4, 0), {"tex": "smoke", "add": false, "amount": 30, "life": 0.6, "size": [0.9, 1.8], "shape": "ring",
+					"r": r6 * 0.9, "r_in": r6 * 0.6, "vel": [0.5, 1.5], "dir": Vector3.UP, "colors": Vfx.WATER, "spin": 60.0})
+			Vfx.shockwave(host, pos, col, r6, 0.4)
 			p.spin_visual()
 			for e in in_radius(tree, pos, r6):
 				var to := flat(e.global_position - pos)
@@ -302,8 +309,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			Vfx.sparks(host, pos + Vector3(0, 1.2, 0), 26, 6.0)
 			if sk.has("burst"):
 				p.shield_burst = {"mult": float(sk["burst"]) * level_mult(lvl), "r": area(sk), "color": col}
-			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, 3.0, 0.4)
-			Fx.light_flash(host, pos + Vector3(0, 1.5, 0), col, 4.0, 8.0, 0.5)
+			Vfx.splash(host, pos, 1.2)
 		"nova":
 			var r8 := area(sk)
 			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, r8, 0.45, 0.1)
@@ -475,6 +481,86 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					Fx.shake(p, 0.12)
 					for e in in_radius(tree, at, hit_r):
 						hit(p, e, m, at, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"])}))
+		"tsunami":
+			var tlen := float(sk["len"]) * GameData.AREA_MULT
+			var tw2 := float(sk["width"]) * GameData.AREA_MULT
+			var ttime := float(sk["time"])
+			var from := pos - dir * 1.0
+			Vfx.wave(host, from, dir, tlen, ttime, tw2)
+			Vfx.splash(host, pos + dir * 1.5, 1.5)
+			var done2 := {}
+			for k in 10:
+				_later(p, ttime * (k + 1) / 10.0, func() -> void:
+					if not is_instance_valid(p):
+						return
+					var front := from + dir * tlen * (k + 1) / 10.0
+					for e in enemies(tree):
+						if done2.has(e):
+							continue
+						var rel := flat(e.global_position - front)
+						if absf(rel.dot(dir)) < 2.0 + e.radius and absf(rel.dot(dir.cross(Vector3.UP))) < tw2 * 0.5 + e.radius:
+							done2[e] = true
+							hit(p, e, m, front - dir * 3.0, {"knock": float(sk["knock"])})
+							Vfx.splash(host, e.global_position, 0.7))
+		"bubbles":
+			var rb := area(sk)
+			var bdur := float(sk["dur"])
+			Vfx.shockwave(host, pos, col, rb, 0.5)
+			for e in in_radius(tree, pos, rb):
+				Vfx.bubble(e, float(e.data["height"]), bdur)
+				e.apply_stun(bdur)
+				e.lift(bdur)
+			_later(p, bdur, func() -> void:
+				if not is_instance_valid(p):
+					return
+				Sfx.play("sk_ice", -4.0, 1.4)
+				for e in in_radius(tree, pos, rb + 2.0):
+					hit(p, e, m, pos))
+		"sea_storm":
+			var rs2 := area(sk)
+			var at6 := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var sdur := float(sk["dur"])
+			Vfx.storm(host, at6, rs2, sdur)
+			for k in int(sdur / float(sk["every"])):
+				_later(p, 0.4 + float(sk["every"]) * k, func() -> void:
+					if not is_instance_valid(p):
+						return
+					var inside := in_radius(tree, at6, rs2)
+					var hitp := at6 + Vector3(randf_range(-rs2, rs2), 0, randf_range(-rs2, rs2)).limit_length(rs2)
+					var vic: Enemy = null
+					if not inside.is_empty():
+						vic = inside[randi() % inside.size()]
+						hitp = vic.global_position
+					Vfx.bolt(host, hitp + Vector3(randf_range(-2, 2), 9, randf_range(-2, 2)), hitp + Vector3(0, 0.3, 0), col, 0.5, 0.3, 3)
+					Vfx.shockwave(host, hitp, col, 2.5, 0.3)
+					Sfx.play("sk_thunder", -10.0, randf_range(0.9, 1.2))
+					if vic != null:
+						hit(p, vic, m, hitp, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"])}))
+		"kraken":
+			var rk := area(sk)
+			var at7 := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var targets2: Array[Enemy] = []
+			for e in in_radius(tree, at7, rk):
+				if targets2.size() < int(sk["count"]):
+					targets2.append(e)
+			var spots: Array[Vector3] = []
+			for e in targets2:
+				spots.append(e.global_position)
+			while spots.size() < 4:
+				spots.append(at7 + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).limit_length(1.0) * rk * 0.8)
+			Vfx.marker(host, at7, col, rk, 1.2)
+			for k in spots.size():
+				var sp: Vector3 = spots[k]
+				var face := flat(sp - at7).normalized() if flat(sp - at7).length() > 0.3 else dir
+				_later(p, 0.08 * k, func() -> void:
+					Vfx.tentacle(host, sp + face * 1.6, randf_range(4.0, 5.5), face))
+			_later(p, 0.75, func() -> void:
+				if not is_instance_valid(p):
+					return
+				Fx.shake(p, 0.5)
+				Sfx.play("sk_slam", -2.0, 0.8)
+				for e in in_radius(tree, at7, rk):
+					hit(p, e, m, at7, {"stun": float(sk["stun"])}))
 		"missiles":
 			var cnt2 := int(sk["count"])
 			for k in cnt2:
@@ -650,6 +736,10 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			var ticks2 := int(sk["ticks"])
 			var every2 := float(sk["every"])
 			var whirl := _whirl(host, pos, rm, col, every2 * ticks2)
+			Vfx.emit(host, pos + Vector3(0, 0.3, 0), {"tex": "smoke", "add": false, "shot": false, "amount": 50, "life": 0.9, "dur": every2 * ticks2,
+					"size": [1.0, 2.2], "shape": "ring", "r": rm * 0.9, "r_in": rm * 0.3, "vel": [2.0, 5.0], "dir": Vector3.UP, "spread": 15.0,
+					"gravity": Vector3(0, -4, 0), "colors": Vfx.WATER, "spin": 90.0})
+			Vfx.splash(host, pos, 2.0)
 			for k in ticks2:
 				_later(p, 0.1 + every2 * k, func() -> void:
 					if not is_instance_valid(p):
@@ -678,8 +768,8 @@ static func shell_burst(p: Player, b: Dictionary) -> void:
 	var o := p.global_position
 	var col: Color = b["color"]
 	var r := float(b["r"])
-	Fx.ring(host, o + Vector3(0, 0.1, 0), col, r, 0.4, 0.1)
-	Fx.burst(host, o + Vector3(0, 1.0, 0), col, 50, 10.0, 0.1, 0.8, -6.0)
+	Vfx.splash(host, o, 2.0)
+	Vfx.shockwave(host, o, col, r * 1.2, 0.45)
 	Sfx.play("sk_ice", -3.0, 1.2)
 	for e in in_radius(p.get_tree(), o, r):
 		hit(p, e, float(b["mult"]), o)
@@ -839,7 +929,7 @@ static func _jelly(p: Player, m: float, rng: float, dur: float, every: float, co
 		j.create_tween().tween_property(j, "global_position", goal, every * 0.8).set_trans(Tween.TRANS_SINE)
 		if e != null and flat(e.global_position - j.global_position).length() < rng:
 			var top := e.global_position + Vector3(0, float(e.data["height"]), 0)
-			Fx.lightning(host, j.global_position, top, col, 0.18)
+			Vfx.bolt(host, j.global_position, top, col, 0.3, 0.25, 1)
 			Sfx.play("sk_thunder", -14.0, 1.6)
 			hit(p, e, m, j.global_position, {"slow": 0.35, "slow_dur": 1.5}))
 
@@ -849,7 +939,7 @@ static func _whirl(host: Node, at: Vector3, r: float, col: Color, t: float) -> N
 	host.add_child(w)
 	w.global_position = at
 	for k in 4:
-		var ring := Toon.glow_part(Toon.cyl(r * (0.35 + 0.2 * k), r * (0.25 + 0.2 * k), 0.8 + k * 0.7, 24), col.lerp(Color(1, 1, 1), 0.15 * k), Vector3(0, 0.4 + k * 0.6, 0), 0.25 - k * 0.04, true)
+		var ring := Toon.glow_part(Toon.cyl(r * (0.35 + 0.2 * k), r * (0.25 + 0.2 * k), 0.8 + k * 0.7, 24), col.lerp(Color(1, 1, 1), 0.15 * k) * 0.6, Vector3(0, 0.4 + k * 0.6, 0), 0.1 - k * 0.015, true)
 		w.add_child(ring)
 	var p := CPUParticles3D.new()
 	p.amount = 60
@@ -875,7 +965,7 @@ static func _whirl(host: Node, at: Vector3, r: float, col: Color, t: float) -> N
 	w.add_child(p)
 	var spin := w.create_tween().set_loops()
 	spin.tween_property(w, "rotation:y", TAU, 0.6).from(0.0)
-	Fx.light_flash(host, at + Vector3(0, 2, 0), col, 6.0, 14.0, t)
+	Fx.light_flash(host, at + Vector3(0, 2, 0), col, 1.5, 10.0, t)
 	host.get_tree().create_timer(t + 0.2).timeout.connect(w.queue_free)
 	return w
 

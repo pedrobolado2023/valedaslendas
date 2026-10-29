@@ -163,6 +163,18 @@ const SKILLS := {
 		{"id": "na6", "name": "Fúria de Poseidon", "type": "maelstrom", "cd": 26.0, "mp": 40, "mult": 0.55, "r": 7.0, "ticks": 8, "every": 0.4, "vuln": 0.25, "vuln_dur": 6.0,
 			"color": Color(0.4, 0.85, 1.0), "sfx": "sk_thunder",
 			"desc": "Redemoinho gigante ao seu redor: levanta os inimigos, causa {dmg} de dano por giro (8 giros) e os deixa vulneráveis."},
+		{"id": "na7", "name": "Tsunami", "type": "tsunami", "cd": 12.0, "mp": 28, "mult": 1.8, "len": 13.0, "width": 6.0, "time": 0.9, "knock": 6.0,
+			"color": Color(0.35, 0.7, 1.0), "sfx": "sk_ice",
+			"desc": "Levanta uma onda gigante que avança e arrasta tudo à frente: {dmg} de dano e empurra os inimigos para longe."},
+		{"id": "na8", "name": "Prisão de Bolhas", "type": "bubbles", "cd": 15.0, "mp": 26, "mult": 1.6, "r": 5.0, "dur": 2.2,
+			"color": Color(0.55, 0.85, 1.0), "sfx": "sk_magic",
+			"desc": "Prende os inimigos num raio de {r} m dentro de bolhas: eles flutuam presos por {dur} s e levam {dmg} de dano quando a bolha estoura."},
+		{"id": "na9", "name": "Tempestade Marítima", "type": "sea_storm", "cd": 22.0, "mp": 38, "mult": 1.0, "r": 6.0, "range": 15.0, "dur": 3.5, "every": 0.3, "slow": 0.3, "slow_dur": 2.0,
+			"color": Color(0.6, 0.75, 1.0), "sfx": "sk_thunder",
+			"desc": "Chama uma tempestade sobre a área ({r} m) por {dur} s: chuva e raios caem nos inimigos, {dmg} de dano por raio e deixam lentos."},
+		{"id": "na10", "name": "Fúria do Kraken", "type": "kraken", "cd": 28.0, "mp": 45, "mult": 3.0, "r": 7.0, "range": 14.0, "count": 6, "stun": 1.2,
+			"color": Color(0.6, 0.3, 0.8), "sfx": "sk_slam",
+			"desc": "Tentáculos gigantes do Kraken saem do chão e esmagam os inimigos da área ({r} m): {dmg} de dano e atordoa."},
 	],
 }
 

@@ -349,5 +349,39 @@ def nautico():
             "spine_03": [(X, -0.2 * up + 0.3 * down)], "neck_01": [(X, -0.25 * up + 0.1 * down)],
             "_loc": V(0, 0, 0.25 * pulse(t, 0.3, 0.45, 0.5, 0.62))})
 
+    def tsunami(t):
+        # Tsunami: puxa as águas com os dois braços erguidos e empurra tudo para frente
+        lift = pulse(t, 0.0, 0.3, 0.35, 0.45)
+        push = pulse(t, 0.4, 0.55, 0.75, 1.0)
+        return merge(crouch(0.35 * push, 0.2 * push), {
+            "upperarm_l": [(X, -2.0 * lift - 1.1 * push), (Y, -0.4 * lift)], "lowerarm_l": [(X, 0.4 * lift + 0.6 * push)],
+            "upperarm_r": [(X, -1.6 * lift - 0.6 * push), (Y, 0.3 * lift)], "lowerarm_r": [(X, 0.3 * lift + 0.5 * push)],
+            "spine_03": [(X, -0.2 * lift + 0.25 * push)], "neck_01": [(X, -0.2 * lift)],
+            "thigh_l": [(X, -0.4 * push)], "thigh_r": [(X, 0.3 * push)], "_loc": V(0, -0.1 * push, 0.04 * lift)})
+
+    def bubbles(t):
+        # Prisão de Bolhas: mãos em concha à frente e abre devagar, soprando as bolhas
+        k = pulse(t, 0.0, 0.3, 0.7, 1.0)
+        open_ = pulse(t, 0.4, 0.6, 0.8, 1.0)
+        return {"upperarm_l": [(X, -1.2 * k), (Y, 0.3 * k - 0.6 * open_)], "lowerarm_l": [(X, -0.5 * k + 0.4 * open_)],
+                "upperarm_r": [(X, -0.4 * k)], "spine_03": [(X, 0.08 * k)], "head": [(X, 0.1 * k)]}
+
+    def storm(t):
+        # Tempestade Marítima: ergue o tridente para o céu e o mantém lá, com o corpo arqueado
+        k = pulse(t, 0.0, 0.25, 0.8, 1.0)
+        return {"upperarm_r": [(X, -2.3 * k), (Y, 0.2 * k)], "lowerarm_r": [(X, 0.4 * k)],
+                "upperarm_l": [(X, -1.0 * k), (Y, -0.7 * k)], "lowerarm_l": [(X, 0.3 * k)],
+                "spine_01": [(X, -0.1 * k)], "spine_03": [(X, -0.15 * k)], "neck_01": [(X, -0.3 * k)], "head": [(X, -0.2 * k)]}
+
+    def kraken(t):
+        # Fúria do Kraken: crava o tridente no chão e chama as profundezas com a outra mão
+        up = pulse(t, 0.0, 0.25, 0.3, 0.4)
+        stab = pulse(t, 0.35, 0.45, 0.8, 1.0)
+        return merge(crouch(0.7 * stab, 0.25 * stab), {
+            "upperarm_r": [(X, -1.8 * up + 0.4 * stab)], "lowerarm_r": [(X, 0.4 * up + 0.4 * stab)],
+            "upperarm_l": [(X, -0.6 * up - 0.3 * stab), (Y, -1.0 * stab)], "lowerarm_l": [(X, 0.3 * stab)],
+            "spine_03": [(X, -0.15 * up + 0.3 * stab)], "neck_01": [(X, 0.1 * stab)], "_loc": V(0, 0, 0.06 * up)})
+
     return {"sk_na1": (16, thrust, False), "sk_na2": (20, current, False), "sk_na3": (22, shell, False),
-            "sk_na5": (24, companion, False), "sk_na6": (32, poseidon, False)}
+            "sk_na5": (24, companion, False), "sk_na6": (32, poseidon, False), "sk_na7": (24, tsunami, False),
+            "sk_na8": (22, bubbles, False), "sk_na9": (36, storm, False), "sk_na10": (26, kraken, False)}
