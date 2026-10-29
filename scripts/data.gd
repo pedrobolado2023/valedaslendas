@@ -6,6 +6,11 @@ extends RefCounted
 const MAX_LEVEL := 60
 ## Menu de administrador (F1). Troque para false antes de lançar o jogo para os jogadores.
 const ADMIN_ENABLED := true
+## Mana extra por segundo só para testes (todas as classes). Troque para 0.0 antes de lançar, junto com ADMIN_ENABLED.
+const TEST_MP_REGEN := 25.0
+## Recarga normal de mana por segundo: fixa + porcentagem da mana máxima.
+const MP_REGEN_FLAT := 4.0
+const MP_REGEN_PCT := 0.04
 const MAX_SKILL_LEVEL := 10
 ## Nível do personagem necessário para aprender cada skill (até 10 por classe; teclas 1-9 e 0).
 const SKILL_UNLOCK := [1, 3, 6, 10, 15, 20, 25, 30, 40, 50]
@@ -16,25 +21,25 @@ const AREA_MULT := 1.4
 const CLASSES := {
 	"assassino": {
 		"name": "Assassino", "desc": "Alta mobilidade, dano crítico massivo e furtividade.",
-		"hp": 160, "mp": 85, "atk": 25.0, "speed": 7.6,
+		"hp": 160, "mp": 130, "atk": 25.0, "speed": 7.6,
 		"basic": "melee", "range": 2.8, "dot": 0.3, "cd": 0.38,
 		"color": Color(0.3, 0.26, 0.24), "trim": Color(0.75, 0.55, 1.0),
 	},
 	"nautico": {
 		"name": "Náutico", "desc": "Linha de frente com o poder das marés e a pressão da água.",
-		"hp": 150, "mp": 90, "atk": 22.0, "speed": 7.3,
+		"hp": 150, "mp": 140, "atk": 22.0, "speed": 7.3,
 		"basic": "thrust", "range": 4.4, "dot": 0.85, "cd": 0.46,
 		"color": Color(0.2, 0.35, 0.55), "trim": Color(0.45, 0.85, 1.0),
 	},
 	"mecanico": {
 		"name": "Mecânico", "desc": "Engenharia de combate, barreiras tecnológicas e dano em área.",
-		"hp": 125, "mp": 100, "atk": 20.0, "speed": 7.6,
+		"hp": 125, "mp": 150, "atk": 20.0, "speed": 7.6,
 		"basic": "arrow", "range": 0.0, "dot": 0.0, "cd": 0.36,
 		"color": Color(0.45, 0.42, 0.38), "trim": Color(0.4, 0.8, 1.0),
 	},
 	"druida": {
 		"name": "Druida", "desc": "Controle de grupo, cura e suporte da natureza.",
-		"hp": 110, "mp": 150, "atk": 27.0, "speed": 7.0,
+		"hp": 110, "mp": 220, "atk": 27.0, "speed": 7.0,
 		"basic": "magic", "range": 0.0, "dot": 0.0, "cd": 0.6,
 		"color": Color(0.35, 0.28, 0.2), "trim": Color(0.55, 1.0, 0.5),
 	},

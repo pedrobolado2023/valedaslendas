@@ -420,12 +420,40 @@ static func _facing_center(pos: Vector3) -> float:
 	return atan2(-d.x, -d.z)
 
 
+## Ângulo para uma casa no círculo do acampamento: mede a distância real das trilhas no centro e nos cantos
+## da casa (as trilhas fazem curva, então só o ângulo de saída delas não basta) e foge das outras casas.
+func _house_angle(radius: float, half: Vector2) -> float:
+	var best := 0.0
+	var best_score := -INF
+	for k in 72:
+		var a := TAU * k / 72.0
+		var c := Vector2(cos(a), sin(a)) * radius
+		var ry := _facing_center(Vector3(c.x, 0, c.y))
+		var clear := road_dist(c)
+		for rs in [ry, -ry]:   # os dois sentidos de giro (mais seguro que acertar a convenção do _solid_box)
+			for sx in [-1.0, 0.0, 1.0]:
+				for sz in [-1.0, 0.0, 1.0]:
+					var corner := Vector2(sx * half.x, sz * half.y).rotated(rs)
+					clear = minf(clear, road_dist(c + corner))
+		var sep := 99.0
+		for u in _used_angles:
+			sep = minf(sep, _ang_dist(a, u))
+		# primeiro garante folga da trilha (4 m além da parede); depois espalha as casas
+		var score := minf(clear - 4.0, 0.0) * 10.0 + minf(sep, 1.0)
+		if score > best_score:
+			best_score = score
+			best = a
+	_used_angles.append(best)
+	return best
+
+
 func _build_hub() -> void:
 	var houses: Array = theme["houses"]
 	for i in 5:
-		var a := _free_angle(14.0)
-		var pos := Vector3(cos(a), 0, sin(a)) * 16.5
 		var model := String(houses[i % houses.size()])
+		var half := Vector2(2.3, 2.3) if model == "tent" else Vector2((7.0 if model != "house_b" else 8.2) * 0.5, 2.6)
+		var a := _house_angle(16.5, half)
+		var pos := Vector3(cos(a), 0, sin(a)) * 16.5
 		var ry := _facing_center(pos)
 		_place(model, pos, ry)
 		if model == "tent":

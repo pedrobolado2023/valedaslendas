@@ -433,7 +433,7 @@ func _timers(delta: float) -> void:
 	_since_action += delta
 	if not alive:
 		return
-	var regen := (2.0 + max_mp * 0.025) * delta
+	var regen := (GameData.MP_REGEN_FLAT + max_mp * GameData.MP_REGEN_PCT + GameData.TEST_MP_REGEN) * delta
 	if in_combat() and passive_lvl("owl") > 0:
 		regen *= 3.0
 	mp = minf(max_mp, mp + regen)

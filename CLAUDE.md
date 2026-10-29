@@ -104,6 +104,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Cuidado com o brilho: o ambiente tem glow a partir de 0,85 (world.gd) — cores somadas claras e luzes fortes
   estouram em branco no Vulkan. Decalques não aparecem no modo de compatibilidade (OpenGL); testar no Vulkan.
   Foto das skills dentro do jogo: `godot --path . -s C:\Users\pedro\vale-tools\shot_skills.gd -- saida.png dr7,dr8`.
+- Casas do acampamento: `world.gd _house_angle` escolhe o lugar medindo a distância real das trilhas nos cantos da
+  casa (as trilhas fazem curva). Foto de cima do acampamento: `C:\Users\pedro\vale-tools\shot_hub.gd -- saida.png gelo`.
 - Ícones: `tools/make_textures.py --icons` (rodar com o Python do Blender + `PYTHONPATH=C:\Users\pedro\vale-tools\pylibs`).
 - Ver um modelo exportado de frente/lado/3/4: `C:\Users\pedro\vale-tools\views.py` (Blender, EEVEE, rápido).
 - Ferramentas nesta máquina (Windows): `C:\Users\pedro\vale-tools\` — Blender 5.2.3 portátil, Godot 4.3 (console),
@@ -120,4 +122,6 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).
 - Limitações conhecidas: modelos dos heróis têm 5-9 MB cada (dá para reduzir malha). O PC atual do dono tem
   NVIDIA GeForce RTX 2070 — dá para tentar IA de imagem→3D (Hunyuan3D) no futuro.
-- Lembretes: o dono não testou jogando com teclado/mouse ainda; antes de lançar trocar `ADMIN_ENABLED` para false.
+- Lembretes: o dono não testou jogando com teclado/mouse ainda; antes de lançar trocar `ADMIN_ENABLED` para false
+  e `TEST_MP_REGEN` para 0.0 (data.gd; +25 de mana/s só para testes). Mana base subiu 50% e a recarga normal é
+  `MP_REGEN_FLAT` + `MP_REGEN_PCT` × mana máxima por segundo.
