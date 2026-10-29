@@ -30,6 +30,12 @@ var shop_bonus := {}             # "atk"/"hp"/"mp"/"speed" -> bônus somado das 
 var pet := ""                    # mascote da loja ativo (id)
 var pet_levels: Dictionary = {}  # id -> [nível, xp] de cada pet
 var _pet_node: Pet
+# montaria (loja): R monta/desmonta; atacar desmonta; fora de combate, andando, monta sozinho
+var mount := ""
+var riding := false
+var _mount_kit: ModelKit
+var _ride_t := 0.0
+var _trail_t := 0.0
 var xp_boost_until := 0.0        # horário Unix até quando o XP vale dobrado
 var purchases: Array = []        # registro de compras/créditos (para o banco de dados)
 var skill_cd: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -195,6 +201,7 @@ func skill_ready(i: int) -> bool:
 func cast_skill(i: int, point: Vector3) -> bool:
 	if not alive or _leaping or i >= skill_count():
 		return false
+	set_riding(false)
 	if skill_levels[i] < 1:
 		var need: int = GameData.SKILL_UNLOCK[i]
 		message.emit("%s: %s" % [skill(i)["name"], ("aprenda no painel de Skills (K)" if level >= need else "liberada no nível %d" % need)])
@@ -257,6 +264,7 @@ func basic_ready() -> bool:
 func basic_attack(point: Vector3) -> void:
 	if not basic_ready():
 		return
+	set_riding(false)
 	basic_cd = float(cdata["cd"]) / (1.0 + (passive_amount("heat") if heat_t > 0.0 else 0.0))
 	_act_t = 0.3
 	_since_action = 0.0
@@ -398,6 +406,9 @@ func _physics_process(delta: float) -> void:
 	manual_input = input != Vector3.ZERO
 	var dir := input if manual_input else auto_dir
 	var spd := speed * (1.0 + speed_buff + (passive_amount("owl") if in_combat() else 0.0))
+	_mount_tick(delta, input != Vector3.ZERO or auto_dir != Vector3.ZERO)
+	if riding:
+		spd *= 1.0 + float(Shop.item(mount).get("speed", 0.0))
 	if _leaping:
 		return
 	if _dash_t > 0.0:
@@ -416,7 +427,11 @@ func _physics_process(delta: float) -> void:
 	if dir != Vector3.ZERO and _act_t <= 0.0 and _dash_t <= 0.0:
 		facing = facing.slerp(dir, minf(1.0, 14.0 * delta)).normalized()
 		rotation.y = atan2(-facing.x, -facing.z)
-	if _kit != null and _act_t <= 0.0:
+	if _mount_kit != null:
+		_mount_kit.play("walk" if dir != Vector3.ZERO else "idle", spd / 9.0 if dir != Vector3.ZERO else 1.0)
+	if riding and _kit != null and _act_t <= 0.0:
+		_kit.play("idle")
+	elif _kit != null and _act_t <= 0.0:
 		if dir != Vector3.ZERO:
 			if _kit.has_anim("run") and spd > 6.0:
 				_kit.play("run", spd / 7.5)   # personagens humanizados: corrida com o corpo inteiro
@@ -562,6 +577,8 @@ func take_damage(n: int, from: Vector3 = Vector3.ZERO, attacker: Node = null) ->
 		Sfx.play("sk_dash", -6.0, 1.3)
 		return
 	var dmg := float(n) * (1.0 - defense) * (1.0 - guard)
+	if riding:
+		dmg *= 1.0 - float(Shop.item(mount).get("def", 0.0))
 	if shield > 0.0:
 		var absorbed := minf(shield, dmg)
 		shield -= absorbed
@@ -809,6 +826,25 @@ func _build_visuals() -> void:
 	_kit.play("idle")
 	attach_weapon(_kit, class_key, w_r)
 	add_gear_effects(_vis, _kit, w_r, a_r, class_key)
+	_mount_kit = null
+	if riding and mount != "":
+		var it := Shop.item(mount)
+		_mount_kit = ModelKit.load_kit(String(it["model"]), 0.03)
+		if _mount_kit != null:
+			var mh := Node3D.new()
+			mh.position.y = float(it.get("fly", 0.0))
+			mh.add_child(_mount_kit.root)
+			_vis.add_child(mh)
+			_mount_kit.play("idle")
+			# tamanho pela altura pedida ("height"); sela a 55% da altura ("seat")
+			var top := 0.01
+			for m in _mount_kit.root.find_children("*", "MeshInstance3D", true, false):
+				var mi := m as MeshInstance3D
+				top = maxf(top, (mi.global_transform * mi.get_aabb()).end.y if mi.is_inside_tree() else mi.get_aabb().end.y)
+			mh.scale = Vector3.ONE * float(it.get("height", 1.4)) / top
+			_kit.root.position.y = mh.position.y + float(it.get("height", 1.4)) * float(it.get("seat", 0.55))
+			for m in _mount_kit.mats:
+				_kit.mats.append(m)
 	if _pet_node != null:
 		_pet_node.queue_free()
 		_pet_node = null
@@ -836,6 +872,44 @@ func pet_gain(n: int = 1) -> bool:
 		up = true
 	pet_levels[pet] = lv
 	return up
+
+
+func set_riding(on: bool) -> void:
+	on = on and mount != "" and alive
+	_ride_t = 0.0
+	if on == riding and not on:
+		return
+	riding = on   # montado de novo (ou trocou de montaria): redesenha
+	if _vis != null:
+		_build_visuals()
+	if on:
+		Sfx.play("sk_dash", -8.0, 0.8)
+
+
+func toggle_ride() -> void:
+	set_riding(not riding)
+
+
+func _mount_tick(delta: float, moving: bool) -> void:
+	if mount == "":
+		return
+	if not riding:
+		_ride_t = _ride_t + delta if moving and not in_combat() else 0.0
+		if _ride_t > 2.0:
+			set_riding(true)
+		return
+	var it := Shop.item(mount)
+	if it.has("regen"):
+		hp = minf(max_hp, hp + max_hp * float(it["regen"]) * delta)
+	if it.has("trail"):
+		_trail_t -= delta
+		if _trail_t <= 0.0 and moving:
+			_trail_t = 0.4
+			Fx.burst(get_parent(), global_position + Vector3(0, 0.3, 0), Color(1.0, 0.45, 0.1), 10, 2.0, 0.12, 0.8, 1.0)
+			for n in get_tree().get_nodes_in_group("enemy"):
+				var e := n as Enemy
+				if e != null and e.global_position.distance_to(global_position) < 3.0:
+					e.take_damage(int(atk * float(it["trail"])), global_position)
 
 
 func rebuild_visuals() -> void:

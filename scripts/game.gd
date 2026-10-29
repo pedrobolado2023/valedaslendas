@@ -296,6 +296,7 @@ func _apply_save(d: Dictionary) -> void:
 	player.shop_counts = d.get("shop_counts", {})
 	player.shop_bonus = d.get("shop_bonus", {})
 	player.pet = String(d.get("pet", ""))
+	player.mount = String(d.get("mount", ""))
 	player.pet_levels = d.get("pet_levels", {})
 	player.xp_boost_until = float(d.get("xp_boost_until", 0.0))
 	player.purchases = d.get("purchases", [])
@@ -343,7 +344,7 @@ func save_now() -> void:
 	SaveGame.write({
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
-		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "pet_levels": player.pet_levels,
+		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "pet_levels": player.pet_levels,
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
@@ -584,6 +585,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			board_panel.toggle()
 		KEY_I:
 			gear_panel.toggle()
+		KEY_R:
+			player.toggle_ride()
 		KEY_P:
 			pet_panel.toggle()
 		KEY_L:

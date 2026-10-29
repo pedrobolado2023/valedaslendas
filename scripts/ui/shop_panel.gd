@@ -105,6 +105,8 @@ func refresh() -> void:
 		var n := Shop.owned(player, id)
 		var mx := int(it.get("max", 0))
 		var info := "Comprado %d/%d" % [n, mx] if mx > 1 else ("Já tem" if mx == 1 and n > 0 else "")
+		if String(it["kind"]) == "mount" and player.mount == id:
+			info = "Em uso (R monta)"
 		if String(it["kind"]) == "pet" and player.pet == id:
 			info = "Ativo"
 		if String(it["kind"]) == "xp_boost" and Time.get_unix_time_from_system() < player.xp_boost_until:
@@ -115,6 +117,15 @@ func refresh() -> void:
 		b.text = "%d gemas" % int(it["price"]) if why == "" or why == "Gemas insuficientes" else why
 		b.disabled = why != ""
 		# mascote já comprado pode ser trocado de volta de graça
+		if String(it["kind"]) == "mount" and n > 0 and player.mount != id:
+			b.text = "Usar"
+			b.disabled = false
+			for conn in b.pressed.get_connections():
+				b.pressed.disconnect(conn["callable"])
+			b.pressed.connect(func() -> void:
+				player.mount = id
+				player.set_riding(true)
+				refresh())
 		if String(it["kind"]) == "pet" and n > 0 and player.pet != id:
 			b.text = "Usar"
 			b.disabled = false

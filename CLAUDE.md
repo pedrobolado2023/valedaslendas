@@ -126,6 +126,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `shaders/lava_rock.gdshader` no ModelKit (rachaduras pulsando; o glTF inverte o V dos UVs).
 - **Pets (tecla P):** `scripts/pet.gd` + `ui/pet_panel.gd`; função de cada mascote no campo "func" do item da loja
   (attack/bite/fire/heal/shield/loot), nível por mortes em `player.pet_levels` (até `PET_MAX_LEVEL`).
+- **Montarias (loja, kind "mount"; R monta/desmonta):** modelos de monstros com `height`/`seat`/`fly`; bônus montado
+  em `speed`, `regen`, `def`, `trail` (rastro de fogo). Atacar/skill desmonta; fora de combate andando 2 s monta sozinho.
 - **Monstros no estilo novo:** `blender/creature_kit.py` (esqueleto → corpo de metaballs → remesh → pesos automáticos
   → peças rígidas e asas de membrana → cores por vértice → animações) e `blender/make_monsters.py` (rodar com
   `blender -b -P blender/make_monsters.py -- nome1,nome2`). Todos os 20 feitos (lobos, dragões, golens, yetis,
