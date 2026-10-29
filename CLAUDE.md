@@ -67,14 +67,16 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   chave inglesa e para o canhão (a arma tem raridade própria, independente da armadura). Ataque = marretada.
   Lendária tem o nó "Aureola" com o eixo de giro em +Z no Godot (o jogo gira `rotation:z`). Luvas são recortadas
   da própria mão do corpo (`gloves`), porque os moldes de roupa não cobrem os dedos.
+- **Náutico humanizado:** `make_nautical_mpfb.py` (usa funções das outras três). Marinheiro barbudo; tridente na
+  direita apontando para frente e um pouco para baixo (-Z do "Weapon"); base com pés afastados que o ciclo de pernas
+  desfaz ao andar; ataque = estocada com avanço. Barba recortada do próprio rosto (`beard`).
 - Ver um modelo exportado de frente/lado/3/4: `C:\Users\pedro\vale-tools\views.py` (Blender, EEVEE, rápido).
 - Ferramentas nesta máquina (Windows): `C:\Users\pedro\vale-tools\` — Blender 5.2.3 portátil, Godot 4.3 (console),
   mpfb2, makehuman (só `data/eyes`), backup dos modelos antigos do Assassino em `backup_assassino\`.
   `MH_DATA=C:\Users\pedro\vale-tools\makehuman\makehuman\data`; `TIER=<raridade>` gera só uma raridade.
 
 ## Próximos passos combinados com o dono
-1. Aplicar o processo MPFB2 (corpo humano, pegada correta da arma, animações naturais) no
-   **Náutico** (tridente) — Druida, Assassino e Mecânico já feitos.
+1. ~~Humanizar as 4 classes com MPFB2~~ — feito (Druida, Assassino, Mecânico, Náutico). Falta o dono testar jogando.
 2. Texturas pintadas nas roupas (costuras, desenhos); cabelo melhor; capa/cabelo com balanço.
 3. Animações específicas por skill.
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).
