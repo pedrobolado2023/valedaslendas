@@ -120,6 +120,12 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   e `scripts/world_boss.gd` (fases 100/60/30%: sopro em cone, meteoros, voo e queda, dragonetes, anel de fogo;
   mira em todos do grupo "player" — pronto para o multiplayer). Admin F1: "Boss global: começar agora".
   O save nunca guarda o covil: volta para `return_map`. Inimigos podem ter `leash`/`aggro_r` nos dados.
+- **Dragão de Lava (boss global, modelo do Gemini `dragon_boss.html`):** malha extraída com Node
+  (`tools/dragon_extract/gen.mjs`, precisa `npm i three@0.160.0`) → `blender/make_lava_dragon.py` (reduz, posição de
+  repouso nos UVs, esqueleto pela forma do corpo, idle/walk/attack) → `models/dragon_lava.glb`. Materiais `lava_*` viram
+  `shaders/lava_rock.gdshader` no ModelKit (rachaduras pulsando; o glTF inverte o V dos UVs).
+- **Pets (tecla P):** `scripts/pet.gd` + `ui/pet_panel.gd`; função de cada mascote no campo "func" do item da loja
+  (attack/bite/fire/heal/shield/loot), nível por mortes em `player.pet_levels` (até `PET_MAX_LEVEL`).
 - **Monstros no estilo novo:** `blender/creature_kit.py` (esqueleto → corpo de metaballs → remesh → pesos automáticos
   → peças rígidas e asas de membrana → cores por vértice → animações) e `blender/make_monsters.py` (rodar com
   `blender -b -P blender/make_monsters.py -- nome1,nome2`). Todos os 20 feitos (lobos, dragões, golens, yetis,

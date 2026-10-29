@@ -124,6 +124,16 @@ static func static_mesh(model: String, outline: float = 0.04, detail: float = 0.
 
 static func convert_material(src_mat: Material, outline: float, detail: float, collect: Array) -> Material:
 	var src := src_mat as BaseMaterial3D
+	if src_mat != null and src_mat.resource_name.begins_with("lava_"):   # Dragão de Lava: rachaduras brilhando
+		var lm := ShaderMaterial.new()
+		lm.shader = preload("res://shaders/lava_rock.gdshader")
+		lm.set_shader_parameter("albedo", src.albedo_color if src != null else Color.WHITE)
+		lm.set_shader_parameter("crack_scale", 5.0 if src_mat.resource_name == "lava_wing" else 10.0)
+		lm.set_shader_parameter("fill", 0.12 if src_mat.resource_name == "lava_wing" else 0.0)
+		lm.set_shader_parameter("use_vertex_color", src_mat.resource_name == "lava_body")
+		if collect != null:
+			collect.append(lm)
+		return lm
 	if src != null and src.emission_enabled:
 		var e := src.emission
 		var mx := maxf(e.r, maxf(e.g, e.b))

@@ -204,7 +204,7 @@ const BASE_ENEMIES := {
 	"golem_boss": {"name": "Golem Guardião", "model": "golem", "scale": 1.15, "hp": 9000, "dmg": 70, "speed": 2.4, "level": 15,
 		"xp": 7000, "gold": Vector2i(500, 800), "radius": 1.6, "height": 2.4, "bar": 5.4, "range": 3.6, "atk_cd": 2.6, "style": "slam", "slam_r": 5.5, "boss": true, "outline": 0.05},
 	# boss global (ver GLOBAL_BOSS): vida e dano baixos de propósito enquanto o jogo é testado — aumentar depois
-	"dragon_global": {"name": "Dragão Ancestral", "model": "dragon_ancient", "scale": 3.4, "hp": 6000, "dmg": 30, "speed": 3.2, "level": 50,
+	"dragon_global": {"name": "Dragão de Lava", "model": "dragon_lava", "scale": 3.4, "hp": 6000, "dmg": 30, "speed": 3.2, "level": 50,
 		"xp": 0, "gold": Vector2i(0, 0), "radius": 4.5, "height": 5.0, "bar": 11.0, "range": 7.5, "atk_cd": 2.4, "style": "melee",
 		"boss": true, "outline": 0.012, "leash": 999.0, "aggro_r": 70.0},
 	"dragon_hatchling": {"name": "Dragonete", "model": "dragon_whelp", "scale": 0.5, "hp": 220, "dmg": 10, "speed": 4.4, "level": 30,
