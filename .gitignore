@@ -1,0 +1,17 @@
+# Cache de importação do Godot (é recriado ao abrir o projeto)
+.godot/
+*.import.tmp
+
+# Builds exportados
+export/
+*.exe
+*.pck
+
+# Blender
+*.blend1
+__pycache__/
+
+# Sistema
+Thumbs.db
+desktop.ini
+.DS_Store
