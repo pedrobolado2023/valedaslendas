@@ -513,9 +513,12 @@ const SHOP := [
 	{"id": "pocao_sabedoria", "name": "Poção de Sabedoria", "desc": "Sobe 1 nível na hora", "price": 80, "kind": "level", "amount": 1, "max": 0, "color": Color(0.8, 0.5, 1.0)},
 	{"id": "pergaminho_xp", "name": "Pergaminho de XP em Dobro", "desc": "XP em dobro por 30 minutos", "price": 60, "kind": "xp_boost", "minutes": 30, "max": 0, "color": Color(1.0, 0.9, 0.4)},
 	{"id": "saco_ouro", "name": "Saco de Ouro", "desc": "+10.000 de ouro", "price": 40, "kind": "gold", "amount": 10000, "max": 0, "color": Color(1.0, 0.82, 0.3)},
-	{"id": "pet_coruja", "name": "Mascote: Coruja Mística", "desc": "Voa ao seu lado. +5% de XP", "price": 250, "kind": "pet", "model": "pet_owl", "xp": 0.05, "max": 1, "color": Color(0.75, 0.6, 1.0)},
-	{"id": "pet_aguaviva", "name": "Mascote: Água-viva", "desc": "Flutua ao seu lado. +5% de XP", "price": 250, "kind": "pet", "model": "pet_jelly", "xp": 0.05, "max": 1, "color": Color(0.5, 0.85, 1.0)},
-	{"id": "pet_peixe", "name": "Mascote: Peixe Dourado", "desc": "Nada no ar ao seu lado. +8% de XP", "price": 400, "kind": "pet", "model": "pet_fish", "xp": 0.08, "max": 1, "color": Color(1.0, 0.75, 0.3)},
+	{"id": "pet_coruja", "name": "Mascote: Coruja Mística", "desc": "Atira raios mágicos no inimigo mais perto. +5% de XP", "price": 250, "kind": "pet", "model": "pet_owl", "func": "attack", "cd": 1.6, "dmg": 0.35, "xp": 0.05, "max": 1, "color": Color(0.75, 0.6, 1.0)},
+	{"id": "pet_aguaviva", "name": "Mascote: Água-viva", "desc": "Cura você quando a vida cai. +5% de XP", "price": 250, "kind": "pet", "model": "pet_jelly", "func": "heal", "cd": 4.0, "heal": 0.06, "xp": 0.05, "max": 1, "color": Color(0.5, 0.85, 1.0)},
+	{"id": "pet_peixe", "name": "Mascote: Peixe Dourado", "desc": "Puxa ouro e itens de longe. +8% de XP", "price": 400, "kind": "pet", "model": "pet_fish", "func": "loot", "cd": 1.0, "xp": 0.08, "max": 1, "color": Color(1.0, 0.75, 0.3)},
+	{"id": "pet_lobinho", "name": "Mascote: Lobinho", "desc": "Corre e morde os inimigos. +5% de XP", "price": 300, "kind": "pet", "model": "wolf", "scale": 0.35, "fly": false, "func": "bite", "cd": 1.2, "dmg": 0.45, "xp": 0.05, "max": 1, "color": Color(0.8, 0.8, 0.85)},
+	{"id": "pet_dragaozinho", "name": "Mascote: Dragãozinho", "desc": "Cospe bolas de fogo em área. +8% de XP", "price": 500, "kind": "pet", "model": "dragon_whelp", "scale": 0.3, "func": "fire", "cd": 3.5, "dmg": 0.6, "xp": 0.08, "max": 1, "color": Color(1.0, 0.5, 0.2)},
+	{"id": "pet_slime", "name": "Mascote: Slime Guardião", "desc": "Cria um escudo em você no combate. +5% de XP", "price": 350, "kind": "pet", "model": "slime", "scale": 0.4, "fly": false, "func": "shield", "cd": 12.0, "heal": 0.1, "xp": 0.05, "max": 1, "color": Color(0.4, 1.0, 0.6)},
 ]
 ## Gemas grátis dadas pelo jogo (para testar a loja sem pagamento).
 const GEMS_START := 300
@@ -651,6 +654,14 @@ const SLOT_INFO := {
 	"earring": {"name": "Brincos", "stats": {"mp": 0.05, "def": 0.01}},
 	"ring": {"name": "Anel", "stats": {"atk": 0.04, "hp": 0.02}},
 }
+## Pets: nível máximo e mortes para subir (cada morte dá 1 XP de pet).
+const PET_MAX_LEVEL := 50
+
+
+static func pet_xp_need(lvl: int) -> int:
+	return 20 + lvl * 10
+
+
 ## Quanto cada raridade multiplica os atributos da peça.
 const RARITY_MULT := {"comum": 1.0, "rara": 1.6, "epica": 2.5, "lendaria": 4.0}
 ## Refino +1 a +15: cada + soma 6% dos atributos da peça. Custo em ouro e chance de sucesso (falhar não perde nada).

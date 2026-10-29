@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dragão Boss de Lava - Estilo Wartune</title>
+<meta name="description" content="Dragão boss procedural com armadura escura, rachaduras de lava e asas rasgadas. Exporta GLB/OBJ.">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#0a0706;font-family:'Segoe UI',system-ui,sans-serif;color:#f1d9c0}
+  canvas{display:block}
+  #ui{position:fixed;top:16px;left:16px;padding:14px 16px;border-radius:12px;background:rgba(20,10,6,.7);
+    backdrop-filter:blur(8px);border:1px solid rgba(255,120,40,.35);box-shadow:0 0 24px rgba(255,90,20,.18);width:220px}
+  h1{font-size:14px;margin:0 0 10px;color:#ff9a3d;letter-spacing:.6px;text-transform:uppercase}
+  label{display:block;font-size:12px;margin-top:8px}
+  input[type=range]{width:100%;accent-color:#ff6a1a}
+  button{width:100%;margin-top:8px;padding:8px;border:0;border-radius:8px;background:linear-gradient(#ff7a1f,#c8400a);color:#fff;font-weight:700;cursor:pointer;transition:.15s}
+  button:hover{filter:brightness(1.15);transform:translateY(-1px)}
+  button:disabled{background:#555;cursor:wait}
+  #stats{font-size:11px;opacity:.65;margin-top:8px;line-height:1.4}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;background:#0a0706;z-index:5;color:#ff9a3d}
+</style>
+</head>
+<body>
+<div id="loading">Forjando o dragão…</div>
+<div id="ui">
+  <h1>Boss · Dragão de Lava</h1>
+  <label>Brilho da lava <input id="glow" type="range" min="0" max="2" step="0.05" value="1"></label>
+  <label>Bloom <input id="bloom" type="range" min="0" max="2" step="0.05" value="0.5"></label>
+  <button id="glb" disabled>Exportar GLB</button>
+  <button id="obj" disabled>Exportar OBJ</button>
+  <div id="stats"></div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+"three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { edgeTable, triTable } from 'three/addons/objects/MarchingCubes.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
+document.body.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0a0605);
+scene.fog=new THREE.FogExp2(0x180a05,0.018);
+const camera=new THREE.PerspectiveCamera(36,innerWidth/innerHeight,0.1,200);
+camera.position.set(9,4.6,13);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(-1.0,3.8,0); controls.enableDamping=true;
+controls.minDistance=8; controls.maxDistance=45; controls.maxPolarAngle=Math.PI/2.02;
+controls.autoRotate=true; controls.autoRotateSpeed=0.5;
+
+// ---------- Luzes ----------
+scene.add(new THREE.HemisphereLight(0x806050,0x200a04,0.5));
+const key=new THREE.DirectionalLight(0xffe2c0,1.6); key.position.set(9,14,11); key.castShadow=true;
+key.shadow.mapSize.set(2048,2048); key.shadow.bias=-0.0005;
+Object.assign(key.shadow.camera,{left:-14,right:14,top:14,bottom:-14,near:1,far:50}); scene.add(key);
+const rim=new THREE.DirectionalLight(0xff5a1a,2.6); rim.position.set(-10,6,-9); scene.add(rim);
+const under=new THREE.PointLight(0xff4a10,10,18,1.6); under.position.set(0,0.4,0); scene.add(under);
+const mouthLight=new THREE.PointLight(0xff7a20,6,6,1.8); mouthLight.position.set(5.0,4.5,0); scene.add(mouthLight);
+
+// ---------- Material de rocha escura com rachaduras de lava (shader procedural em espaço de objeto) ----------
+const U={uTime:{value:0},uGlow:{value:1}};
+const GLSL=`
+vec3 h3(vec3 p){p=vec3(dot(p,vec3(127.1,311.7,74.7)),dot(p,vec3(269.5,183.3,246.1)),dot(p,vec3(113.5,271.9,124.6)));return fract(sin(p)*43758.5453);}
+vec4 vor(vec3 x){vec3 p=floor(x),f=fract(x);float d1=8.,d2=8.,id=0.;
+ for(int k=-1;k<=1;k++)for(int j=-1;j<=1;j++)for(int i=-1;i<=1;i++){
+  vec3 g=vec3(float(i),float(j),float(k));vec3 o=h3(p+g);vec3 r=g+o-f;float d=dot(r,r);
+  if(d<d1){d2=d1;d1=d;id=o.x;}else if(d<d2){d2=d;}}
+ return vec4(sqrt(d1),sqrt(d2),id,0.);}
+`;
+const lavaMats=[];
+function lavaMat({color=0xffffff,scale=2.2,glow=1,fill=0,rough=0.72,metal=0.2,bump=0.7,vc=false,side=THREE.FrontSide}={}){
+  const m=new THREE.MeshStandardMaterial({color,roughness:rough,metalness:metal,vertexColors:vc,side});
+  m.onBeforeCompile=sh=>{
+    Object.assign(sh.uniforms,{uTime:U.uTime,uGlow:U.uGlow,uScale:{value:scale},uMat:{value:glow},uFill:{value:fill},uBump:{value:bump}});
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec3 vObj;')
+      .replace('#include <begin_vertex>','#include <begin_vertex>\nvObj=position;');
+    sh.fragmentShader=sh.fragmentShader
+      .replace('#include <common>',`#include <common>\nvarying vec3 vObj;\nuniform float uTime,uGlow,uScale,uMat,uFill,uBump;\n${GLSL}`)
+      .replace('#include <color_fragment>',`#include <color_fragment>
+        vec4 vcl=vor(vObj*uScale); float edge=vcl.y-vcl.x;
+        float plate=smoothstep(0.0,0.38,edge);
+        float crackMask=1.0-smoothstep(0.0,0.04,edge);
+        diffuseColor.rgb*=(0.6+0.8*vcl.z)*(0.5+0.5*plate);`)
+      .replace('#include <normal_fragment_maps>',`#include <normal_fragment_maps>
+        { float hh=plate*0.85+vcl.z*0.15;
+          vec3 dpx=dFdx(-vViewPosition),dpy=dFdy(-vViewPosition);
+          float dhx=dFdx(hh),dhy=dFdy(hh);
+          vec3 r1=cross(dpy,normal),r2=cross(normal,dpx);
+          float det=dot(dpx,r1);
+          vec3 grad=sign(det)*(dhx*r1+dhy*r2);
+          normal=normalize(abs(det)*normal-uBump*grad); }`)
+      .replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+        float pulse=0.75+0.25*sin(uTime*1.7+vcl.z*12.0);
+        vec3 hot=mix(vec3(1.0,0.2,0.02),vec3(1.0,0.6,0.12),smoothstep(0.02,0.0,edge));
+        totalEmissiveRadiance+=hot*crackMask*pulse*uGlow*uMat*1.3;
+        totalEmissiveRadiance+=vec3(1.0,0.3,0.05)*uFill*(0.4+0.6*vcl.z)*(0.6+0.4*pulse)*uGlow;`);
+  };
+  lavaMats.push(m); return m;
+}
+const bodyMat=lavaMat({vc:true,scale:5.0,glow:1});
+const boneMat=lavaMat({color:0x2b2420,scale:5.0,glow:0.3,rough:0.6});
+const hornMat=lavaMat({color:0x3a2e28,scale:4.0,glow:0.4,rough:0.5,metal:0.3});
+const wingMat=lavaMat({color:0x3a1208,scale:2.0,glow:0.8,fill:0.12,rough:0.8,metal:0,bump:0.3,side:THREE.DoubleSide});
+const groundMat=lavaMat({color:0x1c1512,scale:0.28,glow:0.3,rough:0.9,metal:0,bump:0.9});
+const toothMat=new THREE.MeshStandardMaterial({color:0xe6d7b8,roughness:0.4});
+const clawMat=new THREE.MeshStandardMaterial({color:0x1d1612,roughness:0.28,metalness:0.4});
+const eyeMat=new THREE.MeshStandardMaterial({color:0x000000,emissive:0xffb41e,emissiveIntensity:5});
+const mouthMat=new THREE.MeshStandardMaterial({color:0x000000,emissive:0xff6a14,emissiveIntensity:3.5});
+
+// ---------- Chão de rocha vulcânica ----------
+const ground=new THREE.Mesh(new THREE.CircleGeometry(40,96),groundMat);
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.03; ground.receiveShadow=true; scene.add(ground);
+
+// ---------- Brasas ----------
+const EMB=700, ep=new Float32Array(EMB*3), ev=new Float32Array(EMB);
+for(let i=0;i<EMB;i++){ep[i*3]=(Math.random()-0.5)*40;ep[i*3+1]=Math.random()*14;ep[i*3+2]=(Math.random()-0.5)*40;ev[i]=0.3+Math.random()*0.9;}
+const eg=new THREE.BufferGeometry(); eg.setAttribute('position',new THREE.BufferAttribute(ep,3));
+const dot=document.createElement('canvas'); dot.width=dot.height=64; {const c=dot.getContext('2d'),g=c.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,230,160,1)');g.addColorStop(0.3,'rgba(255,120,30,.8)');g.addColorStop(1,'rgba(255,60,0,0)');c.fillStyle=g;c.fillRect(0,0,64,64);}
+const embers=new THREE.Points(eg,new THREE.PointsMaterial({size:0.22,map:new THREE.CanvasTexture(dot),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+scene.add(embers);
+
+// ======================= SDF do corpo =======================
+const smin=(a,b,k)=>{const h=Math.max(k-Math.abs(a-b),0)/k;return Math.min(a,b)-h*h*k*0.25;};
+const sdEll=(x,y,z,e)=>{
+  const px=x-e[0],py=y-e[1],pz=z-e[2];
+  const k0=Math.hypot(px/e[3],py/e[4],pz/e[5]), k1=Math.hypot(px/(e[3]*e[3]),py/(e[4]*e[4]),pz/(e[5]*e[5]));
+  return k1<1e-9?-Math.min(e[3],e[4],e[5]):k0*(k0-1)/k1;
+};
+function makeRC(a,b,r1,r2){
+  const ba=[b[0]-a[0],b[1]-a[1],b[2]-a[2]],l2=ba[0]**2+ba[1]**2+ba[2]**2,rr=r1-r2,a2=l2-rr*rr,il2=1/l2;
+  return (x,y,z)=>{
+    const pa=[x-a[0],y-a[1],z-a[2]],yy=pa[0]*ba[0]+pa[1]*ba[1]+pa[2]*ba[2],zz=yy-l2;
+    const vx=pa[0]*l2-ba[0]*yy,vy=pa[1]*l2-ba[1]*yy,vz=pa[2]*l2-ba[2]*yy;
+    const x2=vx*vx+vy*vy+vz*vz,y2=yy*yy*l2,z2=zz*zz*l2,k=Math.sign(rr)*rr*rr*x2;
+    if(Math.sign(zz)*a2*z2>k) return Math.sqrt(x2+z2)*il2-r2;
+    if(Math.sign(yy)*a2*y2<k) return Math.sqrt(x2+y2)*il2-r1;
+    return (Math.sqrt(x2*a2*il2)+yy*rr)*il2-r1;
+  };
+}
+const ells=[], rcs=[];
+const E=(c,r,k=0.35)=>ells.push([...c,...r,k]);
+const R=(a,b,r1,r2,k=0.35)=>rcs.push({f:makeRC(a,b,r1,r2),k});
+// tronco
+E([0,2.3,0],[1.9,1.1,1.0]); E([1.4,2.5,0],[1.2,1.2,1.0]); E([-1.6,2.4,0],[1.2,1.0,0.95]);
+// pescoço
+R([2.2,2.9,0],[2.9,3.6,0],0.78,0.62); R([2.9,3.6,0],[3.4,4.4,0],0.62,0.5); R([3.4,4.4,0],[3.95,4.9,0],0.5,0.48);
+// cabeça
+E([4.4,5.0,0],[0.78,0.56,0.56],0.25);
+R([4.55,5.0,0],[5.45,4.85,0],0.4,0.24,0.12);      // focinho superior
+R([4.35,4.5,0],[5.2,4.05,0],0.27,0.15,0.1);       // mandíbula aberta
+E([4.65,5.3,0.36],[0.32,0.15,0.2],0.1); E([4.65,5.3,-0.36],[0.32,0.15,0.2],0.1); // sobrancelhas
+E([4.15,4.72,0.45],[0.42,0.3,0.25],0.15); E([4.15,4.72,-0.45],[0.42,0.3,0.25],0.15); // bochechas
+for(const s of [1,-1]){
+  // pata dianteira
+  R([1.5,2.2,s*0.85],[1.0,1.15,s*1.05],0.52,0.4); R([1.0,1.15,s*1.05],[1.7,0.4,s*1.1],0.4,0.28,0.2);
+  E([1.95,0.16,s*1.15],[0.55,0.19,0.42],0.12);
+  // pata traseira
+  R([-1.5,2.4,s*0.9],[-0.7,1.3,s*1.1],0.85,0.52); R([-0.7,1.3,s*1.1],[-1.7,0.7,s*1.12],0.52,0.3,0.25);
+  R([-1.7,0.7,s*1.12],[-1.2,0.14,s*1.15],0.3,0.24,0.1); E([-0.95,0.16,s*1.15],[0.6,0.19,0.44],0.12);
+}
+// cauda
+const tailCurve=new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-2.5,2.4,0),new THREE.Vector3(-3.8,2.0,0.2),new THREE.Vector3(-5.2,1.3,0.9),
+  new THREE.Vector3(-6.6,0.9,1.3),new THREE.Vector3(-7.8,1.4,0.9),new THREE.Vector3(-8.6,2.3,0.2)]);
+const tp=tailCurve.getPoints(14);
+for(let i=0;i<tp.length-1;i++){
+  const r1=0.95*Math.pow(1-i/(tp.length-1),1.15)+0.07, r2=0.95*Math.pow(1-(i+1)/(tp.length-1),1.15)+0.07;
+  R([tp[i].x,tp[i].y,tp[i].z],[tp[i+1].x,tp[i+1].y,tp[i+1].z],r1,r2,0.3);
+}
+function sdf(x,y,z){
+  let d=1e9;
+  for(const e of ells) d=smin(d,sdEll(x,y,z,e),e[6]);
+  for(const r of rcs) d=smin(d,r.f(x,y,z),r.k);
+  return d;
+}
+function grad(x,y,z,e=0.02){
+  const nx=sdf(x+e,y,z)-sdf(x-e,y,z),ny=sdf(x,y+e,z)-sdf(x,y-e,z),nz=sdf(x,y,z+e)-sdf(x,y,z-e);
+  const l=Math.hypot(nx,ny,nz)||1; return new THREE.Vector3(nx/l,ny/l,nz/l);
+}
+// raio contra o SDF (para plantar espinhos na superfície)
+function march(o,d,max=8){
+  let t=0,prev=0;
+  for(;t<max;t+=0.03){ if(sdf(o.x+d.x*t,o.y+d.y*t,o.z+d.z*t)<0) break; prev=t; }
+  if(t>=max) return null;
+  let lo=prev,hi=t; for(let i=0;i<10;i++){const m=(lo+hi)/2; sdf(o.x+d.x*m,o.y+d.y*m,o.z+d.z*m)<0?hi=m:lo=m;}
+  return new THREE.Vector3(o.x+d.x*hi,o.y+d.y*hi,o.z+d.z*hi);
+}
+
+// ======================= Marching cubes (vértices compartilhados) =======================
+function polygonize(h){
+  const X0=-9.4,X1=6.3,Y0=-0.2,Y1=6.3,Z0=-2.1,Z1=2.1;
+  const nx=Math.ceil((X1-X0)/h),ny=Math.ceil((Y1-Y0)/h),nz=Math.ceil((Z1-Z0)/h);
+  const sx=nx+1,sy=ny+1,f=new Float32Array(sx*sy*(nz+1)),id=(i,j,k)=>i+sx*(j+sy*k);
+  for(let k=0;k<=nz;k++)for(let j=0;j<=ny;j++)for(let i=0;i<=nx;i++) f[id(i,j,k)]=sdf(X0+i*h,Y0+j*h,Z0+k*h);
+  const C=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+  const EV=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  const pos=[],idx=[],map=new Map();
+  const vert=(i,j,k,e)=>{
+    const [a,b]=EV[e],ca=C[a],cb=C[b];
+    const ax=[i+ca[0],j+ca[1],k+ca[2]],bx=[i+cb[0],j+cb[1],k+cb[2]];
+    const lo=ax[0]+ax[1]+ax[2]<bx[0]+bx[1]+bx[2]?ax:bx, axis=ax[0]!==bx[0]?0:ax[1]!==bx[1]?1:2;
+    const key=((lo[0]*sy+lo[1])*(nz+1)+lo[2])*3+axis; let v=map.get(key); if(v!==undefined) return v;
+    const va=f[id(...ax)],vb=f[id(...bx)],t=va/(va-vb);
+    pos.push(X0+(ax[0]+(bx[0]-ax[0])*t)*h,Y0+(ax[1]+(bx[1]-ax[1])*t)*h,Z0+(ax[2]+(bx[2]-ax[2])*t)*h);
+    v=pos.length/3-1; map.set(key,v); return v;
+  };
+  for(let k=0;k<nz;k++)for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){
+    let ci=0; for(let c=0;c<8;c++) if(f[id(i+C[c][0],j+C[c][1],k+C[c][2])]<0) ci|=1<<c;
+    if(!edgeTable[ci]) continue;
+    const ev=[]; for(let e=0;e<12;e++) if(edgeTable[ci]&(1<<e)) ev[e]=vert(i,j,k,e);
+    for(let t=ci*16;triTable[t]!==-1;t+=3) idx.push(ev[triTable[t]],ev[triTable[t+1]],ev[triTable[t+2]]);
+  }
+  return {pos,idx};
+}
+const ss=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t);};
+const cDark=new THREE.Color(0x4a403a), cBelly=new THREE.Color(0x8a6a50), cHead=new THREE.Color(0x5a4a42), tmp=new THREE.Color();
+function buildBody(){
+  const {pos,idx}=polygonize(0.07), n=pos.length/3, normals=new Float32Array(n*3), colors=new Float32Array(n*3);
+  for(let v=0;v<n;v++){
+    const x=pos[v*3],y=pos[v*3+1],z=pos[v*3+2], g=grad(x,y,z);
+    normals[v*3]=g.x;normals[v*3+1]=g.y;normals[v*3+2]=g.z;
+    tmp.copy(cDark);
+    tmp.lerp(cHead,ss(3.7,4.3,x)*0.8);
+    tmp.lerp(cBelly,ss(-0.2,-0.7,g.y)*ss(2.6,1.6,y)*ss(4,2.5,x));       // barriga mais clara
+    colors[v*3]=tmp.r;colors[v*3+1]=tmp.g;colors[v*3+2]=tmp.b;
+  }
+  for(let t=0;t<idx.length;t+=3){
+    const a=idx[t],b=idx[t+1],c=idx[t+2];
+    const ux=pos[b*3]-pos[a*3],uy=pos[b*3+1]-pos[a*3+1],uz=pos[b*3+2]-pos[a*3+2];
+    const wx=pos[c*3]-pos[a*3],wy=pos[c*3+1]-pos[a*3+1],wz=pos[c*3+2]-pos[a*3+2];
+    const d=(uy*wz-uz*wy)*(normals[a*3]+normals[b*3]+normals[c*3])+(uz*wx-ux*wz)*(normals[a*3+1]+normals[b*3+1]+normals[c*3+1])+(ux*wy-uy*wx)*(normals[a*3+2]+normals[b*3+2]+normals[c*3+2]);
+    if(d<0){idx[t+1]=c;idx[t+2]=b;}
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  g.setAttribute('normal',new THREE.BufferAttribute(normals,3));
+  g.setAttribute('color',new THREE.BufferAttribute(colors,3));
+  g.setIndex(idx); return g;
+}
+
+// ======================= Peças extras =======================
+const dragon=new THREE.Group(); dragon.name='Dragon_Boss'; scene.add(dragon);
+function mesh(geo,mat,parent=dragon,name=''){const m=new THREE.Mesh(geo,mat);m.castShadow=m.receiveShadow=true;m.name=name;parent.add(m);return m;}
+function taperedTube(curve,r0,r1,seg=40,rad=14){
+  const fr=curve.computeFrenetFrames(seg,false),P=[],I=[];
+  for(let i=0;i<=seg;i++){const t=i/seg,p=curve.getPoint(t),r=r0+(r1-r0)*t;
+    for(let j=0;j<=rad;j++){const a=j/rad*Math.PI*2,n=fr.normals[i].clone().multiplyScalar(Math.cos(a)).add(fr.binormals[i].clone().multiplyScalar(Math.sin(a)));
+      P.push(p.x+n.x*r,p.y+n.y*r,p.z+n.z*r);}}
+  for(let i=0;i<seg;i++)for(let j=0;j<rad;j++){const a=i*(rad+1)+j,b=a+rad+1;I.push(a,b,a+1,b,b+1,a+1);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));g.setIndex(I);g.computeVertexNormals();return g;
+}
+const coneG=new THREE.ConeGeometry(1,1,14), sphG=new THREE.SphereGeometry(1,24,16), UP=new THREE.Vector3(0,1,0);
+// espinho: base em p, apontando para dir
+function spike(p,dir,len,base,mat=clawMat,name='Spike'){
+  const m=mesh(coneG,mat,dragon,name); m.scale.set(base,len,base);
+  m.position.copy(p).addScaledVector(dir,len/2-0.04); m.quaternion.setFromUnitVectors(UP,dir.clone().normalize()); return m;
+}
+function buildExtras(){
+  // espinhos ao longo da coluna (duas fileiras) — plantados na superfície real do corpo
+  for(const zz of [0,0.42,-0.42]) for(let x=3.3;x>-8.2;x-=(zz===0?0.5:0.7)){
+    const p=march(new THREE.Vector3(x,8,zz),new THREE.Vector3(0,-1,0),9); if(!p) continue;
+    const n=grad(p.x,p.y,p.z), len=(0.32+0.6*Math.exp(-(((x-0.5)/3.2)**2)))*(zz===0?1:0.65);
+    spike(p,n.clone().add(new THREE.Vector3(-0.9,0,0)).normalize(),len,len*0.3,clawMat,'SpineSpike');
+  }
+  // espinhos laterais: ombros, cotovelos, joelhos, quadril
+  [[1.1,3.0],[0.0,3.1],[-1.0,3.1],[-2.0,3.0],[1.0,1.2],[-0.7,1.35],[2.2,3.4]].forEach(([x,y])=>{
+    for(const s of [1,-1]){
+      const p=march(new THREE.Vector3(x,y,s*4),new THREE.Vector3(0,0,-s),6); if(!p) continue;
+      const n=grad(p.x,p.y,p.z), d=n.clone().add(new THREE.Vector3(-0.6,0.2,0)).normalize();
+      spike(p,d,0.45,0.13,clawMat,'SideSpike');
+    }
+  });
+  // garras
+  for(const [px,pz] of [[1.95,1.15],[1.95,-1.15],[-0.95,1.15],[-0.95,-1.15]]) for(let i=-1;i<=1;i++){
+    const m=mesh(coneG,clawMat,dragon,'Claw'); m.scale.set(0.085,0.55,0.085);
+    m.position.set(px+0.62,0.12,pz+i*0.2); m.rotation.set(0,0,-Math.PI/2+0.35);
+  }
+  // cabeça: chifres curvos
+  for(const s of [1,-1]){
+    const hc=new THREE.CatmullRomCurve3([new THREE.Vector3(4.2,5.4,s*0.3),new THREE.Vector3(3.5,5.9,s*0.75),
+      new THREE.Vector3(2.7,6.0,s*1.0),new THREE.Vector3(2.0,5.5,s*0.85),new THREE.Vector3(1.8,5.0,s*0.6)]);
+    mesh(taperedTube(hc,0.24,0.025,50,16),hornMat,dragon,'Horn_'+(s>0?'R':'L'));
+    // chifre pequeno da sobrancelha e espinhos da bochecha / queixo
+    spike(new THREE.Vector3(4.75,5.38,s*0.38),new THREE.Vector3(-0.3,1,s*0.3),0.45,0.08,hornMat,'BrowHorn');
+    spike(new THREE.Vector3(4.0,4.75,s*0.62),new THREE.Vector3(-1,-0.1,s*0.7),0.55,0.11,hornMat,'CheekSpike');
+    spike(new THREE.Vector3(4.2,4.9,s*0.7),new THREE.Vector3(-0.9,0.3,s*0.9),0.35,0.08,hornMat,'CheekSpike2');
+    spike(new THREE.Vector3(4.7,4.4,s*0.15),new THREE.Vector3(-0.3,-1,s*0.2),0.3,0.07,hornMat,'ChinSpike');
+    // olhos brilhantes
+    const eye=mesh(sphG,eyeMat,dragon,'Eye_'+(s>0?'R':'L')); eye.scale.set(0.15,0.065,0.06);
+    eye.position.set(4.7,5.12,s*0.46); eye.rotation.set(0,s*0.5,s*0.45);
+  }
+  // dentes
+  for(const s of [1,-1]) for(let i=0;i<7;i++){
+    const t=i/6, ux=4.65+t*0.75, uc=5.0-0.15*(ux-4.55)/0.9, ur=0.4-0.16*(ux-4.55)/0.9;
+    const big=(i===1||i===2)?1.6:1;
+    const t1=mesh(coneG,toothMat,dragon,'Tooth'); t1.scale.set(0.045*big,0.17*big,0.045*big);
+    t1.position.set(ux,uc-ur*0.72+0.02-0.07*big,s*ur*0.7); t1.rotation.x=Math.PI;
+    const lx=4.5+t*0.65, lc=4.5-0.45*(lx-4.35)/0.85, lr=0.27-0.12*(lx-4.35)/0.85;
+    const t2=mesh(coneG,toothMat,dragon,'Tooth'); t2.scale.set(0.04,0.15,0.04);
+    t2.position.set(lx,lc+lr*0.72-0.02+0.07,s*lr*0.7);
+  }
+  // brilho dentro da boca
+  const mo=mesh(sphG,mouthMat,dragon,'MouthGlow'); mo.scale.set(0.42,0.07,0.17); mo.position.set(4.95,4.52,0); mo.rotation.z=-0.15;
+  // ---------- asas ----------
+  const S=[0.5,3.4,0.8],Eb=[0.2,5.6,2.2],W=[1.2,7.4,4.2],T=[[3.2,7.3,6.8],[0.4,7.0,8.5],[-2.6,5.7,7.5],[-3.8,3.8,5.0]],B=[-1.8,2.9,1.0];
+  const wings=[];
+  for(const s of [1,-1]){
+    const g=new THREE.Group(); g.name='Wing_'+(s>0?'R':'L'); g.position.set(S[0],S[1],s*S[2]);
+    const L=p=>new THREE.Vector3(p[0]-S[0],p[1]-S[1],s*(p[2]-S[2]));
+    const w=L(W),tips=T.map(L),b=L(B),sh=L(S);
+    // membrana (leque a partir do pulso com bordas recortadas)
+    const P=[],I=[]; P.push(w.x,w.y,w.z);
+    const ring=[...tips,b,sh];
+    const edge=[];
+    for(let i=0;i<ring.length-1;i++){
+      const A=ring[i],C=ring[i+1],straight=(i>=ring.length-2),N=straight?1:12;
+      for(let k=(i===0?0:1);k<=N;k++){
+        const t=k/N,q=A.clone().lerp(C,t);
+        if(!straight){q.add(w.clone().sub(q).multiplyScalar(0.22*Math.sin(Math.PI*t)));
+          // bordas rasgadas: pequenos dentes irregulares
+          q.y+= (Math.sin(t*37+i*3)*0.12)*Math.sin(Math.PI*t);}
+        edge.push(q);
+      }
+    }
+    edge.forEach(q=>P.push(q.x,q.y,q.z));
+    for(let i=0;i<edge.length-1;i++) I.push(0,i+1,i+2);
+    const gm=new THREE.BufferGeometry();gm.setAttribute('position',new THREE.Float32BufferAttribute(P,3));gm.setIndex(I);gm.computeVertexNormals();
+    mesh(gm,wingMat,g,'Membrane');
+    // ossos
+    const e=L(Eb);
+    mesh(taperedTube(new THREE.CatmullRomCurve3([sh,e,w]),0.26,0.12,40,14),boneMat,g,'WingArm');
+    tips.forEach((tp2,i)=>{
+      const mid=w.clone().lerp(tp2,0.5); mid.y+=0.4*(i<2?1:0.4); mid.x+=(i<2?0.2:-0.15);
+      mesh(taperedTube(new THREE.CatmullRomCurve3([w,mid,tp2]),0.12,0.02,30,10),boneMat,g,'Finger_'+i);
+    });
+    mesh(sphG,boneMat,g,'Wrist').scale.setScalar(0.24); g.children[g.children.length-1].position.copy(w);
+    const th=mesh(coneG,clawMat,g,'ThumbClaw'); th.scale.set(0.1,0.7,0.1); th.position.copy(w).add(new THREE.Vector3(0.35,0.3,0)); th.rotation.z=-1.1;
+    dragon.add(g); wings.push([g,s]);
+  }
+  return wings;
+}
+
+// ======================= Inicialização =======================
+let wings=[];
+setTimeout(()=>{
+  const t0=performance.now();
+  const g=buildBody();
+  mesh(g,bodyMat,dragon,'Dragon_Body');
+  wings=buildExtras();
+  document.getElementById('loading').remove();
+  document.getElementById('glb').disabled=document.getElementById('obj').disabled=false;
+  document.getElementById('stats').innerHTML=`Corpo: ${g.attributes.position.count.toLocaleString()} vértices<br>${(g.index.count/3).toLocaleString()} triângulos<br>Gerado em ${((performance.now()-t0)/1000).toFixed(1)}s`;
+},60);
+
+// ======================= Pós-processamento (bloom) =======================
+const composer=new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene,camera));
+const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.5,0.5,1.0);
+composer.addPass(bloom); composer.addPass(new OutputPass());
+
+// ======================= UI / export =======================
+document.getElementById('glow').oninput=e=>{U.uGlow.value=+e.target.value;};
+document.getElementById('bloom').oninput=e=>{bloom.strength=+e.target.value;};
+function download(data,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type}));a.download=name;a.click();}
+document.getElementById('glb').onclick=()=>new GLTFExporter().parse(dragon,r=>download(r,'dragon_boss.glb','model/gltf-binary'),e=>console.error(e),{binary:true});
+document.getElementById('obj').onclick=()=>download(new OBJExporter().parse(dragon),'dragon_boss.obj','text/plain');
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);});
+
+const clock=new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+  const t=clock.getElapsedTime(),dt=clock.getDelta();
+  U.uTime.value=t;
+  wings.forEach(([g,s])=>{g.rotation.x=s*0.07*Math.sin(t*1.3);});
+  const p=eg.attributes.position;
+  for(let i=0;i<EMB;i++){let y=p.getY(i)+ev[i]*0.012; if(y>14) y=0; p.setY(i,y); p.setX(i,p.getX(i)+Math.sin(t+i)*0.002);}
+  p.needsUpdate=true;
+  under.intensity=10+2*Math.sin(t*2.1); mouthLight.intensity=6+2*Math.sin(t*3.3);
+  controls.update(); composer.render();
+});
+</script>
+</body>
+</html>

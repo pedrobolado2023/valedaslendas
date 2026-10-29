@@ -25,6 +25,7 @@ var map_id := "vale"
 var missions := MissionBook.new()
 var events: WorldEvents          # boss global (horários, covil, recompensas)
 var shop_panel: ShopPanel
+var pet_panel: PetPanel
 var settings_panel: SettingsPanel
 var tutorial: Tutorial
 var tutorial_done := false
@@ -295,6 +296,7 @@ func _apply_save(d: Dictionary) -> void:
 	player.shop_counts = d.get("shop_counts", {})
 	player.shop_bonus = d.get("shop_bonus", {})
 	player.pet = String(d.get("pet", ""))
+	player.pet_levels = d.get("pet_levels", {})
 	player.xp_boost_until = float(d.get("xp_boost_until", 0.0))
 	player.purchases = d.get("purchases", [])
 	tutorial_done = bool(d.get("tutorial_done", true))   # saves antigos: quem já jogava não precisa
@@ -341,7 +343,7 @@ func save_now() -> void:
 	SaveGame.write({
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
-		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet,
+		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "pet_levels": player.pet_levels,
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
@@ -379,6 +381,9 @@ func _build_ui() -> void:
 	shop_panel = ShopPanel.new()
 	add_child(shop_panel)
 	shop_panel.setup(player)
+	pet_panel = PetPanel.new()
+	add_child(pet_panel)
+	pet_panel.setup(player)
 	settings_panel = SettingsPanel.new()
 	add_child(settings_panel)
 	settings_panel.setup(self)
@@ -579,6 +584,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			board_panel.toggle()
 		KEY_I:
 			gear_panel.toggle()
+		KEY_P:
+			pet_panel.toggle()
 		KEY_L:
 			shop_panel.toggle()
 		KEY_F1:
@@ -593,12 +600,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
 			gear_panel.visible = false
 			shop_panel.visible = false
+			pet_panel.visible = false
 			admin_panel.visible = false
 			if not any_open:
 				settings_panel.toggle()
@@ -992,6 +1000,8 @@ func _on_killed(e: Enemy) -> void:
 	if player == null:
 		return
 	player.gain_xp(int(e.data["xp"]))
+	if player.pet_gain():
+		toast("Seu pet subiu para o nível %d!" % player.pet_level(), 2.0)
 	var g: Vector2i = e.data["gold"]
 	_drop("gold", randi_range(g.x, g.y), "Ouro", e.global_position)
 	var table := "boss" if e.boss else "mob"

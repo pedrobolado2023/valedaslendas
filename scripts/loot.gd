@@ -15,6 +15,7 @@ var _vel := Vector3.ZERO
 
 
 func _ready() -> void:
+	add_to_group("loot")
 	_core = Node3D.new()
 	_core.position.y = 0.6
 	add_child(_core)

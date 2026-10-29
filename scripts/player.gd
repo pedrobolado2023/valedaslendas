@@ -28,6 +28,8 @@ var gems := 0                    # moeda premium da loja (Shop)
 var shop_counts := {}            # id -> quantas vezes comprou
 var shop_bonus := {}             # "atk"/"hp"/"mp"/"speed" -> bônus somado das runas
 var pet := ""                    # mascote da loja ativo (id)
+var pet_levels: Dictionary = {}  # id -> [nível, xp] de cada pet
+var _pet_node: Pet
 var xp_boost_until := 0.0        # horário Unix até quando o XP vale dobrado
 var purchases: Array = []        # registro de compras/créditos (para o banco de dados)
 var skill_cd: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -807,8 +809,33 @@ func _build_visuals() -> void:
 	_kit.play("idle")
 	attach_weapon(_kit, class_key, w_r)
 	add_gear_effects(_vis, _kit, w_r, a_r, class_key)
+	if _pet_node != null:
+		_pet_node.queue_free()
+		_pet_node = null
 	if pet != "":
-		_pet(_vis, String(Shop.item(pet).get("model", "pet_owl")), Vector3(1.0, 2.3, -0.2), 0.7)
+		_pet_node = Pet.new()
+		_pet_node.setup(self, Shop.item(pet))
+		add_child(_pet_node)
+
+
+func pet_level(id: String = "") -> int:
+	return int(pet_levels.get(pet if id == "" else id, [1, 0])[0])
+
+
+## Cada morte dá 1 XP ao pet ativo. Devolve true se subiu de nível.
+func pet_gain(n: int = 1) -> bool:
+	if pet == "":
+		return false
+	var lv: Array = pet_levels.get(pet, [1, 0])
+	if int(lv[0]) >= GameData.PET_MAX_LEVEL:
+		return false
+	lv = [int(lv[0]), int(lv[1]) + n]
+	var up := false
+	while int(lv[0]) < GameData.PET_MAX_LEVEL and int(lv[1]) >= GameData.pet_xp_need(int(lv[0])):
+		lv = [int(lv[0]) + 1, int(lv[1]) - GameData.pet_xp_need(int(lv[0]))]
+		up = true
+	pet_levels[pet] = lv
+	return up
 
 
 func rebuild_visuals() -> void:
