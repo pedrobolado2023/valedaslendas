@@ -223,6 +223,7 @@ class Creature:
                 t = i / length
                 pose = fn(t)
                 loc = pose.pop("_loc", Vector((0, 0, 0)))
+                scales = pose.pop("_scale", {})     # {osso: (x, y, z)} para esticar/achatar (slimes)
                 for pb in self.arm.pose.bones:
                     pb.rotation_mode = "QUATERNION"
                     q = Quaternion()
@@ -231,6 +232,9 @@ class Creature:
                         q = (r.inverted() @ Quaternion(axis, ang) @ r) @ q
                     pb.rotation_quaternion = q
                     pb.keyframe_insert("rotation_quaternion", frame=i)
+                    if pb.name in scales or any(scales):
+                        pb.scale = scales.get(pb.name, (1, 1, 1))
+                        pb.keyframe_insert("scale", frame=i)
                 if root in self.arm.pose.bones:
                     rb = self.arm.pose.bones[root]
                     rb.location = rb.bone.matrix_local.to_quaternion().inverted() @ loc
@@ -242,6 +246,7 @@ class Creature:
         for pb in self.arm.pose.bones:
             pb.rotation_quaternion = Quaternion()
             pb.location = (0, 0, 0)
+            pb.scale = (1, 1, 1)
 
     def export(self, name=None):
         path = os.path.join(OUT, (name or self.name) + ".glb")

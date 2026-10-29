@@ -113,6 +113,13 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   e `scripts/world_boss.gd` (fases 100/60/30%: sopro em cone, meteoros, voo e queda, dragonetes, anel de fogo;
   mira em todos do grupo "player" — pronto para o multiplayer). Admin F1: "Boss global: começar agora".
   O save nunca guarda o covil: volta para `return_map`. Inimigos podem ter `leash`/`aggro_r` nos dados.
+- **Monstros no estilo novo:** `blender/creature_kit.py` (esqueleto → corpo de metaballs → remesh → pesos automáticos
+  → peças rígidas e asas de membrana → cores por vértice → animações) e `blender/make_monsters.py` (rodar com
+  `blender -b -P blender/make_monsters.py -- nome1,nome2`). Feitos: 4 lobos e 2 dragões. Faltam: slimes, golems (5),
+  escorpiões, esqueletos, yetis, diabretes. Materiais têm de ser criados DEPOIS de `C.new_scene()`.
+- Dono pediu (29/10): pular multiplayer e arena por enquanto e fazer monstros → loja com gemas → mapas novos até
+  o nível 1000 (escolheu mapas novos, não Ascensão) → balanceamento → acabamento → pré-lançamento. Ele vai ligar
+  um banco de dados depois: manter save/compras num lugar só (SaveGame).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).
