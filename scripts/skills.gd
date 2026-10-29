@@ -31,12 +31,17 @@ static func chain_hops(sk: Dictionary, lvl: int) -> int:
 static func describe(sk: Dictionary, lvl: int) -> String:
 	var s := String(sk["desc"])
 	s = s.replace("{dmg}", "%d%%" % int(round(float(sk.get("mult", 1.0)) * level_mult(lvl) * 100.0)))
-	s = s.replace("{r}", ("%.1f" % float(sk.get("r", 0.0))).replace(".", ","))
+	s = s.replace("{r}", ("%.1f" % area(sk, 0.0)).replace(".", ","))
 	s = s.replace("{buff}", "%d%%" % int(round(buff_amount(sk, lvl) * 100.0)))
 	s = s.replace("{dur}", ("%.0f" % float(sk.get("dur", 0.0))))
 	s = s.replace("{n}", str(chain_hops(sk, lvl)))
 	s = s.replace("{shield}", "%d%%" % int(round(shield_pct(sk, lvl) * 100.0)))
 	return s
+
+
+## Raio da skill já com o aumento geral de área (GameData.AREA_MULT).
+static func area(sk: Dictionary, fallback: float = 0.0) -> float:
+	return float(sk.get("r", fallback)) * GameData.AREA_MULT
 
 
 static func flat(v: Vector3) -> Vector3:
@@ -131,7 +136,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 	var hand := pos + Vector3(0, 1.1, 0)
 	match String(sk["type"]):
 		"spin":
-			var r := float(sk["r"])
+			var r := area(sk)
 			Fx.slash(host, pos + Vector3(0, 1.0, 0), _ang(dir), r, 380.0, col, 1.1, 0.32)
 			Fx.slash(host, pos + Vector3(0, 0.6, 0), _ang(dir) + PI, r * 0.75, 380.0, Color(1, 1, 1), 0.6, 0.3, true)
 			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, r, 0.3)
@@ -150,7 +155,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				Fx.ring(host, p.global_position + Vector3(0, 0.1, 0), col, 3.0, 0.3)
 				Fx.shake(p, 0.15))
 		"slam":
-			var r2 := float(sk["r"])
+			var r2 := area(sk)
 			p.attack_visual()
 			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, r2, 0.45, 0.1)
 			Fx.disc(host, pos + Vector3(0, 0.05, 0), Color(0.15, 0.08, 0.05), r2 * 0.7, 1.2, 0.5)
@@ -165,7 +170,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			Fx.burst(host, pos + Vector3(0, 1.0, 0), col, 30, 5.0, 0.1, 0.8, 4.0)
 			Fx.light_flash(host, pos + Vector3(0, 2, 0), col, 5.0, 10.0, 0.6)
 		"cone":
-			var r3 := float(sk["r"])
+			var r3 := area(sk)
 			var half := float(sk["half"])
 			p.attack_visual()
 			Fx.slash(host, pos + Vector3(0, 1.0, 0), _ang(dir), r3 * 0.55, rad_to_deg(half * 2.0), Color(1.0, 0.85, 0.4), 1.2, 0.25)
@@ -174,7 +179,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			for e in in_cone(tree, pos, dir, r3, cos(half)):
 				hit(p, e, m, pos)
 		"strike":
-			var r4 := float(sk["r"])
+			var r4 := area(sk)
 			var target := pos + flat(point - pos).limit_length(float(sk["range"]))
 			var delay := float(sk["delay"])
 			Fx.telegraph(host, target, r4, col, delay)
@@ -203,7 +208,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					for e in in_cone(tree, o, dir, rng, 0.82):
 						hit(p, e, m, o, _opts(sk)))
 		"leap":
-			var r5 := float(sk["r"])
+			var r5 := area(sk)
 			var target2 := pos + flat(point - pos).limit_length(float(sk["range"]))
 			p.leap_to(target2, 0.45)
 			Fx.telegraph(host, target2, r5, col, 0.45)
@@ -216,7 +221,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				for e in in_radius(tree, target2, r5):
 					hit(p, e, m, target2, {"stun": 0.5}))
 		"pull":
-			var r6 := float(sk["r"])
+			var r6 := area(sk)
 			Fx.slash(host, pos + Vector3(0, 1.0, 0), _ang(dir), r6, 400.0, col, 1.4, 0.4)
 			Fx.slash(host, pos + Vector3(0, 0.7, 0), _ang(dir) + 1.0, r6 * 0.6, 400.0, Color(1, 1, 1), 0.7, 0.35)
 			p.spin_visual()
@@ -266,7 +271,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 							done[e] = true
 							hit(p, e, m, pos, {"stun": float(sk["stun"])}))
 		"rain":
-			var r7 := float(sk["r"])
+			var r7 := area(sk)
 			var target3 := pos + flat(point - pos).limit_length(float(sk["range"]))
 			var ticks := int(sk["ticks"])
 			var every := float(sk["every"])
@@ -288,17 +293,17 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			Fx.burst(host, pos + Vector3(0, 0.3, 0), Color(0.7, 0.6, 0.45), 14, 4.0, 0.1)
 		"trap":
 			var at2 := pos + flat(point - pos).limit_length(float(sk["range"]))
-			_trap(p, host, at2, float(sk["r"]), m, float(sk["stun"]), col)
+			_trap(p, host, at2, area(sk), m, float(sk["stun"]), col)
 		"chain":
 			_chain(p, host, hand, point, float(sk["range"]), chain_hops(sk, lvl), m, col, float(sk.get("stun", 0.0)))
 		"shield":
 			p.add_shield(p.max_hp * shield_pct(sk, lvl), float(sk["dur"]), col)
 			if sk.has("burst"):
-				p.shield_burst = {"mult": float(sk["burst"]) * level_mult(lvl), "r": float(sk["r"]), "color": col}
+				p.shield_burst = {"mult": float(sk["burst"]) * level_mult(lvl), "r": area(sk), "color": col}
 			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, 3.0, 0.4)
 			Fx.light_flash(host, pos + Vector3(0, 1.5, 0), col, 4.0, 8.0, 0.5)
 		"nova":
-			var r8 := float(sk["r"])
+			var r8 := area(sk)
 			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, r8, 0.45, 0.1)
 			Fx.disc(host, pos + Vector3(0, 0.05, 0), Color(0.75, 0.95, 1.0), r8, 0.7, 0.25)
 			for k in 12:
@@ -310,7 +315,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				hit(p, e, m, pos, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"])})
 
 		"zone":
-			var rz := float(sk["r"])
+			var rz := area(sk)
 			var at := pos + flat(point - pos).limit_length(float(sk["range"]))
 			var ticks := int(sk["ticks"])
 			var every := float(sk["every"])
@@ -324,7 +329,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					for e in in_radius(tree, at, rz):
 						hit(p, e, m, at, {"stun": float(sk["stun"])}))
 		"heal_zone":
-			var rh := float(sk["r"])
+			var rh := area(sk)
 			var at2 := pos
 			var amount := p.max_hp * shield_pct(sk, lvl)
 			Fx.disc(host, at2 + Vector3(0, 0.05, 0), col, rh, float(sk["dur"]), 0.25)
@@ -342,7 +347,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			_bark(p, col, float(sk["dur"]))
 			Fx.burst(host, pos + Vector3(0, 1.0, 0), Color(0.55, 0.38, 0.2), 24, 4.0, 0.12)
 		"awaken":
-			var ra := float(sk["r"])
+			var ra := area(sk)
 			Fx.light_flash(host, pos + Vector3(0, 3, 0), col, 14.0, 24.0, 0.9)
 			Fx.disc(host, pos + Vector3(0, 0.05, 0), Color(1.0, 0.95, 0.7), ra, 0.7, 0.5)
 			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, ra, 0.6, 0.15)
@@ -379,7 +384,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			Fx.burst(host, pos + Vector3(0, 1.0, 0), Color(0.12, 0.1, 0.16), 34, 4.0, 0.28, 1.0, 1.0)
 			p.start_stealth(float(sk["dur"]))
 		"spin_multi":
-			var rs := float(sk["r"])
+			var rs := area(sk)
 			for k in int(sk["hits"]):
 				_later(p, 0.14 * k, func() -> void:
 					if not is_instance_valid(p):
@@ -397,7 +402,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 		"execute":
 			var tgt2: Enemy = null
 			var low := 2.0
-			for e in in_radius(tree, pos, float(sk["r"])):
+			for e in in_radius(tree, pos, area(sk)):
 				var f := float(e.hp) / float(e.max_hp)
 				if f < low:
 					low = f
@@ -425,10 +430,12 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 		"repair_drone":
 			_drone(p, p.max_hp * shield_pct(sk, lvl), float(sk["dur"]), col)
 		"colossus":
-			var rc := float(sk["r"])
+			var rc := area(sk)
 			p.become_giant(float(sk["dur"]))
 			p.add_guard(buff_amount(sk, lvl), float(sk["dur"]))
 			_later(p, 0.35, func() -> void:
+				if not is_instance_valid(p):
+					return
 				var o := p.global_position
 				p.attack_visual()
 				Fx.ring(host, o + Vector3(0, 0.1, 0), col, rc, 0.5, 0.15)
@@ -441,8 +448,70 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					hit(p, e, m, o, {"stun": 0.8}))
 		"companion":
 			_jelly(p, m, float(sk["range"]), float(sk["dur"]), float(sk["every"]), col)
+		"ice_fall":
+			var ri := area(sk)
+			var center := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var count := int(sk["count"])
+			var hit_r := float(sk["hit_r"]) * GameData.AREA_MULT
+			Vfx.marker(host, center, col, ri, float(sk["spread_t"]) + 0.6)
+			for k in count:
+				var off := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).limit_length(1.0) * ri * (0.25 if k == 0 else 0.9)
+				var at := center + off
+				var fall := 0.55
+				var start := 0.05 + float(sk["spread_t"]) * float(k) / count
+				_later(p, start, func() -> void:
+					Vfx.ice_fall(host, at, fall, randf_range(0.9, 1.3) if k > 0 else 1.6))
+				_later(p, start + fall, func() -> void:
+					if not is_instance_valid(p):
+						return
+					Sfx.play("sk_ice", -7.0, randf_range(0.9, 1.2))
+					Fx.shake(p, 0.12)
+					for e in in_radius(tree, at, hit_r):
+						hit(p, e, m, at, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"])}))
+		"storm_chain":
+			_storm_chain(p, host, point, float(sk["range"]), chain_hops(sk, lvl), float(sk["jump"]), m, col, float(sk["stun"]))
+		"meteor_rain":
+			var rr := area(sk)
+			var center2 := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var blast := float(sk["blast"]) * GameData.AREA_MULT
+			Vfx.marker(host, center2, col, rr, float(sk["spread_t"]) + 0.9)
+			for k in int(sk["count"]):
+				var off2 := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).limit_length(1.0) * rr * 0.8
+				var at2 := center2 + off2
+				var fall2 := 0.85
+				var start2 := 0.1 + float(sk["spread_t"]) * float(k) / int(sk["count"])
+				_later(p, start2, func() -> void:
+					Vfx.meteor(host, at2, fall2, blast))
+				_later(p, start2 + fall2, func() -> void:
+					if not is_instance_valid(p):
+						return
+					Sfx.play("sk_explosion", -4.0, randf_range(0.8, 1.1))
+					Fx.shake(p, 0.3)
+					for e in in_radius(tree, at2, blast):
+						hit(p, e, m, at2, {"knock": 2.0}))
+		"fissure":
+			var rf := area(sk)
+			var dur := float(sk["dur"])
+			var every3 := float(sk["every"])
+			var burn := float(sk["burn"]) * level_mult(lvl)
+			_later(p, 0.3, func() -> void:
+				if not is_instance_valid(p):
+					return
+				var o := p.global_position
+				Vfx.fissure(host, o, rf, dur)
+				Fx.shake(p, 0.7)
+				Fx.hitstop(p, 0.06)
+				Sfx.play("sk_explosion", 0.0, 0.6)
+				for e in in_radius(tree, o, rf):
+					hit(p, e, m, o, {"stun": float(sk["stun"]), "knock": 2.5})
+				for k in int(dur / every3):
+					_later(p, every3 * (k + 1), func() -> void:
+						if not is_instance_valid(p):
+							return
+						for e in in_radius(tree, o, rf * 0.85):
+							hit(p, e, burn, o)))
 		"maelstrom":
-			var rm := float(sk["r"])
+			var rm := area(sk)
 			var ticks2 := int(sk["ticks"])
 			var every2 := float(sk["every"])
 			var whirl := _whirl(host, pos, rm, col, every2 * ticks2)
@@ -845,6 +914,59 @@ static func _trap(p: Player, host: Node, at: Vector3, r: float, m: float, stun: 
 				for e in in_radius(tree, at, r):
 					hit(p, e, m, at, {"stun": stun})
 			trap.queue_free())
+
+
+## Fúria do Trovão: raio do céu no inimigo mais perto do ponto e depois saltos para os vizinhos.
+static func _storm_chain(p: Player, host: Node, point: Vector3, rng: float, hops: int, jump: float, m: float, col: Color, stun: float) -> void:
+	var tree := p.get_tree()
+	var first: Enemy = null
+	var best := 999.0
+	for e in enemies(tree):
+		if flat(e.global_position - p.global_position).length() > rng:
+			continue
+		var score := flat(e.global_position - point).length()
+		if score < best:
+			best = score
+			first = e
+	var hand := p.global_position + Vector3(0, 2.2, 0)
+	if first == null:
+		var at := p.global_position + flat(point - p.global_position).limit_length(rng)
+		Vfx.bolt(host, at + Vector3(randf_range(-2, 2), 18, randf_range(-2, 2)), at, col, 0.6, 0.4, 4)
+		Vfx.shockwave(host, at, col, 3.0, 0.35)
+		return
+	var chain: Array[Enemy] = [first]
+	var cur := first
+	for k in hops - 1:
+		var nxt: Enemy = null
+		var bd := jump * GameData.AREA_MULT
+		for e in enemies(tree):
+			if chain.has(e):
+				continue
+			var d := flat(e.global_position - cur.global_position).length()
+			if d < bd:
+				bd = d
+				nxt = e
+		if nxt == null:
+			break
+		chain.append(nxt)
+		cur = nxt
+	Vfx.bolt(host, hand, hand + Vector3(0, 6, 0), col, 0.4, 0.3, 1)
+	var prev := Vector3.ZERO
+	for k in chain.size():
+		var e := chain[k]
+		var to := e.global_position + Vector3(0, float(e.data["height"]) * 0.6, 0)
+		var from := (to + Vector3(randf_range(-3, 3), 20, randf_range(-3, 3))) if k == 0 else prev
+		var dm := m * pow(0.92, k)
+		_later(p, 0.12 + 0.09 * k, func() -> void:
+			if not is_instance_valid(e):
+				return
+			Vfx.bolt(host, from, to, col, 0.7 if k == 0 else 0.45, 0.35, 4 if k == 0 else 2)
+			if k == 0:
+				Vfx.shockwave(host, e.global_position, col, 4.0, 0.35)
+				Fx.shake(p, 0.25)
+			Sfx.play("sk_thunder", -8.0 - k, 1.0 + 0.06 * k)
+			hit(p, e, dm, from, {"stun": stun}))
+		prev = to
 
 
 static func _chain(p: Player, host: Node, hand: Vector3, point: Vector3, rng: float, hops: int, m: float, col: Color, stun: float = 0.0) -> void:

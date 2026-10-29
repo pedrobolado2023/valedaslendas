@@ -22,9 +22,9 @@ var max_mp := 50
 var mp := 50.0
 var atk := 20.0
 var speed := 7.0
-var skill_levels: Array[int] = [1, 0, 0, 0, 0, 0]
+var skill_levels: Array[int] = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 var skill_points := 0
-var skill_cd: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+var skill_cd: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var basic_cd := 0.0
 
 var dmg_buff := 0.0
@@ -160,14 +160,21 @@ func in_combat() -> bool:
 	return _since_hit < 4.0 or _since_action < 4.0
 
 
+## Quantas skills a classe tem (até GameData.MAX_SKILLS).
+func skill_count() -> int:
+	return mini(GameData.SKILLS[class_key].size(), GameData.MAX_SKILLS)
+
+
 func skill_ready(i: int) -> bool:
+	if i >= skill_count():
+		return false
 	if is_passive(i):
 		return false
 	return alive and skill_levels[i] >= 1 and skill_cd[i] <= 0.0 and mp >= skill_cost(i) and not _leaping
 
 
 func cast_skill(i: int, point: Vector3) -> bool:
-	if not alive or _leaping:
+	if not alive or _leaping or i >= skill_count():
 		return false
 	if skill_levels[i] < 1:
 		var need: int = GameData.SKILL_UNLOCK[i]
@@ -212,7 +219,7 @@ func auto_learn() -> void:
 	while skill_points > 0 and guard < 100:
 		guard += 1
 		var best := -1
-		for i in 6:
+		for i in skill_count():
 			if not can_learn(i):
 				continue
 			if best == -1 or skill_levels[i] < skill_levels[best] or (skill_levels[i] == skill_levels[best] and i > best):
@@ -416,7 +423,7 @@ func _nearest_enemy_point(r: float) -> Vector3:
 
 
 func _timers(delta: float) -> void:
-	for i in 6:
+	for i in skill_cd.size():
 		skill_cd[i] = maxf(0.0, skill_cd[i] - delta)
 	basic_cd -= delta
 	_act_t -= delta

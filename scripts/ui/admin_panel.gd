@@ -148,7 +148,7 @@ func _hero_col() -> Control:
 		_done("Nível definido: %d (pontos de skill: %d)" % [p.level, p.skill_points]))
 	_btn(v, "Todas as skills no nível 10", func() -> void:
 		var p: Player = game.get("player")
-		for i in 6:
+		for i in p.skill_count():
 			p.skill_levels[i] = GameData.MAX_SKILL_LEVEL
 		p.stats_changed.emit()
 		_done("Todas as skills no nível máximo."))

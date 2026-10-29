@@ -129,9 +129,10 @@ func _build_skillbar() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	panel.add_child(row)
-	for i in 6:
+	for i in player.skill_count():
 		row.add_child(_make_slot(i))
-	var hint := UiTheme.label("Clique / Espaço: ataque básico   ·   1-6: skills   ·   E: falar", 14, Color(0.8, 0.75, 0.65))
+	var keys := "1-%d" % player.skill_count() if player.skill_count() < 10 else "1-9 e 0"
+	var hint := UiTheme.label("Clique / Espaço: ataque básico   ·   %s: skills   ·   E: falar" % keys, 14, Color(0.8, 0.75, 0.65))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	wrap.add_child(hint)
 
@@ -168,7 +169,7 @@ func _make_slot(i: int) -> Control:
 	cd_t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	cd_t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(cd_t)
-	var key := UiTheme.label(str(i + 1), 15, Color(1.0, 0.9, 0.6))
+	var key := UiTheme.label(str((i + 1) % 10), 15, Color(1.0, 0.9, 0.6))
 	key.position = Vector2(6, 2)
 	key.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(key)
@@ -356,7 +357,7 @@ func refresh() -> void:
 		b.append("Escudo")
 	_buffs.text = "  ".join(b)
 	_btn_skills.text = "Skills (K)" + ("  +%d" % p.skill_points if p.skill_points > 0 else "")
-	for i in 6:
+	for i in _slots.size():
 		var s: Dictionary = _slots[i]
 		var lvl: int = p.skill_levels[i]
 		var sk: Dictionary = GameData.SKILLS[p.class_key][i]

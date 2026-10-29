@@ -87,6 +87,18 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   dos eixos). No jogo, `Player.play_skill` toca a animação depois de `Skills.cast`; enquanto ela toca, os
   `attack_visual`/`leap_to` de dentro da skill não a cortam (o ataque básico corta). Folhas de quadros em
   `docs/skills_<classe>.png` (`C:\Users\pedro\vale-tools\skill_sheet.py`).
+- **Até 10 skills por classe** (teclas 1-9 e 0; liberadas nos níveis 1/3/6/10/15/20/25/30/40/50 em
+  `GameData.SKILL_UNLOCK`). Tudo usa `player.skill_count()` (HUD, painel K com rolagem, save, admin, autopilot).
+  Druida já tem 10: dr7 Granizo Ancestral (`ice_fall`), dr8 Fúria do Trovão (`storm_chain`), dr9 Chuva de Meteoros
+  (`meteor_rain`), dr10 Pisão da Morte (`fissure`). As outras classes ainda têm 6.
+- **Área das skills:** `GameData.AREA_MULT = 1.4`; sempre ler o raio com `Skills.area(sk)` (nunca `sk["r"]` direto).
+- **Efeitos bonitos (`scripts/vfx.gd`, classe `Vfx`):** texturas geradas por código no Godot (brilho, chama em gota,
+  fumaça, anel, rachaduras, geada, queimado) + `emit()` (partículas com cor no tempo), `ground_mark()` (Decal),
+  `shockwave`, `marker`, `bolt` (raio com galhos), `ice_fall`, `meteor`, `explosion`, `fire_column`, `fissure`.
+  Cuidado com o brilho: o ambiente tem glow a partir de 0,85 (world.gd) — cores somadas claras e luzes fortes
+  estouram em branco no Vulkan. Decalques não aparecem no modo de compatibilidade (OpenGL); testar no Vulkan.
+  Foto das skills dentro do jogo: `godot --path . -s C:\Users\pedro\vale-tools\shot_skills.gd -- saida.png dr7,dr8`.
+- Ícones: `tools/make_textures.py --icons` (rodar com o Python do Blender + `PYTHONPATH=C:\Users\pedro\vale-tools\pylibs`).
 - Ver um modelo exportado de frente/lado/3/4: `C:\Users\pedro\vale-tools\views.py` (Blender, EEVEE, rápido).
 - Ferramentas nesta máquina (Windows): `C:\Users\pedro\vale-tools\` — Blender 5.2.3 portátil, Godot 4.3 (console),
   mpfb2, makehuman (só `data/eyes`), backup dos modelos antigos do Assassino em `backup_assassino\`.
@@ -96,7 +108,9 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 1. ~~Humanizar as 4 classes com MPFB2~~ — feito (Druida, Assassino, Mecânico, Náutico). Falta o dono testar jogando.
 2. Cabelo melhor (com balanço). Já feitos: capa com balanço, texturas de tecido/couro/metal e barras nas roupas.
 3. ~~Animações específicas por skill~~ — feito (afinar depois de jogar).
+3b. +4 skills (7 a 10) para Assassino, Mecânico e Náutico (dono vai dizer quais); refazer os efeitos das 6 skills
+    antigas de cada classe com o `Vfx` (começar pela Druida).
 4. Pendentes da ideia original: loja (pay-to-win), multiplayer (precisa de servidor), mais níveis (até 1000).
-- Limitações conhecidas: arquivos da Druida têm 4-6 MB cada (dá para reduzir malha); sem GPU no ambiente
-  original, por isso nada de IA de imagem→3D (Hunyuan3D precisa de NVIDIA).
+- Limitações conhecidas: modelos dos heróis têm 5-9 MB cada (dá para reduzir malha). O PC atual do dono tem
+  NVIDIA GeForce RTX 2070 — dá para tentar IA de imagem→3D (Hunyuan3D) no futuro.
 - Lembretes: o dono não testou jogando com teclado/mouse ainda; antes de lançar trocar `ADMIN_ENABLED` para false.

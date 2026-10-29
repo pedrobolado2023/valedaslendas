@@ -70,8 +70,49 @@ def druida():
             "thigh_l": [(X, -0.3 * rise)], "calf_l": [(X, 0.5 * rise)], "thigh_r": [(X, 0.1 * rise)], "calf_r": [(X, 0.4 * rise)],
             "_loc": V(0, 0, 0.35 * rise)})
 
+    def hail(t):
+        # Granizo Ancestral: ergue o cajado ao céu chamando o gelo e aponta para a área
+        call = pulse(t, 0.0, 0.3, 0.45, 0.6)
+        point = pulse(t, 0.5, 0.65, 0.8, 1.0)
+        return {"upperarm_r": [(X, -2.0 * call - 0.9 * point), (Y, 0.3 * call)], "lowerarm_r": [(X, 0.4 * call + 0.3 * point)],
+                "upperarm_l": [(X, -1.4 * call - 1.1 * point), (Y, -0.4 * call)], "lowerarm_l": [(X, 0.2 * call + 0.4 * point)],
+                "spine_03": [(X, -0.15 * call + 0.1 * point)], "neck_01": [(X, -0.25 * call + 0.1 * point)], "head": [(X, -0.2 * call)],
+                "_loc": V(0, 0, 0.03 * call)}
+
+    def thunder(t):
+        # Fúria do Trovão: cajado acima da cabeça, corpo arqueado para trás, depois aponta para frente com tudo
+        up = pulse(t, 0.0, 0.3, 0.35, 0.48)
+        strike = pulse(t, 0.4, 0.52, 0.7, 1.0)
+        return merge(crouch(0.3 * strike, 0.1 * strike), {
+            "upperarm_r": [(X, -2.3 * up - 1.2 * strike)], "lowerarm_r": [(X, 0.3 * up + 0.5 * strike)],
+            "upperarm_l": [(X, -0.6 * up - 1.2 * strike), (Y, -0.5 * up)], "lowerarm_l": [(X, 0.5 * strike)],
+            "spine_01": [(X, -0.12 * up + 0.1 * strike)], "spine_03": [(X, -0.15 * up + 0.15 * strike)],
+            "neck_01": [(X, -0.25 * up)], "thigh_l": [(X, -0.35 * strike)], "thigh_r": [(X, 0.25 * strike)]})
+
+    def meteors(t):
+        # Chuva de Meteoros: canaliza com os dois braços erguidos, tremendo de força
+        k = pulse(t, 0.0, 0.2, 0.8, 1.0)
+        tremble = 0.04 * sin(t * tau * 9) * k
+        return merge(crouch(0.25 * k), {
+            "upperarm_r": [(X, -2.2 * k), (Y, 0.5 * k)], "lowerarm_r": [(X, 0.3 * k + tremble)],
+            "upperarm_l": [(X, -2.2 * k), (Y, -0.5 * k)], "lowerarm_l": [(X, 0.3 * k - tremble)],
+            "spine_03": [(X, -0.2 * k), (Z, tremble)], "neck_01": [(X, -0.3 * k)], "head": [(X, -0.15 * k)]})
+
+    def stomp(t):
+        # Pisão da Morte: ergue o joelho e pisa com o corpo todo (o chão abre aos 0,3 s ≈ t 0,3)
+        lift = pulse(t, 0.0, 0.2, 0.22, 0.3)
+        hit = pulse(t, 0.26, 0.32, 0.6, 1.0)
+        return merge(crouch(0.75 * hit, 0.2 * hit), {
+            "thigh_r": [(X, -1.4 * lift)], "calf_r": [(X, 1.5 * lift)], "foot_r": [(X, 0.3 * lift)],
+            "thigh_l": [(X, -0.2 * lift)], "calf_l": [(X, 0.3 * lift)],
+            "upperarm_r": [(X, -1.0 * lift + 0.2 * hit), (Y, 0.4 * lift)], "lowerarm_r": [(X, -0.3 * lift)],
+            "upperarm_l": [(Y, -1.0 * lift - 0.6 * hit), (X, -0.3 * hit)], "lowerarm_l": [(X, -0.6 * lift)],
+            "spine_03": [(X, -0.15 * lift + 0.3 * hit)], "neck_01": [(X, -0.1 * lift + 0.15 * hit)],
+            "_loc": V(0, 0, 0.12 * lift)})
+
     return {"sk_dr1": (24, roots, False), "sk_dr2": (30, bless, False), "sk_dr4": (24, bark, False),
-            "sk_dr5": (20, wind, False), "sk_dr6": (32, awaken, False)}
+            "sk_dr5": (20, wind, False), "sk_dr6": (32, awaken, False), "sk_dr7": (24, hail, False),
+            "sk_dr8": (18, thunder, False), "sk_dr9": (36, meteors, False), "sk_dr10": (24, stomp, False)}
 
 
 # =================================================================== ASSASSINO (adaga em cada mão, guarda alta)

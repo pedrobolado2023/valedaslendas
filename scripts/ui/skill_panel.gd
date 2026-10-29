@@ -37,8 +37,16 @@ func setup(p: Player) -> void:
 	head.add_child(_title)
 	_points = UiTheme.title("", 20, Color(0.7, 1.0, 0.7))
 	head.add_child(_points)
-	for i in 6:
-		v.add_child(_row(i))
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(0, 500)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.add_child(scroll)
+	var rows := VBoxContainer.new()
+	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rows.add_theme_constant_override("separation", 10)
+	scroll.add_child(rows)
+	for i in player.skill_count():
+		rows.add_child(_row(i))
 	var foot := HBoxContainer.new()
 	foot.alignment = BoxContainer.ALIGNMENT_END
 	foot.add_theme_constant_override("separation", 10)
@@ -117,7 +125,7 @@ func refresh() -> void:
 		return
 	_title.text = "Habilidades — %s" % String(player.cdata["name"])
 	_points.text = "Pontos: %d" % player.skill_points
-	for i in 6:
+	for i in _rows.size():
 		var r: Dictionary = _rows[i]
 		var sk: Dictionary = GameData.SKILLS[player.class_key][i]
 		var lvl: int = player.skill_levels[i]

@@ -94,7 +94,7 @@ func _fight(t: Enemy) -> void:
 	if _think > 0.0:
 		return
 	_think = 0.12
-	for i in [5, 4, 3, 2, 1, 0]:
+	for i in range(player.skill_count() - 1, -1, -1):
 		if player.skill_ready(i) and _useful(i, t, d):
 			if player.cast_skill(i, t.global_position):
 				return
@@ -111,14 +111,14 @@ func _useful(i: int, t: Enemy, d: float) -> bool:
 			return player.hp < player.max_hp * 0.8 or t.boss
 		"heal_zone", "repair_drone":
 			return player.hp < player.max_hp * 0.7
-		"spin_multi", "colossus", "maelstrom", "awaken":
-			return d <= float(sk.get("r", 4.0)) + t.radius
+		"spin_multi", "colossus", "maelstrom", "awaken", "fissure":
+			return d <= Skills.area(sk, 4.0) + t.radius
 		"stealth":
 			return player.hp < player.max_hp * 0.5
 		"buff":
 			return true
 		"spin", "slam", "nova", "pull":
-			return d <= float(sk.get("r", 4.0)) + t.radius
+			return d <= Skills.area(sk, 4.0) + t.radius
 		"cone":
 			return d <= float(sk.get("r", 6.0))
 		"dash":

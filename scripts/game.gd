@@ -224,6 +224,7 @@ func start_game(key: String, save: Dictionary) -> void:
 	if _menu != null:
 		_menu.queue_free()
 		_menu = null
+	Vfx.warmup()
 	player = Player.new()
 	player.class_key = key
 	player.cam_right = cam_right
@@ -272,8 +273,8 @@ func _apply_save(d: Dictionary) -> void:
 	player.xp = int(d.get("xp", 0))
 	player.gold = int(d.get("gold", 0))
 	player.skill_points = int(d.get("points", 0))
-	var sk: Array = d.get("skills", [1, 0, 0, 0, 0, 0])
-	for i in 6:
+	var sk: Array = d.get("skills", [1])
+	for i in player.skill_levels.size():
 		player.skill_levels[i] = int(sk[i]) if i < sk.size() else 0
 	player.inventory = []
 	for it in d.get("inventory", []):
@@ -348,7 +349,7 @@ func admin_set_level(l: int) -> void:
 	player.level = clampi(l, 1, GameData.MAX_LEVEL)
 	player.xp = 0
 	var used := 0
-	for i in 6:
+	for i in player.skill_levels.size():
 		used += player.skill_levels[i]
 	player.skill_points = maxi(0, player.level - used)
 	player.recalc()
@@ -511,8 +512,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
 		return
-	if k.keycode >= KEY_1 and k.keycode <= KEY_6:
+	if k.keycode >= KEY_1 and k.keycode <= KEY_9:
 		player.cast_skill(k.keycode - KEY_1, player.aim_point)
+	elif k.keycode == KEY_0:
+		player.cast_skill(9, player.aim_point)
 	match k.keycode:
 		KEY_K:
 			skill_panel.toggle()

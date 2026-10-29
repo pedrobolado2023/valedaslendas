@@ -6,6 +6,7 @@ Saída: textures/*.png e textures/icons/*.png
 import math
 import os
 import random
+import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
@@ -214,7 +215,9 @@ ICON_SPECS = {
     # classe: [(id, cor1, cor2, desenho)] — um desenho para cada skill da lista do projeto
     "druida": [("dr1", (150, 230, 90), (30, 70, 20), "spikes"), ("dr2", (150, 255, 160), (20, 90, 40), "nova"),
                ("dr3", (200, 160, 255), (60, 30, 110), "falcon"), ("dr4", (200, 150, 90), (80, 50, 20), "shield"),
-               ("dr5", (200, 255, 220), (40, 90, 70), "dash"), ("dr6", (255, 220, 100), (120, 70, 10), "meteor")],
+               ("dr5", (200, 255, 220), (40, 90, 70), "dash"), ("dr6", (255, 220, 100), (120, 70, 10), "meteor"),
+               ("dr7", (170, 230, 255), (20, 60, 110), "hail"), ("dr8", (190, 200, 255), (30, 30, 100), "chain"),
+               ("dr9", (255, 150, 60), (110, 30, 10), "meteors"), ("dr10", (255, 120, 40), (60, 15, 5), "fissure")],
     "assassino": [("as1", (180, 120, 255), (40, 15, 80), "dash"), ("as2", (140, 255, 110), (20, 70, 20), "flame"),
                   ("as3", (150, 140, 190), (25, 20, 45), "nova"), ("as4", (210, 160, 255), (60, 20, 100), "spin"),
                   ("as5", (120, 110, 140), (20, 15, 30), "shield"), ("as6", (255, 220, 110), (110, 70, 10), "sword")],
@@ -335,6 +338,28 @@ def icon(path, c1, c2, kind):
         d.line([(20, 20), (70, 70)], fill=(255, 200, 90, 200), width=26)
         d.ellipse([56, 56, 112, 112], fill=L, outline=D, width=4)
         d.ellipse([70, 66, 92, 88], fill=W)
+    elif kind == "hail":
+        for x0, y0, s in ((30, 14, 1.0), (70, 30, 1.25), (98, 10, 0.85)):
+            poly([(x0, y0), (x0 + 9 * s, y0 + 26 * s), (x0, y0 + 64 * s), (x0 - 9 * s, y0 + 26 * s)], W, width=3)
+            d.line([(x0, y0 + 4), (x0, y0 + 60 * s)], fill=L, width=3)
+        d.ellipse([14, 104, 114, 120], outline=L, width=5)
+    elif kind == "chain":
+        pts = [(18, 20), (40, 52), (30, 58), (66, 74), (58, 80), (100, 100)]
+        d.line(pts, fill=L, width=14, joint="curve")
+        d.line(pts, fill=W, width=5, joint="curve")
+        for cx, cy in ((22, 24), (64, 74), (100, 100)):
+            d.ellipse([cx - 9, cy - 9, cx + 9, cy + 9], fill=(255, 255, 255, 255), outline=D, width=3)
+    elif kind == "meteors":
+        for x0, y0, rr in ((80, 76, 20), (38, 50, 13), (98, 30, 9)):
+            d.line([(x0 - rr * 2.4, y0 - rr * 2.4), (x0, y0)], fill=(255, 200, 90, 190), width=int(rr * 1.4))
+            d.ellipse([x0 - rr, y0 - rr, x0 + rr, y0 + rr], fill=L, outline=D, width=3)
+            d.ellipse([x0 - rr * 0.4, y0 - rr * 0.5, x0 + rr * 0.3, y0 + rr * 0.2], fill=W)
+    elif kind == "fissure":
+        d.ellipse([12, 78, 116, 116], fill=(40, 20, 12, 255), outline=D, width=4)
+        for pts in (((64, 96), (44, 88), (24, 94)), ((64, 96), (86, 86), (108, 92)), ((64, 96), (60, 110))):
+            d.line(pts, fill=(255, 150, 50, 255), width=5)
+        poly([(64, 14), (86, 56), (80, 92), (48, 92), (42, 56), (56, 62)], L)
+        poly([(64, 50), (76, 76), (64, 90), (52, 76)], W)
     # moldura
     d.rounded_rectangle([2, 2, S - 3, S - 3], 18, outline=(20, 12, 8, 255), width=6)
     d.rounded_rectangle([7, 7, S - 8, S - 8], 14, outline=(225, 180, 90, 255), width=3)
@@ -377,6 +402,12 @@ def make_ash():
 
 
 def main():
+    if "--icons" in sys.argv:   # só os ícones das skills (não refaz as texturas do chão)
+        for cls, specs in ICON_SPECS.items():
+            for sid, c1, c2, kind in specs:
+                icon(os.path.join(ICONS, sid + ".png"), c1, c2, kind)
+        print("icones ok")
+        return
     make_grass()
     make_dirt()
     make_stone()

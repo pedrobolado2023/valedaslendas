@@ -7,8 +7,11 @@ const MAX_LEVEL := 60
 ## Menu de administrador (F1). Troque para false antes de lançar o jogo para os jogadores.
 const ADMIN_ENABLED := true
 const MAX_SKILL_LEVEL := 10
-## Nível do personagem necessário para aprender cada uma das 6 skills.
-const SKILL_UNLOCK := [1, 3, 6, 10, 15, 20]
+## Nível do personagem necessário para aprender cada skill (até 10 por classe; teclas 1-9 e 0).
+const SKILL_UNLOCK := [1, 3, 6, 10, 15, 20, 25, 30, 40, 50]
+const MAX_SKILLS := 10
+## Multiplicador da área (raio "r") de todas as skills.
+const AREA_MULT := 1.4
 
 const CLASSES := {
 	"assassino": {
@@ -64,6 +67,18 @@ const SKILLS := {
 		{"id": "dr6", "name": "Despertar Lendário", "type": "awaken", "cd": 30.0, "mp": 40, "mult": 2.0, "r": 10.0, "stun": 2.5, "buff": 0.3, "buff_lv": 0.03, "dur": 6.0,
 			"color": Color(1.0, 0.85, 0.35), "sfx": "levelup",
 			"desc": "Energia solar máxima: {dmg} de dano e cega (atordoa) os inimigos num raio de {r} m; você fica imune a controle e com +{buff} de dano por {dur} s."},
+		{"id": "dr7", "name": "Granizo Ancestral", "type": "ice_fall", "cd": 11.0, "mp": 26, "mult": 0.9, "r": 4.5, "range": 14.0, "count": 9, "spread_t": 1.4, "hit_r": 2.2, "slow": 0.45, "slow_dur": 3.0,
+			"color": Color(0.6, 0.9, 1.0), "sfx": "sk_ice",
+			"desc": "Estacas de gelo caem do céu numa área de {r} m: cada uma causa {dmg} de dano e deixa os inimigos 45% mais lentos."},
+		{"id": "dr8", "name": "Fúria do Trovão", "type": "storm_chain", "cd": 7.0, "mp": 22, "mult": 1.4, "range": 14.0, "hops": 6, "jump": 8.0, "stun": 0.3,
+			"color": Color(0.65, 0.75, 1.0), "sfx": "sk_thunder",
+			"desc": "Um raio cai do céu e salta de inimigo em inimigo, atingindo até {n}: {dmg} de dano no primeiro (um pouco menos a cada salto)."},
+		{"id": "dr9", "name": "Chuva de Meteoros", "type": "meteor_rain", "cd": 22.0, "mp": 38, "mult": 1.2, "r": 6.0, "range": 16.0, "count": 8, "spread_t": 2.4, "blast": 3.0,
+			"color": Color(1.0, 0.5, 0.15), "sfx": "sk_fire",
+			"desc": "Meteoros em chamas caem numa área de {r} m durante 3 s: cada explosão causa {dmg} de dano."},
+		{"id": "dr10", "name": "Pisão da Morte", "type": "fissure", "cd": 26.0, "mp": 42, "mult": 2.6, "r": 5.0, "stun": 1.0, "dur": 5.0, "every": 0.5, "burn": 0.35,
+			"color": Color(1.0, 0.4, 0.1), "sfx": "sk_slam",
+			"desc": "Pisa com tanta força que o chão se abre: {dmg} de dano e atordoa num raio de {r} m; a fenda pega fogo e queima quem ficar nela por {dur} s."},
 	],
 	"assassino": [
 		{"id": "as1", "name": "Passo das Sombras", "type": "blink", "cd": 6.0, "mp": 10, "mult": 1.0, "range": 14.0,
