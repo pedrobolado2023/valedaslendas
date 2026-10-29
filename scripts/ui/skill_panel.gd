@@ -131,12 +131,13 @@ func refresh() -> void:
 		var lvl: int = player.skill_levels[i]
 		var need: int = GameData.SKILL_UNLOCK[i]
 		(r["name"] as Label).text = "%s   Nv %d/%d" % [String(sk["name"]), lvl, GameData.MAX_SKILL_LEVEL]
-		(r["desc"] as Label).text = Skills.describe(sk, maxi(lvl, 1))
+		var power := float(player.cdata.get("skill_power", 1.0))
+		(r["desc"] as Label).text = Skills.describe(sk, maxi(lvl, 1), power)
 		var extra := "Recarga %.1f s  ·  Mana %d" % [Skills.cooldown(sk, maxi(lvl, 1)), int(Skills.mp_cost(sk, maxi(lvl, 1)))]
 		if player.level < need:
 			extra += "   ·   Liberada no nível %d" % need
 		elif lvl < GameData.MAX_SKILL_LEVEL and sk.has("mult"):
-			extra += "   ·   Próximo nível: %d%% de dano" % int(round(float(sk["mult"]) * Skills.level_mult(lvl + 1) * 100.0))
+			extra += "   ·   Próximo nível: %d%% de dano" % int(round(float(sk["mult"]) * Skills.level_mult(lvl + 1) * power * 100.0))
 		(r["info"] as Label).text = extra
 		var pips: HBoxContainer = r["pips"]
 		for k in pips.get_child_count():

@@ -24,13 +24,13 @@ const CLASSES := {
 	"assassino": {
 		"name": "Assassino", "desc": "Alta mobilidade, dano crítico massivo e furtividade.",
 		"hp": 160, "mp": 130, "atk": 25.0, "speed": 7.6,
-		"basic": "melee", "range": 2.8, "dot": 0.3, "cd": 0.38,
+		"basic": "melee", "range": 2.8, "dot": 0.3, "cd": 0.38, "skill_power": 1.17,
 		"color": Color(0.3, 0.26, 0.24), "trim": Color(0.75, 0.55, 1.0),
 	},
 	"nautico": {
 		"name": "Náutico", "desc": "Linha de frente com o poder das marés e a pressão da água.",
 		"hp": 150, "mp": 140, "atk": 22.0, "speed": 7.3,
-		"basic": "thrust", "range": 4.4, "dot": 0.85, "cd": 0.46,
+		"basic": "thrust", "range": 4.4, "dot": 0.85, "cd": 0.46, "skill_power": 1.4,
 		"color": Color(0.2, 0.35, 0.55), "trim": Color(0.45, 0.85, 1.0),
 	},
 	"mecanico": {
@@ -248,10 +248,13 @@ static var _enemy_cache := {}
 
 ## Dados completos de um inimigo (vida, dano, XP e ouro calculados pelo nível nos mapas novos).
 static func enemy(id: String) -> Dictionary:
-	if BASE_ENEMIES.has(id):
-		return BASE_ENEMIES[id]
 	if _enemy_cache.has(id):
 		return _enemy_cache[id]
+	if BASE_ENEMIES.has(id):   # vida e dano feitos à mão; XP pela mesma fórmula dos outros (curva de XP)
+		var bd: Dictionary = BASE_ENEMIES[id].duplicate()
+		bd["xp"] = int(mob_xp(int(bd["level"])) * (15.0 if bool(bd.get("boss", false)) else 1.0))
+		_enemy_cache[id] = bd
+		return bd
 	var d: Dictionary = (MOBS[id] if MOBS.has(id) else GEN_ENEMIES[id]).duplicate()
 	var L := float(d["level"])
 	var boss := bool(d.get("boss", false))
@@ -589,14 +592,37 @@ static func quest_map(q: Dictionary) -> String:
 
 # =================================================================== experiência
 
-## XP base para passar do nível L para o L+1.
+## Ritmo escolhido pelo dono: nv 60 em ~30 h e nv 1000 em ~1500 h só caçando (missões e história aceleram).
+## XP para subir = (monstros por nível) × (XP de um monstro do nível). Ajustado com a simulação de balanceamento.
+const XP_KILLS_C := 178.75
+const XP_KILLS_P := 0.25
+
+
+## Quantos monstros do próprio nível são precisos para subir do nível L (curva suave, começo mais rápido).
+static func kills_per_level(level: int) -> float:
+	var L := float(level)
+	return XP_KILLS_C * pow(L, XP_KILLS_P) * clampf(L / 20.0, 0.15, 1.0)
+
+
+## XP que um monstro comum do nível L dá (a mesma conta de enemy()).
+static func mob_xp(level: int) -> float:
+	return 10.0 * pow(float(level), 1.55)
+
+
+## XP para passar do nível L para o L+1.
 static func xp_need(level: int) -> int:
-	return int(round(60.0 * pow(float(level), 1.75)))
+	return int(round(kills_per_level(level) * mob_xp(level)))
 
 
-## A partir do nível 31, todo XP ganho vale 10 vezes menos (subir fica bem mais demorado).
-static func xp_gain_mult(level: int) -> float:
-	return 1.0 if level <= 30 else 0.1
+## Multiplicador de XP por nível (o antigo "10x menos a partir do 31" foi trocado pela curva suave acima).
+static func xp_gain_mult(_level: int) -> float:
+	return 1.0
+
+
+## XP da missão de história: o valor da tabela era para a curva antiga; mantém a mesma fração de um nível.
+static func quest_xp(q: Dictionary) -> int:
+	var L := float(maxi(1, int(q["min_level"])))
+	return int(float(q["xp"]) / (60.0 * pow(L, 1.75)) * xp_need(int(L)))
 
 
 # =================================================================== equipamentos e raridades

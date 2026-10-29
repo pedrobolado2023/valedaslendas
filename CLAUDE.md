@@ -27,8 +27,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - 4 classes (substituíram Guerreiro/Lanceiro/Arqueiro/Mago; saves antigos são convertidos):
   **Druida, Assassino, Mecânico, Náutico**, cada uma com 6 skills (lista do dono), liberadas nos níveis 1/3/6/10/15/20.
   Passivas: Espírito da Coruja (Druida), Sobrecarga de Vapor (Mecânico), Presença Abissal (Náutico).
-- Nível máximo 60; 1 ponto de skill por nível; skill até nível 10. **A partir do nível 31 todo XP vale 10x menos.**
-  (O dono quer chegar a 1000 níveis no futuro.)
+- Nível máximo 1000; 1 ponto de skill por nível; skill até nível 10.
 - 4 mapas: Vale das Lendas (1-15), Deserto Escarlate (16-30), Picos Gelados (31-45), Abismo Vulcânico (46-60),
   3 áreas com chefe cada; viagem pelo Portal do acampamento.
 - Missões do quadro: diárias até 30/dia; semanais até 150/semana (pode fazer todas de uma vez);
@@ -133,6 +132,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `GEN_ENEMIES`). Inimigos acima do 60 crescem em linha reta com o nível (mesmo ritmo do herói).
   Portal com páginas de 6 mapas; o modo automático caça no `GameData.best_map(nível)`. Missões de história
   continuam só nos 4 mapas base.
+- **Balanceamento (29/10):** ritmo escolhido pelo dono = nv 60 em ~30 h e nv 1000 em ~1500 h só caçando. XP para subir
+  = `kills_per_level(L)` × `mob_xp(L)` (`XP_KILLS_C`/`XP_KILLS_P` em data.gd); acabou o "10x menos a partir do 31";
+  XP da história escala com a curva (`quest_xp`). Classes perto umas das outras com `skill_power` (Assassino 1,17,
+  Náutico 1,4). Simulação: `godot --headless --path . -s C:\Users\pedro\vale-tools\sim_balance.gd`.
+  A mana normal já cobre as skills; `TEST_MP_REGEN` (+25/s) continua ligado a pedido do dono.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

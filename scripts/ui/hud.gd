@@ -348,7 +348,7 @@ func refresh() -> void:
 	else:
 		_xp.max_value = GameData.xp_need(p.level)
 		_xp.value = p.xp
-		_xp_t.text = "XP %d / %d" % [p.xp, GameData.xp_need(p.level)] + ("   (XP ×0,1 a partir do Nv 31)" if p.level >= 31 else "")
+		_xp_t.text = "XP %d / %d" % [p.xp, GameData.xp_need(p.level)] 
 	_gold.text = "Ouro  %d    Gemas  %d" % [p.gold, p.gems]
 	var b := []
 	if p.dmg_buff > 0.0:

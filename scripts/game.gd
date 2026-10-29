@@ -819,7 +819,7 @@ func talk() -> void:
 					board_panel.toggle()], ["Fechar", dialog.close]])
 			else:
 				var zone_name := String(GameData.ZONES[q["zone"]]["name"])
-				var xp_now := int(round(int(q["xp"]) * GameData.xp_gain_mult(player.level)))
+				var xp_now := GameData.quest_xp(q)
 				var txt := "[b][color=#e8b75a]%s[/color][/b]\n%s\n\n[color=#e8b75a]Objetivo:[/color] derrotar %d × %s e o chefe %s (%s).\n[color=#e8b75a]Recompensa:[/color] %d XP e %d de ouro." % [String(q["title"]), String(q["text"]), int(q["count"]), enemy_name, boss_name, zone_name, xp_now, int(q["gold"])]
 				dialog.open(nm, txt, [["Aceitar missão", accept_quest], ["Agora não", dialog.close]])
 		"kill", "boss":
@@ -873,7 +873,7 @@ func turn_in() -> void:
 		return
 	dialog.close()
 	player.add_gold(int(q["gold"]))
-	var got := player.gain_xp(int(q["xp"]))
+	var got := player.gain_xp(GameData.quest_xp(q))
 	Sfx.play("quest", 0.0, 1.2)
 	Sfx.play("coin", -4.0)
 	hud.banner("Recompensa recebida!", "+%d XP   +%d de ouro" % [got, int(q["gold"])], 3.0)

@@ -28,9 +28,9 @@ static func chain_hops(sk: Dictionary, lvl: int) -> int:
 	return int(sk.get("hops", 0)) + (maxi(lvl, 1) - 1) / 3
 
 
-static func describe(sk: Dictionary, lvl: int) -> String:
+static func describe(sk: Dictionary, lvl: int, power: float = 1.0) -> String:
 	var s := String(sk["desc"])
-	s = s.replace("{dmg}", "%d%%" % int(round(float(sk.get("mult", 1.0)) * level_mult(lvl) * 100.0)))
+	s = s.replace("{dmg}", "%d%%" % int(round(float(sk.get("mult", 1.0)) * level_mult(lvl) * power * 100.0)))
 	s = s.replace("{r}", ("%.1f" % area(sk, 0.0)).replace(".", ","))
 	s = s.replace("{buff}", "%d%%" % int(round(buff_amount(sk, lvl) * 100.0)))
 	s = s.replace("{dur}", ("%.0f" % float(sk.get("dur", 0.0))))
@@ -122,7 +122,7 @@ static func _ang(dir: Vector3) -> float:
 static func cast(p: Player, i: int, point: Vector3) -> void:
 	var sk: Dictionary = GameData.SKILLS[p.class_key][i]
 	var lvl: int = p.skill_levels[i]
-	var m := float(sk.get("mult", 1.0)) * level_mult(lvl)
+	var m := float(sk.get("mult", 1.0)) * level_mult(lvl) * float(p.cdata.get("skill_power", 1.0))   # balanceamento por classe
 	var col: Color = sk["color"]
 	var pos := p.global_position
 	var dir := flat(point - pos)
