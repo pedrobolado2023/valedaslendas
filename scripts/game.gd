@@ -29,6 +29,7 @@ var pet_panel: PetPanel
 var rewards_panel: RewardsPanel
 var dungeon: Dungeon
 var cloud: CloudSync
+var remote: RemotePlayers
 var settings_panel: SettingsPanel
 var tutorial: Tutorial
 var tutorial_done := false
@@ -56,6 +57,12 @@ var _fade: ColorRect
 
 func _ready() -> void:
 	randomize()
+	if get_node("/root/Net").is_server:   # servidor sem tela: só a rede (scripts/net.gd)
+		set_process(false)
+		set_physics_process(false)
+		set_process_input(false)
+		set_process_unhandled_input(false)
+		return
 	add_child(Sfx.new())
 	actors = Node3D.new()
 	add_child(actors)
@@ -74,6 +81,19 @@ func _ready() -> void:
 			var lp := LoginPanel.new()
 			lp.cloud = cloud
 			add_child(lp))
+	remote = RemotePlayers.new()
+	remote.game = self
+	add_child(remote)
+	# logado: conecta no servidor do jogo (se houver) e usa o save guardado lá se for mais novo
+	cloud.ready_done.connect(func(_p: bool) -> void:
+		if await get_node("/root/Net").connect_to_server(cloud.token):
+			toast("Conectado ao servidor online", 2.0))
+	get_node("/root/Net").loaded.connect(func(sv: Dictionary) -> void:
+		if not sv.is_empty() and String(sv.get("saved_at", "")) > String(SaveGame.read().get("saved_at", "")):
+			SaveGame.backend.write(sv)
+			if player == null and _menu != null:
+				_menu.queue_free()
+				_make_menu())
 	cloud.ready_done.connect(func(pulled: bool) -> void:
 		if pulled and player == null and _menu != null:
 			_menu.queue_free()
@@ -379,7 +399,9 @@ func save_now() -> void:
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	}
 	SaveGame.write(data)
-	if cloud != null:
+	if get_node("/root/Net").online:
+		get_node("/root/Net").send_save(data)   # online: o servidor grava no banco
+	elif cloud != null:
 		cloud.push(data)
 
 

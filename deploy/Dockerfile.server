@@ -1,0 +1,12 @@
+# Servidor do jogo (Godot sem tela) — Easypanel: serviço "App", Dockerfile = deploy/Dockerfile.server
+# Variáveis: SUPABASE_SERVICE_KEY (obrigatória, chave secreta "service_role"), PORT (padrão 8080)
+FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip libfontconfig1 && rm -rf /var/lib/apt/lists/*
+RUN curl -sL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
+ && unzip -q /tmp/g.zip -d /opt && mv /opt/Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot && rm /tmp/g.zip
+WORKDIR /app
+COPY . .
+RUN rm -rf docs blender tools export && godot --headless --path /app --import || true
+ENV PORT=8080 VALE_SERVER=1
+EXPOSE 8080
+CMD ["godot", "--headless", "--path", "/app", "--", "--server"]

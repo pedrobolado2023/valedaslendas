@@ -95,8 +95,15 @@ func _spawn() -> void:
 	var z: Dictionary = GameData.ZONES["arena_dragao"]
 	boss = WorldBoss.new()
 	boss.setup(String(cfg["enemy"]), z["boss_pos"] + Vector3(0, 0.3, 0), "arena_dragao")
+	boss.net_key = window_key()
 	game.actors.add_child(boss)
 	boss.died.connect(_on_boss_died)
+	# online: a vida que vale é a do servidor (todos os jogadores batem no mesmo boss)
+	get_node("/root/Net").boss_hp.connect(func(hp: int, _mx: int) -> void:
+		if boss != null and is_instance_valid(boss) and boss.alive and hp < boss.hp:
+			boss.crit_from_server = true
+			boss.take_damage(boss.hp - hp, boss.global_position)
+			boss.crit_from_server = false)
 	boss.phase_changed.connect(func(p: int) -> void:
 		var txt := {2: "O dragão levanta voo e chama os filhotes!", 3: "Fúria final: o chão pega fogo!"}
 		game.hud.banner("Dragão de Lava — fase %d" % p, String(txt.get(p, "")), 3.0))

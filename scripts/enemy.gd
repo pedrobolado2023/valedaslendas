@@ -10,6 +10,7 @@ var type_id := "slime"
 var data: Dictionary = {}
 var level := 1
 var max_hp := 10
+var crit_from_server := false   # dano vindo do servidor (boss global online): não reenvia
 var hp := 10
 var dmg := 5
 var speed := 3.0
@@ -336,6 +337,8 @@ func take_damage(n: int, from: Vector3, crit: bool = false, tint: Color = Color(
 		return
 	if _vuln > 0.0:
 		n = int(round(n * (1.0 + _vuln)))
+	if self is WorldBoss and get_node("/root/Net").online and not crit_from_server:   # online: a vida do boss é do servidor
+		get_node("/root/Net").boss_hit.rpc_id(1, (self as WorldBoss).net_key, n, max_hp)
 	hp -= n
 	aggro = true
 	_returning = false

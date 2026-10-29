@@ -90,7 +90,12 @@ func _card(key: String, i: int) -> Control:
 
 
 func _preview(key: String) -> Control:
-	var kit := ModelKit.load_kit("hero_%s_lendaria" % key, 0.035)
+	var all := {}
+	for k in ModelKit.HERO_SLOTS:
+		all[k] = "lendaria"
+	var kit := ModelKit.load_hero(key, all)   # por peças (os modelos inteiros não vão na versão web)
+	if kit == null:
+		kit = ModelKit.load_kit("hero_%s_lendaria" % key, 0.035)
 	if kit == null:
 		return null
 	Player.attach_weapon(kit, key, "lendaria")

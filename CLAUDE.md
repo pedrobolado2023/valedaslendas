@@ -166,6 +166,12 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   (`saves` com RLS por `auth.uid()`, `purchases`). `scripts/cloud_sync.gd` (nó `game.cloud`) + `ui/login_panel.gd`: login por e-mail e senha (sessão em
   `user://nuvem.cfg`), baixa o save se for mais novo e envia cópia a cada `save_now`. Liga só com `res://supabase.cfg`
   ([supabase] url, anon_key); desligado nos testes (VALE_TESTE).
+- **Online (Easypanel, ver `deploy/EASYPANEL.md`):** autoload `Net` (`scripts/net.gd`): o mesmo projeto vira servidor
+  com `-- --server` (WebSocket na PORT, confere login no Supabase, grava saves com `SUPABASE_SERVICE_KEY`, manda os
+  jogadores do mesmo mapa 10x/s, vida do boss global no servidor). Cliente: `RemotePlayers` desenha os outros.
+  Teste local sem Supabase: `VALE_DEV=1`. Fora de net.gd usar `get_node("/root/Net")` (com `-s` o nome `Net` não
+  existe na compilação). Web: preset "Web" em `export_presets.cfg` (modo compatibilidade, sem os heróis inteiros),
+  `deploy/Dockerfile.web` (nginx) e `deploy/Dockerfile.server`.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

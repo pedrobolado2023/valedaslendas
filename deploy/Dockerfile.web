@@ -1,0 +1,22 @@
+# Página do jogo (navegador) — Easypanel: serviço "App", Dockerfile = deploy/Dockerfile.web
+# Build arg VALE_SERVER_URL = endereço do servidor (ex.: wss://server.seudominio.com)
+FROM ubuntu:22.04 AS build
+ARG VALE_SERVER_URL=""
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip libfontconfig1 && rm -rf /var/lib/apt/lists/*
+RUN curl -sL -o /tmp/g.zip https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip \
+ && unzip -q /tmp/g.zip -d /opt && mv /opt/Godot_v4.3-stable_linux.x86_64 /usr/local/bin/godot && rm /tmp/g.zip
+# só o template web (o pacote inteiro tem ~1 GB; extrai um arquivo)
+RUN curl -sL -o /tmp/t.tpz https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz \
+ && mkdir -p /root/.local/share/godot/export_templates/4.3.stable \
+ && unzip -q -j /tmp/t.tpz templates/web_nothreads_release.zip templates/web_nothreads_debug.zip -d /root/.local/share/godot/export_templates/4.3.stable \
+ && rm /tmp/t.tpz
+WORKDIR /app
+COPY . .
+RUN if [ -n "$VALE_SERVER_URL" ]; then printf '\n[server]\nurl="%s"\n' "$VALE_SERVER_URL" >> supabase.cfg; fi \
+ && godot --headless --path /app --import || true
+RUN mkdir -p export/web && godot --headless --path /app --export-release "Web" export/web/index.html
+
+FROM nginx:alpine
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/export/web /usr/share/nginx/html
+EXPOSE 80

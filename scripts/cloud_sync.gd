@@ -33,7 +33,7 @@ func _ready() -> void:
 	key = String(c.get_value("supabase", "anon_key", ""))
 	enabled = url != "" and key != ""
 	if enabled:
-		start()
+		start.call_deferred()   # depois de o jogo ligar os sinais (need_login / ready_done)
 
 
 func start() -> void:
