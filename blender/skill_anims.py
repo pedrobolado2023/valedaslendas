@@ -263,8 +263,43 @@ def mecanico():
             "thigh_l": [(X, -0.6 * flex)], "calf_l": [(X, 0.8 * flex)],
             "_loc": V(0, 0, 0.05 * flex)})
 
+    def missiles(t):
+        # Enxame de Mísseis: ergue o braço esquerdo (lançador no pulso) e sofre o coice de cada disparo
+        k = pulse(t, 0.0, 0.2, 0.8, 1.0)
+        kick = 0.12 * abs(sin(t * tau * 3)) * pulse(t, 0.15, 0.25, 0.7, 0.8)
+        return {"upperarm_l": [(X, -1.9 * k + kick), (Y, -0.2 * k)], "lowerarm_l": [(X, 0.2 * k)],
+                "upperarm_r": [(X, 0.2 * k)], "spine_03": [(X, -0.12 * k + kick * 0.5)], "neck_01": [(X, -0.15 * k)],
+                "_loc": V(0, kick * 0.3, 0)}
+
+    def flamer(t):
+        # Lança-Chamas: firma a base e segura a ferramenta para frente, tremendo com a força do jato
+        k = pulse(t, 0.0, 0.1, 0.85, 1.0)
+        shake = 0.04 * sin(t * tau * 14) * k
+        return merge(crouch(0.35 * k, 0.1 * k), {
+            "upperarm_r": [(X, -0.35 * k + shake)], "lowerarm_r": [(X, -0.15 * k)],
+            "upperarm_l": [(X, -1.0 * k), (Y, 0.35 * k)], "lowerarm_l": [(X, -0.6 * k)],
+            "thigh_l": [(X, -0.3 * k)], "thigh_r": [(X, 0.25 * k)], "spine_03": [(Z, shake)]})
+
+    def orbital(t):
+        # Bombardeio Orbital: leva a mão ao ouvido (rádio), depois aponta para o céu e para o alvo
+        radio = pulse(t, 0.0, 0.15, 0.3, 0.4)
+        sky = pulse(t, 0.35, 0.5, 0.6, 0.72)
+        point = pulse(t, 0.65, 0.78, 0.9, 1.0)
+        return {"upperarm_l": [(X, -0.9 * radio - 2.4 * sky - 1.3 * point), (Y, 0.7 * radio)],
+                "lowerarm_l": [(X, -1.9 * radio + 0.3 * sky + 0.6 * point)],
+                "head": [(Z, 0.25 * radio), (X, -0.35 * sky + 0.1 * point)], "neck_01": [(X, -0.15 * sky)]}
+
+    def tesla(t):
+        # Torre Tesla: ajoelha e bate a ferramenta no chão para fincar a torre
+        k = pulse(t, 0.0, 0.3, 0.7, 1.0)
+        bang = pulse(t, 0.25, 0.32, 0.45, 0.6)
+        return merge(crouch(0.8 * k, 0.3 * k), {
+            "upperarm_r": [(X, -1.5 * k + 1.1 * bang)], "lowerarm_r": [(X, -0.4 * k + 0.3 * bang)],
+            "upperarm_l": [(X, -0.5 * k)], "neck_01": [(X, 0.2 * k)], "spine_03": [(X, 0.15 * bang)]})
+
     return {"sk_me1": (18, throw, False), "sk_me2": (28, turret, False), "sk_me3": (24, field, False),
-            "sk_me5": (22, drone, False), "sk_me6": (30, colossus, False)}
+            "sk_me5": (22, drone, False), "sk_me6": (30, colossus, False), "sk_me7": (24, missiles, False),
+            "sk_me8": (38, flamer, False), "sk_me9": (30, orbital, False), "sk_me10": (24, tesla, False)}
 
 
 # =================================================================== NÁUTICO (tridente na direita, pronto para estocar)

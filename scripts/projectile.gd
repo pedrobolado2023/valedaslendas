@@ -45,6 +45,15 @@ func _ready() -> void:
 				add_child(w)
 			_light(color, 0.8)
 			_wind_fx.call_deferred()
+		"rocket":
+			var body := Toon.part(Toon.cyl(0.08, 0.1, 0.6, 8), Color(0.75, 0.72, 0.68), Vector3.ZERO, 0.015)
+			body.rotation_degrees.x = 90.0
+			add_child(body)
+			var nose := Toon.part(Toon.cyl(0.0, 0.08, 0.2, 8), Color(0.9, 0.35, 0.15), Vector3(0, 0, -0.4), 0.015)
+			nose.rotation_degrees.x = -90.0
+			add_child(nose)
+			_light(Color(1.0, 0.6, 0.25), 0.6)
+			_rocket_fx.call_deferred()
 		"dagger":
 			add_child(Toon.part(Toon.box(Vector3(0.12, 0.03, 0.6)), Color(0.85, 0.88, 0.95), Vector3(0, 0, -0.1), 0.01))
 			add_child(Toon.part(Toon.box(Vector3(0.3, 0.05, 0.06)), Color(0.3, 0.2, 0.35), Vector3(0, 0, 0.22), 0.0))
@@ -77,6 +86,10 @@ func _ready() -> void:
 			if big or gold:
 				_trail(color, 0.08)
 	rotation.y = atan2(-dir.x, -dir.z)
+
+
+func _rocket_fx() -> void:
+	Vfx.rocket_trail(self)
 
 
 func _dagger_fx() -> void:
@@ -185,6 +198,11 @@ func _explode() -> void:
 	if player != null and is_instance_valid(player):
 		for e in Skills.in_radius(get_tree(), pos, explode_r):
 			Skills.hit(player, e, mult, pos)
+	if visual == "rocket":
+		Vfx.explosion(host, pos, explode_r)
+		Sfx.play("sk_explosion", -9.0, 1.5)
+		queue_free()
+		return
 	Fx.disc(host, pos, color, explode_r, 0.4, 0.28)
 	Fx.ring(host, pos, Color(1.0, 0.85, 0.5), explode_r, 0.35)
 	Fx.burst(host, global_position, color, 26, 7.0, 0.12)

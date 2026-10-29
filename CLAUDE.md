@@ -92,8 +92,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Druida já tem 10: dr7 Granizo Ancestral (`ice_fall`), dr8 Fúria do Trovão (`storm_chain`), dr9 Chuva de Meteoros
   (`meteor_rain`), dr10 Pisão da Morte (`fissure`). Assassino também tem 10: as7 Leque de Adagas (`dagger_fan`),
   as8 Marca da Morte (`death_mark`), as9 Clones das Sombras (`shadow_clones`: cópias escuras do herói com
-  `ModelKit.set_tint`), as10 Eclipse Sangrento (`eclipse`). Mecânico e Náutico ainda têm 6 (skills novas escolhidas
-  por mim com o tema da classe; o dono aprova ou troca).
+  `ModelKit.set_tint`), as10 Eclipse Sangrento (`eclipse`). Mecânico também: me7 Enxame de Mísseis (`missiles`,
+  projétil "rocket" teleguiado), me8 Lança-Chamas a Vapor (`flamethrower`), me9 Bombardeio Orbital (`orbital`),
+  me10 Torre Tesla (`tesla`). Náutico ainda tem 6 (skills novas escolhidas por mim com o tema da classe; o dono
+  aprova ou troca).
 - **Área das skills:** `GameData.AREA_MULT = 1.4`; sempre ler o raio com `Skills.area(sk)` (nunca `sk["r"]` direto).
 - **Efeitos bonitos (`scripts/vfx.gd`, classe `Vfx`):** texturas geradas por código no Godot (brilho, chama em gota,
   fumaça, anel, rachaduras, geada, queimado) + `emit()` (partículas com cor no tempo), `ground_mark()` (Decal),

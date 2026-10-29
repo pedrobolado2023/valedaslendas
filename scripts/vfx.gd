@@ -1009,3 +1009,128 @@ static func dagger_trail(proj: Node3D, col: Color) -> void:
 	emit(proj, proj.global_position, {"tex": "soft", "shot": false, "amount": 24, "life": 0.25, "size": [0.25, 0.45], "vel": [0, 0.2],
 			"colors": [[0, Color(col.r * 0.8, col.g * 0.6, col.b * 0.85, 0.7)], [1, Color(col.r * 0.4, 0.05, col.b * 0.5, 0.0)]],
 			"curve": [[0, 1], [1, 0.1]]})
+
+# =================================================================== tecnologia (Mecânico)
+
+const SPARK := [[0.0, Color(0.9, 0.95, 1.0, 1.0)], [0.4, Color(0.45, 0.75, 1.0, 0.9)], [1.0, Color(0.2, 0.4, 1.0, 0.0)]]
+
+
+## Rastro de míssil: chama curta atrás + fumaça cinza que fica no ar.
+static func rocket_trail(proj: Node3D) -> void:
+	emit(proj, proj.global_position, {"tex": "soft", "shot": false, "amount": 30, "life": 0.18, "size": [0.35, 0.6], "vel": [0, 0.3],
+			"colors": [[0, Color(1.0, 0.8, 0.4, 0.8)], [1, Color(1.0, 0.35, 0.1, 0.0)]], "curve": [[0, 1], [1, 0.2]]})
+	emit(proj, proj.global_position, {"tex": "smoke", "add": false, "shot": false, "amount": 30, "life": 0.9, "size": [0.45, 0.9],
+			"vel": [0.1, 0.5], "spin": 40.0, "colors": [[0, Color(0.55, 0.52, 0.5, 0.0)], [0.1, Color(0.5, 0.48, 0.46, 0.55)], [1, Color(0.4, 0.38, 0.36, 0.0)]],
+			"curve": [[0, 0.5], [1, 1.6]]})
+
+
+## Faíscas elétricas (curto-circuito, choque).
+static func sparks(host: Node, pos: Vector3, amount: int = 18, speed: float = 7.0) -> void:
+	emit(host, pos, {"tex": "dot", "amount": amount, "life": 0.45, "size": [0.06, 0.14], "vel": [speed * 0.5, speed],
+			"gravity": Vector3(0, -10, 0), "colors": SPARK, "curve": [[0, 1], [1, 0.2]]})
+
+
+## Jato de lança-chamas saindo do herói na direção dir por `dur` segundos (segue o herói).
+static func flame_stream(p: Node3D, dir: Vector3, length: float, dur: float) -> void:
+	if not _ok(p):
+		return
+	var host := p.get_parent()
+	var node := Node3D.new()
+	p.add_child(node)
+	node.position = Vector3(0, 1.1, 0)
+	node.look_at(node.global_position + dir, Vector3.UP)
+	var speed := length / 0.45
+	var e1 := emit(node, node.global_position, {"tex": "flame", "add": false, "shot": false, "amount": 80, "life": 0.5, "dur": dur,
+			"size": [0.6, 1.8], "vel": [speed * 0.8, speed], "dir": Vector3.FORWARD, "spread": 9.0, "damp": [speed * 0.6, speed * 0.9],
+			"gravity": Vector3(0, 2.5, 0), "curve": [[0, 0.3], [0.3, 1.0], [1, 1.3]], "spin": 120.0,
+			"colors": [[0.0, Color(1.0, 0.75, 0.35, 0.0)], [0.08, Color(1.0, 0.55, 0.15, 0.95)], [0.4, Color(0.85, 0.25, 0.05, 0.9)],
+					[0.75, Color(0.5, 0.12, 0.05, 0.55)], [1.0, Color(0.12, 0.07, 0.05, 0.0)]]})
+	var e2 := emit(node, node.global_position, {"tex": "soft", "shot": false, "amount": 30, "life": 0.3, "dur": dur, "size": [0.4, 1.0],
+			"vel": [speed * 0.9, speed], "dir": Vector3.FORWARD, "spread": 5.0, "damp": [speed * 0.8, speed],
+			"colors": FIRE_CORE, "curve": [[0, 0.4], [1, 1.2]]})
+	for e in [e1, e2]:
+		if e != null:
+			(e as CPUParticles3D).local_coords = false
+	emit(node, node.global_position, {"tex": "smoke", "add": false, "shot": false, "amount": 18, "life": 1.2, "dur": dur, "size": [1.0, 2.0],
+			"vel": [speed * 0.4, speed * 0.6], "dir": Vector3.FORWARD, "spread": 14.0, "damp": [speed * 0.4, speed * 0.5],
+			"gravity": Vector3(0, 1.5, 0), "colors": SMOKE, "curve": [[0, 0.3], [1, 1.4]], "spin": 30.0})
+	light(host, p.global_position + Vector3(0, 1.2, 0) + dir * length * 0.5, Color(1.0, 0.55, 0.2), 1.4, length * 1.2, dur, true)
+	p.get_tree().create_timer(dur + 1.5).timeout.connect(func() -> void:
+		if is_instance_valid(node):
+			node.queue_free())
+
+
+## Feixe orbital: aviso, depois uma coluna de energia desce do céu e queima o chão.
+static func orbital_beam(host: Node, at: Vector3, r: float, delay: float, dur: float, col: Color) -> void:
+	if not _ok(host):
+		return
+	marker(host, at, col, r, delay + dur)
+	emit(host, at + Vector3(0, 0.1, 0), {"tex": "dot", "shot": false, "amount": 20, "life": 0.6, "dur": delay, "size": [0.06, 0.12],
+			"shape": "ring", "r": r, "r_in": r * 0.9, "vel": [0.2, 0.6], "dir": Vector3.UP,
+			"colors": [[0, Color(col.r, col.g, col.b, 0.0)], [0.3, Color(col.r * 0.8, col.g * 0.8, col.b * 0.85, 0.8)], [1, Color(col.r, col.g, col.b, 0.0)]]})
+	host.get_tree().create_timer(delay).timeout.connect(func() -> void:
+		if not _ok(host):
+			return
+		_beam_column(host, at, r * 0.55, Color(col.r * 0.6, col.g * 0.6, col.b * 0.75, 0.3), dur)
+		_beam_column(host, at, r * 0.18, Color(0.85, 0.9, 1.0, 0.6), dur)
+		sparks(host, at + Vector3(0, 0.3, 0), 50, 12.0)
+		shockwave(host, at, col, r * 1.5, 0.5)
+		emit(host, at + Vector3(0, 0.4, 0), {"tex": "smoke", "add": false, "amount": 22, "life": 1.5, "size": [1.4, 2.8], "shape": "ring", "r": r * 0.6,
+				"vel": [r * 0.8, r * 1.5], "damp": [r * 1.2, r * 1.8], "dir": Vector3.UP, "spread": 80.0, "colors": SMOKE,
+				"curve": [[0, 0.5], [1, 1.3]], "spin": 30.0})
+		ground_mark(host, at, "scorch", r * 2.3, 6.0)
+		light(host, at + Vector3(0, 2.0, 0), col, 2.5, r * 2.5, dur, true))
+
+
+## Coluna de energia (cilindro aditivo) que surge do céu, pulsa e some.
+static func _beam_column(host: Node, at: Vector3, radius: float, col: Color, dur: float) -> void:
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = radius
+	cm.bottom_radius = radius
+	cm.height = 40.0
+	cm.radial_segments = 20
+	cm.rings = 1
+	cm.cap_top = false
+	cm.cap_bottom = false
+	mi.mesh = cm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = Color(col.r, col.g, col.b, 0.0)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	host.add_child(mi)
+	mi.global_position = at + Vector3(0, 20.0, 0)
+	mi.scale = Vector3(0.2, 1, 0.2)
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE, 0.12).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(m, "albedo_color:a", col.a, 0.12)
+	for i in int(dur / 0.1):
+		tw.tween_property(mi, "scale", Vector3(randf_range(0.85, 1.1), 1, randf_range(0.85, 1.1)), 0.1)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.25)
+	tw.parallel().tween_property(mi, "scale", Vector3(0.05, 1, 0.05), 0.25)
+	tw.tween_callback(mi.queue_free)
+
+
+## Pancada no chão (Colosso): poeira, pedras e onda de choque, sem fogo.
+static func ground_slam(host: Node, at: Vector3, r: float, col: Color) -> void:
+	if not _ok(host):
+		return
+	shockwave(host, at, col, r * 1.3, 0.5)
+	shockwave(host, at, Color(1, 1, 1), r * 0.7, 0.35)
+	emit(host, at + Vector3(0, 0.3, 0), {"tex": "smoke", "add": false, "amount": 28, "life": 1.3, "size": [1.4, 2.8], "shape": "ring", "r": r * 0.4,
+			"vel": [r * 1.2, r * 2.0], "damp": [r * 1.5, r * 2.2], "dir": Vector3.UP, "spread": 85.0,
+			"colors": [[0, Color(0.5, 0.42, 0.35, 0.0)], [0.15, Color(0.45, 0.38, 0.32, 0.55)], [1, Color(0.3, 0.26, 0.22, 0.0)]],
+			"curve": [[0, 0.5], [1, 1.3]], "spin": 25.0})
+	var rock := BoxMesh.new()
+	rock.size = Vector3(0.35, 0.25, 0.3)
+	rock.material = rock_mat()
+	emit(host, at, {"mesh": rock, "amount": 24, "life": 1.1, "size": [0.6, 1.4], "shape": "ring", "r": r * 0.4, "vel": [6.0, 11.0],
+			"dir": Vector3.UP, "spread": 30.0, "gravity": Vector3(0, -24, 0), "spin": 360.0,
+			"curve": [[0, 1], [0.85, 1], [1, 0]], "colors": [[0, Color(1, 1, 1)], [1, Color(1, 1, 1)]]})
+	ground_mark(host, at, "crack", r * 1.8, 4.0)
+	light(host, at + Vector3(0, 1.5, 0), col, 1.6, r * 1.6, 0.4)

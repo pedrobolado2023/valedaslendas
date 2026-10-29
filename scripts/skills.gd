@@ -298,6 +298,8 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			_chain(p, host, hand, point, float(sk["range"]), chain_hops(sk, lvl), m, col, float(sk.get("stun", 0.0)))
 		"shield":
 			p.add_shield(p.max_hp * shield_pct(sk, lvl), float(sk["dur"]), col)
+			Vfx.shockwave(host, pos, col, 3.5, 0.4)
+			Vfx.sparks(host, pos + Vector3(0, 1.2, 0), 26, 6.0)
 			if sk.has("burst"):
 				p.shield_burst = {"mult": float(sk["burst"]) * level_mult(lvl), "r": area(sk), "color": col}
 			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, 3.0, 0.4)
@@ -436,6 +438,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			_turret(p, host, at3, m, float(sk["range"]), float(sk["dur"]), float(sk["every"]), col)
 		"repair_drone":
 			_drone(p, p.max_hp * shield_pct(sk, lvl), float(sk["dur"]), col)
+			Vfx.sparks(host, pos + Vector3(0.9, 2.6, 0.4), 20, 4.0)
 		"colossus":
 			var rc := area(sk)
 			p.become_giant(float(sk["dur"]))
@@ -445,10 +448,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					return
 				var o := p.global_position
 				p.attack_visual()
-				Fx.ring(host, o + Vector3(0, 0.1, 0), col, rc, 0.5, 0.15)
-				Fx.disc(host, o + Vector3(0, 0.05, 0), Color(0.2, 0.12, 0.05), rc * 0.8, 1.0, 0.6)
-				Fx.burst(host, o + Vector3(0, 0.4, 0), Color(0.7, 0.55, 0.3), 50, 11.0, 0.18)
-				Fx.light_flash(host, o + Vector3(0, 2, 0), col, 10.0, 16.0, 0.5)
+				Vfx.ground_slam(host, o, rc, col)
 				Fx.shake(p, 0.6)
 				Sfx.play("sk_explosion", 0.0, 0.7)
 				for e in in_radius(tree, o, rc):
@@ -475,6 +475,56 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					Fx.shake(p, 0.12)
 					for e in in_radius(tree, at, hit_r):
 						hit(p, e, m, at, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"])}))
+		"missiles":
+			var cnt2 := int(sk["count"])
+			for k in cnt2:
+				_later(p, 0.07 * k, func() -> void:
+					if not is_instance_valid(p):
+						return
+					var side2: Vector3 = dir.cross(Vector3.UP) * (float(k) / float(maxi(1, cnt2 - 1)) - 0.5) * 2.0
+					var d4: Vector3 = (dir * 0.4 + side2 + Vector3(0, 0.9, 0)).normalized()
+					var mr := Projectile.new()
+					mr.player = p
+					mr.dir = Vector3(d4.x, 0, d4.z).normalized() if Vector3(d4.x, 0, d4.z).length() > 0.1 else dir
+					mr.speed = float(sk["speed"])
+					mr.life = 1.6
+					mr.mult = m
+					mr.homing = true
+					mr.explode_r = float(sk["blast"]) * GameData.AREA_MULT
+					mr.visual = "rocket"
+					mr.color = col
+					host.add_child(mr)
+					mr.global_position = p.global_position + Vector3(0, 1.6, 0) + side2 * 0.4
+					Sfx.play("arrow", -10.0, 1.5))
+		"flamethrower":
+			var flen := float(sk["len"]) * GameData.AREA_MULT
+			var fdur := float(sk["dur"])
+			var fev := float(sk["every"])
+			Vfx.flame_stream(p, dir, flen, fdur)
+			for k in int(fdur / fev):
+				_later(p, fev * (k + 1), func() -> void:
+					if not is_instance_valid(p):
+						return
+					for e in in_cone(tree, p.global_position, p.facing, flen, cos(float(sk["half"]))):
+						hit(p, e, m, p.global_position))
+		"orbital":
+			var ro := area(sk)
+			var at5 := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var odelay := float(sk["delay"])
+			var odur := float(sk["dur"])
+			Vfx.orbital_beam(host, at5, ro, odelay, odur, col)
+			_later(p, odelay, func() -> void:
+				Sfx.play("sk_explosion", -2.0, 0.8)
+				if is_instance_valid(p):
+					Fx.shake(p, 0.5))
+			for k in int(odur / float(sk["every"])):
+				_later(p, odelay + float(sk["every"]) * k, func() -> void:
+					if not is_instance_valid(p):
+						return
+					for e in in_radius(tree, at5, ro):
+						hit(p, e, m, at5))
+		"tesla":
+			_tesla(p, host, pos + dir * 2.5, m, float(sk["range"]) * GameData.AREA_MULT, float(sk["dur"]), float(sk["every"]), int(sk["targets"]), col)
 		"dagger_fan":
 			var cnt := int(sk["count"])
 			var spr := float(sk["spread"])
@@ -1001,6 +1051,60 @@ static func _trap(p: Player, host: Node, at: Vector3, r: float, m: float, stun: 
 			trap.queue_free())
 
 
+## Torre Tesla: bobina no chão que solta raios nos inimigos perto até o tempo acabar.
+static func _tesla(p: Player, host: Node, at: Vector3, m: float, rng: float, dur: float, every: float, n: int, col: Color) -> void:
+	var t := Node3D.new()
+	host.add_child(t)
+	t.global_position = at
+	t.add_child(Toon.part(Toon.cyl(0.55, 0.75, 0.35, 10), Color(0.3, 0.3, 0.34), Vector3(0, 0.18, 0), 0.03))
+	t.add_child(Toon.part(Toon.cyl(0.14, 0.2, 2.2, 8), Color(0.75, 0.5, 0.25), Vector3(0, 1.4, 0), 0.03))
+	for k in 4:
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.22
+		tm.outer_radius = 0.34 - k * 0.02
+		ring.mesh = tm
+		ring.material_override = Toon.make(Color(0.8, 0.55, 0.3), 0.02)
+		ring.position = Vector3(0, 0.8 + k * 0.4, 0)
+		t.add_child(ring)
+	var orb := Toon.glow_part(Toon.sphere(0.32, 14), Color(0.55, 0.8, 1.0), Vector3(0, 2.75, 0), 0.9, true)
+	t.add_child(orb)
+	var top := at + Vector3(0, 2.75, 0)
+	Vfx.emit(t, top, {"tex": "dot", "shot": false, "local": true, "amount": 14, "life": 0.35, "dur": dur, "size": [0.05, 0.1],
+			"shape": "sphere", "r": 0.4, "vel": [1.0, 3.0], "colors": Vfx.SPARK})
+	Vfx.ground_slam(host, at, 2.0, col)
+	t.scale = Vector3(1, 0.05, 1)
+	t.create_tween().tween_property(t, "scale", Vector3.ONE, 0.3).set_trans(Tween.TRANS_BACK)
+	var timer := Timer.new()
+	timer.wait_time = every
+	timer.autostart = true
+	t.add_child(timer)
+	var state := {"left": dur}
+	timer.timeout.connect(func() -> void:
+		state["left"] = float(state["left"]) - every
+		if float(state["left"]) <= 0.0 or not is_instance_valid(p):
+			Vfx.sparks(host, top, 40, 9.0)
+			Vfx.shockwave(host, at, col, 3.0, 0.3)
+			t.queue_free()
+			return
+		var near: Array[Enemy] = []
+		for e in enemies(t.get_tree()):
+			if flat(e.global_position - at).length() <= rng:
+				near.append(e)
+		near.sort_custom(func(a: Enemy, b: Enemy) -> bool: return flat(a.global_position - at).length() < flat(b.global_position - at).length())
+		if near.is_empty():
+			if randf() < 0.5:
+				var a := randf() * TAU
+				Vfx.bolt(host, top, at + Vector3(cos(a), 0, sin(a)) * randf_range(1.5, 3.0), col, 0.25, 0.2, 0)
+			return
+		Sfx.play("sk_thunder", -14.0, 1.6)
+		for k in mini(n, near.size()):
+			var e: Enemy = near[k]
+			var to := e.global_position + Vector3(0, float(e.data["height"]) * 0.6, 0)
+			Vfx.bolt(host, top, to, col, 0.4, 0.3, 2)
+			hit(p, e, m, at, {"stun": 0.15}))
+
+
 ## Clone de sombra: cópia escura do herói que surge, salta no inimigo, corta e se desfaz.
 static func _clone_strike(p: Player, host: Node, tg: Enemy, m: float, col: Color) -> void:
 	var start := p.global_position + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
@@ -1097,7 +1201,7 @@ static func _chain(p: Player, host: Node, hand: Vector3, point: Vector3, rng: fl
 			best = score
 			first = e
 	if first == null:
-		Fx.lightning(host, hand, hand + Skills.flat(point - p.global_position).normalized() * 6.0, col, 0.2)
+		Vfx.bolt(host, hand, hand + Skills.flat(point - p.global_position).normalized() * 6.0, col, 0.35, 0.25, 1)
 		return
 	var chain: Array[Enemy] = [first]
 	var cur := first
@@ -1123,7 +1227,6 @@ static func _chain(p: Player, host: Node, hand: Vector3, point: Vector3, rng: fl
 		var dm := m * pow(0.88, k)
 		_later(p, 0.07 * k, func() -> void:
 			if is_instance_valid(e):
-				Fx.lightning(host, from, to, col, 0.25)
-				Fx.light_flash(host, to, col, 4.0, 6.0, 0.25)
+				Vfx.bolt(host, from, to, col, 0.4, 0.3, 2)
 				hit(p, e, dm, from, {"stun": stun} if stun > 0.0 else {}))
 		prev = to
