@@ -162,6 +162,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `ui/tutorial.gd`: 8 dicas que avançam com as ações (só no 1º personagem; `tutorial_done` no save; rever em Esc).
   `SaveGame` agora usa um backend trocável (`LocalBackend` com .bak e gravação segura); o save tem `schema` e
   `account_id` (id local) para o banco de dados.
+- **Banco de dados (Supabase, projeto `vvgufliyrwdxwwvyosho`, MCP em `.mcp.json`):** tabelas em `supabase/schema.sql`
+  (`saves` com RLS por `auth.uid()`, `purchases`). `scripts/cloud_sync.gd` (nó `game.cloud`): login anônimo (sessão em
+  `user://nuvem.cfg`), baixa o save se for mais novo e envia cópia a cada `save_now`. Liga só com `res://supabase.cfg`
+  ([supabase] url, anon_key); desligado nos testes (VALE_TESTE).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

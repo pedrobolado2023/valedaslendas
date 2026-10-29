@@ -28,6 +28,7 @@ var shop_panel: ShopPanel
 var pet_panel: PetPanel
 var rewards_panel: RewardsPanel
 var dungeon: Dungeon
+var cloud: CloudSync
 var settings_panel: SettingsPanel
 var tutorial: Tutorial
 var tutorial_done := false
@@ -64,6 +65,17 @@ func _ready() -> void:
 	_build_vignette()
 	_build_map("vale", false)
 	_cam_target = Vector3(0, 0, 6)
+	_make_menu()
+	cloud = CloudSync.new()
+	add_child(cloud)
+	# save mais novo na nuvem (outro PC): refaz o menu com o "Continuar" certo
+	cloud.ready_done.connect(func(pulled: bool) -> void:
+		if pulled and player == null and _menu != null:
+			_menu.queue_free()
+			_make_menu())
+
+
+func _make_menu() -> void:
 	_menu = ClassMenu.new()
 	_menu.save_info = _save_summary()
 	add_child(_menu)
@@ -351,7 +363,7 @@ func start_tutorial(_again: bool) -> void:
 func save_now() -> void:
 	if player == null:
 		return
-	SaveGame.write({
+	var data := {
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
 		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
@@ -360,7 +372,10 @@ func save_now() -> void:
 		"gear": _gear_uids(),
 		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
-	})
+	}
+	SaveGame.write(data)
+	if cloud != null:
+		cloud.push(data)
 
 
 func _build_ui() -> void:
