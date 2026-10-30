@@ -145,6 +145,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - **Ranking geral (N, `ui/ranking_panel.gd`, `Net.ranking`: top 20 por nível do banco) e duelo 1x1** (Social: desafiar
   pelo nome no mesmo mapa; `PvpProxy` = alvo invisível que segue o adversário, golpes vão por `Net.pvp_hit` com 25%
   do dano; quem cair perde, `duel_ended`).
+- **Celular:** `ui/touch_controls.gd` (só em tela de toque): joystick (`Player.touch_dir`) e botão Atacar (`touch_attack`).
 - **Portal (`ui/portal_panel.gd`):** todos os mapas em grade de 4 colunas com rolagem + boss global e masmorra no topo.
 - **Dragão de Lava (boss global, modelo do Gemini `dragon_boss.html`):** malha extraída com Node
   (`tools/dragon_extract/gen.mjs`, precisa `npm i three@0.160.0`) → `blender/make_lava_dragon.py` (reduz, posição de

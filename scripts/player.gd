@@ -335,6 +335,8 @@ func preferred_range() -> float:
 # ------------------------------------------------------------------ movimento
 
 static var typing := false   # chat aberto: teclas não movem o herói
+static var touch_dir := Vector2.ZERO   # joystick do celular (TouchControls)
+static var touch_attack := false
 
 
 func move_dir() -> Vector3:
@@ -342,6 +344,9 @@ func move_dir() -> Vector3:
 		return Vector3.ZERO
 	var ix := float(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)) - float(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT))
 	var iy := float(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP)) - float(Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN))
+	if touch_dir.length() > 0.15:
+		ix = touch_dir.x
+		iy = -touch_dir.y
 	var v := cam_right * ix + cam_fwd * iy
 	v.y = 0.0
 	return v.normalized() if v.length() > 0.01 else Vector3.ZERO
@@ -451,7 +456,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			_kit.play("idle")
 	# ataque básico segurando o clique ou a barra de espaço
-	if basic_ready() and not typing and (mouse_held or Input.is_key_pressed(KEY_SPACE)):
+	if basic_ready() and not typing and (mouse_held or touch_attack or Input.is_key_pressed(KEY_SPACE)):
 		var target := aim_point if mouse_held else _nearest_enemy_point(10.0)
 		basic_attack(target)
 

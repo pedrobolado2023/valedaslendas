@@ -685,6 +685,7 @@ func _build_ui() -> void:
 	add_child(social_panel)
 	social_panel.setup(self)
 	_hook_duel()
+	add_child(TouchControls.new())
 	chat = ChatBox.new()
 	chat.game = self
 	add_child(chat)
@@ -871,6 +872,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, true)
 				return
+			var vp := get_viewport().get_visible_rect().size
+			if DisplayServer.is_touchscreen_available() and mb.position.x < vp.x * 0.4 and mb.position.y > vp.y * 0.35:
+				return   # toque no joystick do celular não é ataque
 			player.mouse_held = true
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom = clampf(_zoom - 2.0, 16.0, 48.0)
