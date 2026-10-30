@@ -247,7 +247,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `STORY_BASE` (Ato I, falas por zona), `STORY_ACT` (Atos II-V), `STORY_SPECIAL`, `STORY_END`; Ato IV+ coleta
   "Estilhaço do Fragmento de <reino>". Portal agrupado por reino.
   Retratos dos 7 em `textures/portraits/<chave>.png` (recortados da imagem da pág. 4 do PDF); `GameData.CHARACTERS`,
-  `speaker_for(texto, reino)` (1º citado no texto, senão o soberano); `dialog.portrait = chave` antes de `open`. Rhaegar = nome parecido com Game of Thrones (avisado).
+  `speaker_for(texto, reino)` (1º citado no texto, senão o soberano); `dialog.portrait = chave` antes de `open`.
+  Modelos 3D dos 7: `blender/make_sete.py` (MPFB2, reaproveita Druida/Assassino; vestido = cone preso à bacia, cabelo
+  curto = `head_shell`, solto = lâmina nos ossos de cabelo) → `models/npc_<chave>.glb` (só idle). No jogo:
+  `GameData.royal_of(mapa)` põe o soberano na capital do reino (`game.royal`, interação "royal", fala em `CHARACTER_LINES`). Rhaegar = nome parecido com Game of Thrones (avisado).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

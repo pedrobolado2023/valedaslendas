@@ -729,6 +729,40 @@ const CHARACTERS := {
 }
 
 
+## O que cada um diz ao herói na sua capital (modelo 3D em models/npc_<chave>.glb, feito por blender/make_sete.py).
+const CHARACTER_LINES := {
+	"kaeldryn": "Valdrath não pede ajuda — mas também não recusa um bom guerreiro. O fragmento do meu reino sumiu, e eu vou descobrir quem o levou. Mostre que posso confiar em você.",
+	"lysara": "As árvores ancestrais falam comigo, viajante. Elas dizem que os fragmentos estão enfraquecendo... e que algo está acordando. Eloreth precisa de você mais do que admite.",
+	"darius": "Meus dragões não enlouqueceram. Eles estão com medo — e um dragão com medo é a coisa mais perigosa deste mundo. Se for lutar por Drakaris, lute sem hesitar.",
+	"emberlyn": "Em Thalyss ninguém ganha nada por nascer nobre. Eu conquistei minha patente com a espada — e você vai conquistar o respeito do mesmo jeito.",
+	"rhaegar": "Honra é fazer o que é certo mesmo quando ninguém está olhando. Vyndara guarda segredos que me envergonham... mas a guerra que vem é maior que eles.",
+	"selene": "Eu vejo pedaços do futuro, e cada visão me custa uma lembrança. Numa delas, os sete reinos caem. Em outra, você está ao nosso lado. Escolha bem o seu caminho.",
+	"nyx": "Todos acham que as Sombras escondem o mal. Nós escondemos a verdade — porque os outros reinos não aguentariam ouvi-la. Ainda não é hora de você saber tudo.",
+}
+
+
+## Personagem que fica na capital do reino deste mapa: a cidade base do reino ou a primeira cidade gerada dele.
+static func royal_of(map_id: String) -> String:
+	var kg := kingdom_of(map_id)
+	if kg == "":
+		return ""
+	var seat := ""
+	for b in BASE_KINGDOM:
+		if String(BASE_KINGDOM[b]) == kg:
+			seat = String(b)
+	if seat == "":
+		for id in MAP_ORDER:
+			if kingdom_of(String(id)) == kg:
+				seat = String(id)
+				break
+	if seat != map_id:
+		return ""
+	for k in CHARACTERS:
+		if String(CHARACTERS[k]["kingdom"]) == kg:
+			return String(k)
+	return ""
+
+
 ## Quem "fala" numa missão: o primeiro personagem citado no texto; senão o soberano do reino ("" em Aetherion).
 static func speaker_for(text: String, kingdom: String) -> String:
 	var best := ""

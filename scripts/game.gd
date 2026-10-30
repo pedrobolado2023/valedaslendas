@@ -44,6 +44,7 @@ var return_map := "vale"         # mapa para onde o herói volta ao sair de um m
 
 var quest_index := 0
 var quest_state := "none"      # none | active | done (campanha: GameData.QUESTS)
+var royal: Npc                 # soberano do reino (só na capital)
 var unlocks := {}              # o que a campanha já liberou (skills, funções, mapas)
 var _boss_req_t := 0.0
 var quest_kills := 0
@@ -411,6 +412,9 @@ func _build_map(id: String, with_zones: bool) -> void:
 	if npc != null:
 		npc.queue_free()
 		npc = null
+	if royal != null:
+		royal.queue_free()
+		royal = null
 	map_id = id
 	world = World.new()
 	add_child(world)
@@ -422,6 +426,14 @@ func _build_map(id: String, with_zones: bool) -> void:
 	npc.model_name = String(md["npc_model"])
 	npc.position = world.npc_pos
 	add_child(npc)
+	var rk := GameData.royal_of(id)   # soberano do reino na sua capital
+	if rk != "":
+		royal = Npc.new()
+		royal.npc_name = "%s, %s" % [String(GameData.CHARACTERS[rk]["name"]), String(GameData.CHARACTERS[rk]["title"])]
+		royal.model_name = "npc_" + rk
+		royal.set_meta("who", rk)
+		royal.position = Vector3(-world.npc_pos.z, 0, world.npc_pos.x).normalized() * 5.5
+		add_child(royal)
 	_prop_label(world.portal_pos + Vector3(0, 5.6, 0), "Portal de Viagem", Color(0.55, 0.9, 1.0))
 	_prop_label(world.board_pos + Vector3(0, 3.6, 0), "Quadro de Missões", Color(1.0, 0.85, 0.45))
 	if with_zones:
@@ -1001,7 +1013,10 @@ func _unhandled_input(event: InputEvent) -> void:
 func _interactable_at(p: Vector3, r: float) -> String:
 	var best := ""
 	var bd := r
-	for pair in [["npc", npc.global_position], ["board", world.board_pos], ["portal", world.portal_pos]]:
+	var spots := [["npc", npc.global_position], ["board", world.board_pos], ["portal", world.portal_pos]]
+	if royal != null:
+		spots.append(["royal", royal.global_position])
+	for pair in spots:
 		var d := Skills.flat(p - (pair[1] as Vector3)).length()
 		if d < bd:
 			bd = d
@@ -1011,7 +1026,9 @@ func _interactable_at(p: Vector3, r: float) -> String:
 
 func _interact(what: String, from_click: bool) -> void:
 	var pos: Vector3 = npc.global_position
-	if what == "board":
+	if what == "royal" and royal != null:
+		pos = royal.global_position
+	elif what == "board":
 		pos = world.board_pos
 	elif what == "portal":
 		pos = world.portal_pos
@@ -1019,6 +1036,13 @@ func _interact(what: String, from_click: bool) -> void:
 		toast("Chegue mais perto (ou use \"Ir automático\")", 1.8)
 		return
 	match what:
+		"royal":
+			var rk := String(royal.get_meta("who"))
+			var kd: Dictionary = GameData.KINGDOMS[String(GameData.CHARACTERS[rk]["kingdom"])]
+			dialog.portrait = rk
+			dialog.open(royal.npc_name, "%s
+
+[i][color=#e8b75a]%s — \"%s\"[/color][/i]" % [String(GameData.CHARACTER_LINES.get(rk, "")), String(kd["name"]), String(kd["motto"])], [["Fechar", dialog.close]])
 		"npc":
 			talk()
 		"board":
