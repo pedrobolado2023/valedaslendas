@@ -55,6 +55,44 @@ def horn(name, mat, base, p1, p2, r0, rings=12, seg=10):
     return o
 
 
+def petal_layer(c, m, z0, z1, r_bottom, r_top, n, tip, phase=0.0):
+    """Camada de saia em cone com a barra recortada em pétalas (pontas para baixo), uma malha só."""
+    import bpy
+    segs, rings = n * 8, 6
+    py = K.bone_head(c.arm, "pelvis").y + 0.01
+    verts, faces = [], []
+    for i in range(rings + 1):
+        t = i / rings
+        for j in range(segs):
+            a = j / segs * math.tau
+            r = r_top + (r_bottom - r_top) * t
+            z = z0 + (z1 - z0) * t
+            if i == rings:   # barra: ponta no meio de cada pétala, recorte entre elas
+                w = abs(math.cos(a * n / 2 + phase))
+                z -= tip * (w ** 0.6)
+                r += tip * 0.3 * w
+            elif i == rings - 1:
+                z -= tip * 0.35 * abs(math.cos(a * n / 2 + phase)) ** 0.6
+            verts.append((math.sin(a) * r, py - math.cos(a) * r * 0.82, z))
+    for i in range(rings):
+        for j in range(segs):
+            a_, b_ = i * segs + j, i * segs + (j + 1) % segs
+            faces.append((a_, b_, b_ + segs, a_ + segs))
+    me = bpy.data.meshes.new("SaiaFolha")
+    me.from_pydata(verts, [], faces)
+    o = bpy.data.objects.new("SaiaFolha", me)
+    bpy.context.collection.objects.link(o)
+    for f in o.data.polygons:
+        f.use_smooth = True
+    o.data.materials.append(m)
+    bpy.context.view_layer.objects.active = o
+    md = o.modifiers.new("Esp", "SOLIDIFY")
+    md.thickness = 0.01
+    K.apply_modifiers(o, keep=())
+    rigid(c, o, "pelvis")
+    return o
+
+
 def long_skirt(c, m, z0, z1, r_bottom, r_top):
     """Saia longa em cone presa à bacia (até os pés)."""
     import bpy
@@ -425,16 +463,93 @@ def sk_bruxa(c):
     D.cape(c, robe, 1.2, 0.48, moss)
 
 
+def sk_primavera(c):
+    """Avatar da Primavera (Lendária): vestido de pétalas cor-de-rosa e brancas em três camadas, corpete verde-folha,
+    coroa de flores, borboletas em volta (presas aos ombros e ao cabelo), cabelo longo dourado-claro, asas de pétala."""
+    leafg = K.color_mat("skp_folha", (0.45, 0.72, 0.35), rough=0.5)
+    pink = K.color_mat("skp_rosa", (0.98, 0.62, 0.74), rough=0.45)
+    white = K.color_mat("skp_branco", (0.99, 0.94, 0.95), rough=0.45)
+    gold = K.color_mat("skp_ouro", (1.0, 0.82, 0.35), metal=0.7, rough=0.3)
+    wing_a = K.color_mat("skp_asa", (1.0, 0.7, 0.3), glow=1.0)
+    wing_b = K.color_mat("skp_asa2", (0.55, 0.85, 1.0), glow=1.0)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, K.color_mat("skp_meia", (0.9, 0.82, 0.78), rough=0.6), offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, leafg, offset=0.012, zmin=c.hip_z - 0.04)
+    long_skirt(c, white, c.hip_z + 0.06, c.ankle_z + 0.06, 0.3, 0.2)
+    piece(c, c.tights, "Bota", FEET, leafg, offset=0.012, thresh=0.3, zmax=c.ankle_z + 0.05)
+    D.gloves(c, K.color_mat("skp_pele_luva", (0.92, 0.74, 0.62), rough=0.6), offset=0.003)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.95, 0.8, 0.5), 1.4)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.7, 0.55, 0.35), 1.0)
+    # vestido de pétalas: três fileiras (rosa / branca / rosa) caindo sobre a saia
+    py = K.bone_head(c.arm, "pelvis").y + 0.01
+    z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.06
+    rz = lambda z: 0.2 + (0.3 - 0.2) * (z0s - z) / (z0s - z1s)
+    span = z0s - z1s
+    for row, (f0, f1, m) in enumerate(((0.0, 0.42, pink), (0.24, 0.66, white), (0.48, 0.88, pink), (0.72, 1.02, white))):
+        za, zb_ = z0s - span * f0, z0s - span * f1
+        off = 0.012 + (3 - row) * 0.012   # camada de cima por fora: as pontas de cada fileira aparecem sobre a de baixo
+        petal_layer(c, m, za, zb_, rz(zb_) + off, rz(za) + off, 12 + row * 2, 0.07, row * 0.4)
+    # ombros: folhas e uma flor
+    def flower(pos, size, bone_n, m=pink):
+        for j in range(5):
+            ang = j / 5 * math.tau
+            pe = prim("sphere", "Joia", m, pos + Vector((math.cos(ang) * size * 0.6, 0, math.sin(ang) * size * 0.6)), (size * 0.7, size * 0.25, size * 0.45), rot=(0, ang, 0))
+            rigid(c, pe, bone_n)
+        ce = prim("sphere", "Joia", gold, pos + Vector((0, -size * 0.1, 0)), (size * 0.45, size * 0.3, size * 0.45))
+        rigid(c, ce, bone_n)
+
+    for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):
+        sh = K.bone_head(c.arm, bone_n)
+        for k in range(3):
+            lf = leaf("Ombreira", leafg, sh + Vector((side * (0.03 + k * 0.025), 0.0, 0.05 - k * 0.025)), 0.15, 0.08, (0.0, side * (1.15 + k * 0.2), 0.0))
+            rigid(c, lf, bone_n)
+        flower(sh + Vector((side * 0.06, -0.04, 0.06)), 0.05, bone_n, white)
+    # coroa de flores
+    h, s2 = c.head, (c.head_top - c.head).length
+    ring = prim("torus", "Coroa", leafg, Vector((0, h.y + s2 * 0.02, c.eye_z + s2 * 0.42)), (s2 * 1.14, s2 * 1.24, 0.3), rot=(0.18, 0, 0), minor=0.06)
+    rigid(c, ring, "head")
+    for k in range(7):
+        ang = (k - 3) * 0.5
+        pos = Vector((math.sin(ang) * s2 * 0.6, h.y - math.cos(ang) * s2 * 0.6 + 0.01, c.eye_z + s2 * 0.47))
+        flower(pos, 0.032, "head", pink if k % 2 == 0 else white)
+
+    # borboletas: duas asas (cada asa = 2 lóbulos) presas ao cabelo e aos ombros
+    def butterfly(pos, size, bone_n, m):
+        for side in (-1, 1):
+            up = prim("sphere", "Joia", m, pos + Vector((side * size * 0.55, 0, size * 0.25)), (size * 0.9, size * 0.08, size * 0.75), rot=(0, side * 0.3, 0))
+            rigid(c, up, bone_n)
+            lo = prim("sphere", "Joia", m, pos + Vector((side * size * 0.45, 0, -size * 0.35)), (size * 0.6, size * 0.08, size * 0.5), rot=(0, side * -0.3, 0))
+            rigid(c, lo, bone_n)
+        bd = prim("sphere", "Joia", K.color_mat("skp_corpo", (0.15, 0.1, 0.08)), pos, (size * 0.18, size * 0.18, size * 0.9))
+        rigid(c, bd, bone_n)
+
+    butterfly(Vector((s2 * 0.7, h.y + s2 * 0.15, c.eye_z + s2 * 0.95)), 0.08, "head", wing_a)
+    butterfly(Vector((-s2 * 0.85, h.y - s2 * 0.05, c.eye_z + s2 * 0.35)), 0.065, "head", wing_b)
+    sh = K.bone_head(c.arm, "upperarm_l")
+    butterfly(sh + Vector((0.16, -0.02, 0.22)), 0.07, "upperarm_l", wing_b)
+    # asas de pétala nas costas (presas ao tronco)
+    sp = K.bone_head(c.arm, "spine_03")
+    for side in (-1, 1):
+        for k, (ln, wd, rz2) in enumerate(((0.45, 0.2, 0.55), (0.32, 0.15, 1.15))):
+            wg = leaf("Capa", wing_a if k == 0 else wing_b, sp + Vector((side * 0.16, 0.16 + k * 0.01, 0.05 - k * 0.12)), ln, wd, (0.3, side * rz2, 0))
+            rigid(c, wg, "spine_03")
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", gold, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.3), minor=0.04)
+    rigid(c, band, "spine_01")
+    flower(Vector((0, cy - ry - 0.02, zb)), 0.04, "spine_01", pink)
+
+
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
          "sk_areias": ("druida", D, sk_areias), "sk_ninfa": ("druida", D, sk_ninfa),
-         "sk_bruxa": ("druida", D, sk_bruxa)}
+         "sk_bruxa": ("druida", D, sk_bruxa), "sk_primavera": ("druida", D, sk_primavera)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
           "sk_inverno": [("hair/bob02/bob02.mhclo", "Hair"), ("eyebrows/eyebrow003/eyebrow003.mhclo", "Eyebrows")],
           "sk_areias": [("hair/ponytail01/ponytail01.mhclo", "Hair"), ("eyebrows/eyebrow010/eyebrow010.mhclo", "Eyebrows")],
           "sk_ninfa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")],
-          "sk_bruxa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")]}
+          "sk_bruxa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")],
+          "sk_primavera": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")]}
 
 
 def main():
