@@ -1018,6 +1018,19 @@ func _story_goal() -> Dictionary:
 
 func _mission_goal(kind: String) -> Dictionary:
 	if kind == "farm":
+		# masmorras do dia antes de caçar (3 por dia)
+		if map_id == String(GameData.DUNGEON["map"]):
+			var best: Enemy = null
+			for e in get_tree().get_nodes_in_group("enemy"):
+				var en := e as Enemy
+				if en != null and en.alive and (best == null or en.global_position.distance_to(player.global_position) < best.global_position.distance_to(player.global_position)):
+					best = en
+			if best != null:
+				return {"pos": best.global_position, "kind": "hunt", "near": 3.0}
+			return {"pos": GameData.ZONES[String(GameData.DUNGEON["zone"])]["center"], "kind": "zone", "near": 4.0}
+		if dungeon != null and dungeon.state == "" and dungeon.runs_today() < int(GameData.DUNGEON["per_day"]) and not _traveling:
+			dungeon.enter()
+			return {}
 		var bm := GameData.best_map(player.level)   # caça no mapa mais alto que já alcança
 		if bm != map_id and not bool(GameData.MAPS[map_id].get("event", false)):
 			return _portal_goal(bm)
@@ -1366,7 +1379,7 @@ func _on_fell() -> void:
 	_resume_auto = autopilot.questing
 	autopilot.stop_quest()
 	hud.banner("Você caiu!", "Voltando para o acampamento...", 2.5)
-	get_tree().create_timer(3.0).timeout.connect(func() -> void:
+	Fx.later(self, 3.0).connect(func() -> void:
 		player.revive(world.spawn_pos + Vector3(0, 0.1, 0))
 		_cam_target = player.global_position
 		if _resume_auto:

@@ -282,16 +282,16 @@ func _start_attack(to: Vector3, d: float) -> void:
 		Fx.telegraph(get_parent(), center, r, Color(1.0, 0.2, 0.12), wind)
 		if _kit != null and _kit.has_anim("attack"):
 			var L := _kit.length("attack")
-			get_tree().create_timer(maxf(0.0, wind - L * 0.7)).timeout.connect(func() -> void:
+			Fx.later(self, maxf(0.0, wind - L * 0.7)).connect(func() -> void:
 				if alive and _kit != null:
 					_kit.play("attack", 1.0, true))
-		get_tree().create_timer(wind).timeout.connect(func() -> void: _slam_land(center, r))
+		Fx.later(self, wind).connect(func() -> void: _slam_land(center, r))
 	else:
 		var wind2 := 0.32
 		_attacking = wind2 + 0.3
 		if _kit != null:
 			_kit.play("attack", 1.0, true)
-		get_tree().create_timer(wind2).timeout.connect(func() -> void:
+		Fx.later(self, wind2).connect(func() -> void:
 			if not alive or _player == null or _stun_t > 0.0:
 				return
 			var dd := (_player.global_position - global_position)
@@ -434,7 +434,7 @@ func net_attack(slam: bool, center: Vector3, r: float, wind: float) -> void:
 	_attacking = wind + 0.3
 	if slam:
 		Fx.telegraph(get_parent(), center, r, Color(1.0, 0.2, 0.12), wind)
-		get_tree().create_timer(wind).timeout.connect(func() -> void:
+		Fx.later(self, wind).connect(func() -> void:
 			if alive:
 				Fx.ring(get_parent(), center + Vector3(0, 0.1, 0), Color(1.0, 0.55, 0.25), r, 0.4)
 				Sfx.play("sk_slam", -4.0, 0.8))
@@ -466,6 +466,8 @@ func _update_bar() -> void:
 func apply_stun(t: float) -> void:
 	if not alive:
 		return
+	if net_id > 0:
+		get_node("/root/Net").enemy_effect.rpc_id(1, net_id, "stun", 0.0, t)
 	if boss:
 		t *= 0.35
 	_stun_t = maxf(_stun_t, t)
@@ -486,6 +488,8 @@ func apply_stun(t: float) -> void:
 func apply_slow(amount: float, t: float) -> void:
 	if not alive:
 		return
+	if net_id > 0:
+		get_node("/root/Net").enemy_effect.rpc_id(1, net_id, "slow", amount, t)
 	_slow = maxf(_slow, amount)
 	_slow_t = maxf(_slow_t, t)
 	if _kit != null:

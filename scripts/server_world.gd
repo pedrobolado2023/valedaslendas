@@ -86,13 +86,32 @@ func _tick_map(m: String, dt: float) -> void:
 		net._enemies.rpc_id(int(pid), m, snap)
 
 
+## Lentidão e atordoamento vindos das skills dos jogadores.
+func effect(m: String, id: int, kind: String, amount: float, t: float) -> void:
+	if not maps.has(m) or not maps[m]["enemies"].has(id):
+		return
+	var e: Dictionary = maps[m]["enemies"][id]
+	if kind == "stun":
+		e["stun"] = maxf(float(e.get("stun", 0.0)), t * (0.35 if e["boss"] else 1.0))
+	elif kind == "slow":
+		e["slow"] = maxf(float(e.get("slow", 0.0)), amount)
+		e["slow_t"] = maxf(float(e.get("slow_t", 0.0)), t)
+
+
 func _ai(m: String, e: Dictionary, players: Dictionary, dt: float) -> void:
 	var d: Dictionary = GameData.enemy(String(e["type"]))
+	e["stun"] = float(e.get("stun", 0.0)) - dt
+	e["slow_t"] = float(e.get("slow_t", 0.0)) - dt
+	if float(e["slow_t"]) <= 0.0:
+		e["slow"] = 0.0
+	if float(e["stun"]) > 0.0:   # atordoado: não anda nem ataca
+		e["moving"] = false
+		return
 	e["cd"] = float(e["cd"]) - dt
 	e["busy"] = float(e["busy"]) - dt
 	e["moving"] = false
 	var pos: Vector3 = e["pos"]
-	var spd := float(d["speed"])
+	var spd := float(d["speed"]) * (1.0 - float(e.get("slow", 0.0)))
 	# alvo: jogador mais perto dentro do raio de ataque (ou o que já estava perseguindo)
 	var aggro_r := float(d.get("aggro_r", 15.0 if e["boss"] else 8.5))
 	var leash := float(d.get("leash", 34.0 if e["boss"] else 24.0))
@@ -160,7 +179,7 @@ func _attack(m: String, e: Dictionary, d: Dictionary, players: Dictionary) -> vo
 		net._enemy_attack.rpc_id(int(pid), int(e["id"]), slam, center, r, wind)
 	var dmg := int(d["dmg"])
 	var target := int(e["target"])
-	get_tree().create_timer(wind).timeout.connect(func() -> void:
+	Fx.later(self, wind).connect(func() -> void:
 		if not maps.has(m) or not maps[m]["enemies"].has(e["id"]):
 			return
 		for pid in net._players:

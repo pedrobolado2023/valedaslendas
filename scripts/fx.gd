@@ -192,6 +192,21 @@ static func lightning(parent: Node, a: Vector3, b: Vector3, color: Color, time: 
 		streak(parent, pts[i], pts[i + 1], color, 0.22, time)
 
 
+## Espera `t` segundos presa ao nó: se o nó sumir antes (monstro morreu, mapa trocou), a função não roda
+## (evita os erros "Lambda capture ... was freed"). Uso: Fx.later(no, 0.5).connect(func() -> void: ...)
+static func later(node: Node, t: float) -> Signal:
+	var tm := Timer.new()
+	tm.one_shot = true
+	tm.wait_time = maxf(t, 0.001)
+	tm.timeout.connect(tm.queue_free)
+	if node != null and is_instance_valid(node) and node.is_inside_tree():
+		node.add_child(tm)
+	else:
+		(Engine.get_main_loop() as SceneTree).root.add_child(tm)
+	tm.start()
+	return tm.timeout
+
+
 ## Luzes dos efeitos: no navegador (WebGL) há um limite de luzes na cena; acima de WEB_LIGHTS as novas ficam
 ## desligadas (o efeito continua, só sem a luz). Toda luz de efeito entra no grupo "fx_light".
 const WEB_LIGHTS := 10
@@ -265,4 +280,4 @@ static func hitstop(node: Node, time: float = 0.05) -> void:
 	if node == null or not node.is_inside_tree():
 		return
 	Engine.time_scale = 0.08
-	node.get_tree().create_timer(time, true, false, true).timeout.connect(func() -> void: Engine.time_scale = 1.0)
+	node.get_tree().create_timer(time, true, false, true).timeout.connect(func() -> void: Engine.time_scale = 1.0)   # tempo real (o jogo está em câmera lenta)

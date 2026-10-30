@@ -88,6 +88,6 @@ func _on_died(e: Enemy) -> void:
 	if e == boss:
 		boss = null
 		return
-	get_tree().create_timer(7.0).timeout.connect(func() -> void:
+	Fx.later(self, 7.0).connect(func() -> void:
 		if is_inside_tree() and _alive.size() < int(data["count"]):
 			spawn_one())

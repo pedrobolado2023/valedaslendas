@@ -176,6 +176,14 @@ func enemy_hit(id: int, dmg: int) -> void:
 		world.hit(pid, String(_players[pid].get("map", "")), id, dmg)
 
 
+## Skill aplicou lentidão/atordoamento num monstro do servidor.
+@rpc("any_peer", "reliable")
+func enemy_effect(id: int, kind: String, amount: float, t: float) -> void:
+	var pid := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(pid) and world != null:
+		world.effect(String(_players[pid].get("map", "")), id, kind, clampf(amount, 0.0, 0.9), clampf(t, 0.0, 6.0))
+
+
 ## Missão pediu o chefe da zona.
 @rpc("any_peer", "reliable")
 func request_boss(zid: String, type_id: String) -> void:

@@ -355,10 +355,10 @@ static func emit(host: Node, pos: Vector3, cfg: Dictionary) -> CPUParticles3D:
 	p.emitting = true
 	var total := float(cfg.get("dur", 0.0)) + p.lifetime + 0.3
 	if not p.one_shot and cfg.has("dur"):
-		host.get_tree().create_timer(float(cfg["dur"])).timeout.connect(func() -> void:
+		Fx.later(host, float(cfg["dur"])).connect(func() -> void:
 			if is_instance_valid(p):
 				p.emitting = false)
-	host.get_tree().create_timer(total).timeout.connect(func() -> void:
+	Fx.later(host, total).connect(func() -> void:
 		if is_instance_valid(p):
 			p.queue_free())
 	return p
@@ -769,7 +769,7 @@ static func fissure(host: Node, at: Vector3, radius: float, dur: float) -> void:
 	for i in 7:
 		var a := TAU * i / 7.0 + randf_range(-0.2, 0.2)
 		var p := at + Vector3(cos(a), 0, sin(a)) * radius * randf_range(0.35, 0.8)
-		host.get_tree().create_timer(0.1 + i * 0.05).timeout.connect(func() -> void:
+		Fx.later(host, 0.1 + i * 0.05).connect(func() -> void:
 			fire_column(host, p, randf_range(1.0, 1.8), dur - 0.2, 0.7))
 
 
@@ -867,7 +867,7 @@ static func radiance(host: Node, at: Vector3, r: float) -> void:
 			"vel": [0, 0], "spin": 0.0, "colors": [[0, Color(1, 0.85, 0.45, 0.0)], [0.15, Color(0.8, 0.65, 0.3, 0.7)], [1, Color(0.8, 0.6, 0.2, 0.0)]],
 			"curve": [[0, 0.3], [0.2, 1.0], [1, 1.2]]})
 	shockwave(host, at, gold, r, 0.6)
-	host.get_tree().create_timer(0.18).timeout.connect(func() -> void: shockwave(host, at, Color(1.0, 0.95, 0.7), r * 0.6, 0.5))
+	Fx.later(host, 0.18).connect(func() -> void: shockwave(host, at, Color(1.0, 0.95, 0.7), r * 0.6, 0.5))
 	emit(host, at + Vector3(0, 0.3, 0), {"tex": "dot", "amount": 70, "life": 1.6, "size": [0.1, 0.22], "shape": "sphere", "r": r * 0.5,
 			"vel": [2.0, 6.0], "dir": Vector3.UP, "spread": 25.0, "damp": [0.5, 1.5],
 			"colors": [[0, Color(1.0, 0.95, 0.7, 1.0)], [0.5, Color(1.0, 0.75, 0.3, 0.9)], [1, Color(1.0, 0.6, 0.2, 0.0)]]})
@@ -1058,7 +1058,7 @@ static func flame_stream(p: Node3D, dir: Vector3, length: float, dur: float, hei
 			"vel": [speed * 0.4, speed * 0.6], "dir": Vector3.FORWARD, "spread": 14.0, "damp": [speed * 0.4, speed * 0.5],
 			"gravity": Vector3(0, 1.5, 0), "colors": SMOKE, "curve": [[0, 0.3], [1, 1.4]], "spin": 30.0})
 	light(host, p.global_position + Vector3(0, 1.2, 0) + dir * length * 0.5, Color(1.0, 0.55, 0.2), 1.4, length * 1.2, dur, true)
-	p.get_tree().create_timer(dur + 1.5).timeout.connect(func() -> void:
+	Fx.later(p, dur + 1.5).connect(func() -> void:
 		if is_instance_valid(node):
 			node.queue_free())
 
@@ -1071,7 +1071,7 @@ static func orbital_beam(host: Node, at: Vector3, r: float, delay: float, dur: f
 	emit(host, at + Vector3(0, 0.1, 0), {"tex": "dot", "shot": false, "amount": 20, "life": 0.6, "dur": delay, "size": [0.06, 0.12],
 			"shape": "ring", "r": r, "r_in": r * 0.9, "vel": [0.2, 0.6], "dir": Vector3.UP,
 			"colors": [[0, Color(col.r, col.g, col.b, 0.0)], [0.3, Color(col.r * 0.8, col.g * 0.8, col.b * 0.85, 0.8)], [1, Color(col.r, col.g, col.b, 0.0)]]})
-	host.get_tree().create_timer(delay).timeout.connect(func() -> void:
+	Fx.later(host, delay).connect(func() -> void:
 		if not _ok(host):
 			return
 		_beam_column(host, at, r * 0.55, Color(col.r * 0.6, col.g * 0.6, col.b * 0.75, 0.3), dur)

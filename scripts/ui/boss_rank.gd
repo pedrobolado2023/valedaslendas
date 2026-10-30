@@ -63,7 +63,7 @@ func show_top(top: Array) -> void:
 func finish(rank: int, last_hit: bool) -> void:
 	if _foot != null:
 		_foot.text = "Você ficou em %dº lugar%s" % [rank, "  ·  ÚLTIMO GOLPE!" if last_hit else ""]
-	get_tree().create_timer(20.0).timeout.connect(func() -> void:
+	Fx.later(self, 20.0).connect(func() -> void:
 		if is_instance_valid(self):
 			queue_free())
 

@@ -100,13 +100,13 @@ func _breath(t: Player) -> void:
 		Fx.telegraph(host, global_position + dir * d, d * tan(half) + 0.8, Color(1.0, 0.35, 0.1), 0.85)
 	if _kit != null:
 		_kit.play("attack", 0.8, true)
-	get_tree().create_timer(0.85).timeout.connect(func() -> void:
+	Fx.later(self, 0.85).connect(func() -> void:
 		if not alive:
 			return
 		Vfx.flame_stream(self, dir, length, dur, 4.2, 2.2)
 		Sfx.play("sk_fire", -2.0, 0.7)
 		for k in int(dur / 0.2):
-			get_tree().create_timer(0.2 * k).timeout.connect(func() -> void:
+			Fx.later(self, 0.2 * k).connect(func() -> void:
 				if not alive:
 					return
 				for pl in _targets():
@@ -131,8 +131,8 @@ func _meteors(tg: Array[Player]) -> void:
 		var at := Vector3(spots[k].x, 0.0, spots[k].z)
 		var delay := 1.3 + 0.12 * k
 		Fx.telegraph(host, at, blast, Color(1.0, 0.3, 0.1), delay)
-		get_tree().create_timer(delay - 1.0).timeout.connect(func() -> void: Vfx.meteor(host, at, 1.0, blast))
-		get_tree().create_timer(delay).timeout.connect(func() -> void:
+		Fx.later(self, delay - 1.0).connect(func() -> void: Vfx.meteor(host, at, 1.0, blast))
+		Fx.later(self, delay).connect(func() -> void:
 			if not alive:
 				return
 			Sfx.play("sk_explosion", -6.0, 0.9)
@@ -156,7 +156,7 @@ func _dive(t: Player) -> void:
 		var spot := t.global_position if is_instance_valid(t) else global_position
 		spot.y = global_position.y
 		Fx.telegraph(host, spot, r, Color(1.0, 0.2, 0.1), 1.6)
-		get_tree().create_timer(1.3).timeout.connect(func() -> void:
+		Fx.later(self, 1.3).connect(func() -> void:
 			if not alive:
 				return
 			global_position = spot
@@ -197,7 +197,7 @@ func _fire_ring() -> void:
 	var steps := 10
 	for k in steps:
 		var rr := 3.0 + 20.0 * float(k + 1) / steps
-		get_tree().create_timer(0.6 + 0.12 * k).timeout.connect(func() -> void:
+		Fx.later(self, 0.6 + 0.12 * k).connect(func() -> void:
 			if not alive:
 				return
 			Vfx.emit(host, global_position + Vector3(0, 0.3, 0), {"tex": "flame", "add": false, "amount": int(rr * 3), "life": 0.6,
