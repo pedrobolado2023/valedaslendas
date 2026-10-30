@@ -136,10 +136,15 @@ func _web_test() -> void:
 			player.purchases.append({"id": it["id"], "price": 0})
 			Shop._apply(player, it)
 	travel(String(args["mapa"]), true)
-	await get_tree().create_timer(1.5).timeout
+	await get_tree().create_timer(0.3).timeout
+	while _traveling:
+		await get_tree().process_frame
+	await get_tree().create_timer(0.5).timeout
 	if args.has("zona"):   # zona=N: vai para o centro da zona N do mapa
 		var zz: Dictionary = GameData.ZONES[GameData.MAPS[map_id]["zones"][int(args["zona"])]]
 		player.global_position = zz["center"] + Vector3(0, 0.3, 0)
+		print("[teste] na zona ", zz["name"])
+		await get_tree().create_timer(2.0).timeout
 	if args.has("so"):   # coloca um monstro deste tipo do lado do herói; sem=Peça1,Peça2 esconde peças dele
 		var e := Enemy.new()
 		e.setup(String(args["so"]), player.global_position + Vector3(3, 0, 0))
@@ -202,6 +207,21 @@ func _web_test() -> void:
 		for l in get_tree().root.find_children("*", "OmniLight3D", true, false):
 			(l as Light3D).visible = false
 		print("[teste] omni desligadas")
+	if args.has("skills"):   # usa todas as skills sem parar e mede a cena
+		for i in player.skill_levels.size():
+			player.skill_levels[i] = 10
+		player.god_mode = true
+		for loop in 20:
+			for i in player.skill_count():
+				player.skill_cd[i] = 0.0
+				player.mp = player.max_mp
+				player.cast_skill(i, player.global_position + Vector3(4, 0, 2))
+				await get_tree().create_timer(0.3).timeout
+			var mis := 0
+			for n in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+				if (n as MeshInstance3D).is_visible_in_tree():
+					mis += 1
+			print("[teste] SKILLS volta ", loop, " malhas ", mis, " luzes ", get_tree().root.find_children("*", "Light3D", true, false).size(), " particulas ", get_tree().root.find_children("*", "GPUParticles3D", true, false).size() + get_tree().root.find_children("*", "CPUParticles3D", true, false).size())
 	if args.has("contar"):
 		var mis := 0
 		var surf := 0

@@ -374,6 +374,7 @@ static func light(host: Node, pos: Vector3, col: Color, energy: float, rng: floa
 	l.shadow_enabled = false
 	host.add_child(l)
 	l.global_position = pos
+	Fx.budget_light(l)
 	var tw := l.create_tween()
 	if flicker:
 		var steps := int(time / 0.08)
@@ -728,6 +729,7 @@ static func meteor(host: Node, target: Vector3, delay: float, radius: float) -> 
 	l.light_energy = 1.2
 	l.omni_range = 6.0
 	node.add_child(l)
+	Fx.budget_light(l)
 	var fall := func(t: float) -> void:
 		var p := start.lerp(target + Vector3(0, 0.5, 0), t * t)
 		node.global_position = p

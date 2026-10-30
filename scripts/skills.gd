@@ -911,6 +911,7 @@ static func _jelly(p: Player, m: float, rng: float, dur: float, every: float, co
 	l.light_energy = 1.4
 	l.omni_range = 4.0
 	j.add_child(l)
+	Fx.budget_light(l)
 	var timer := Timer.new()
 	timer.wait_time = every
 	timer.autostart = true
@@ -1044,6 +1045,7 @@ static func _falling(host: Node, target: Vector3, visual: String, col: Color, de
 	l.light_energy = 3.0
 	l.omni_range = 8.0
 	node.add_child(l)
+	Fx.budget_light(l)
 	node.global_position = start
 	var tw := node.create_tween()
 	tw.tween_property(node, "global_position", target + Vector3(0, 0.5, 0), delay).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
@@ -1108,6 +1110,7 @@ static func _trap(p: Player, host: Node, at: Vector3, r: float, m: float, stun: 
 	light.omni_range = 3.0
 	light.position.y = 0.5
 	trap.add_child(light)
+	Fx.budget_light(light)
 	var blink := trap.create_tween().set_loops()
 	blink.tween_property(light, "light_energy", 0.2, 0.25)
 	blink.tween_property(light, "light_energy", 1.5, 0.25)

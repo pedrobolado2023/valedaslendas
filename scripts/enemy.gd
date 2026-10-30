@@ -149,7 +149,7 @@ func _quad(color: Color, size: Vector2, prio: int) -> MeshInstance3D:
 
 ## Longe do herói o monstro não é desenhado (no navegador o WebGL deixa de desenhar o 3D inteiro quando
 ## há objetos demais: mapas com ~900 malhas ficavam com a tela azul/preta). A lógica continua rodando.
-const DRAW_DIST := 60.0
+static var DRAW_DIST := 45.0 if OS.has_feature("web") else 60.0
 var _draw_t := 0.0
 
 

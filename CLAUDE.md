@@ -178,7 +178,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `deploy/Dockerfile.web` (nginx) e `deploy/Dockerfile.server`.
 - **Navegador (WebGL) tem limite de objetos desenhados:** mapas com ~750+ malhas visíveis ficavam com o 3D azul/preto
   (o dragon_whelp antigo tinha 41 peças; foi refeito com `make_monsters.py`). Monstros a mais de `Enemy.DRAW_DIST` (60)
-  do herói não são desenhados. Shaders: nunca `smoothstep` com limites invertidos nem `normalize` de normal que pode
+  do herói não são desenhados (45 no navegador); luzes de efeito no navegador limitadas a `Fx.WEB_LIGHTS` (grupo "fx_light", `Fx.budget_light`). Shaders: nunca `smoothstep` com limites invertidos nem `normalize` de normal que pode
   ser zero (usar `safe_n` do toon). Teste no navegador: export debug + `?mapa=m8&nivel=170` (ver `game._web_test`:
   `zona`, `montaria`, `pet`, `contar`, `trocar`, `semparte`); recarregar com Ctrl+Shift+R (o navegador guarda o .pck).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.

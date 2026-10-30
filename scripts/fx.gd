@@ -192,8 +192,21 @@ static func lightning(parent: Node, a: Vector3, b: Vector3, color: Color, time: 
 		streak(parent, pts[i], pts[i + 1], color, 0.22, time)
 
 
+## Luzes dos efeitos: no navegador (WebGL) há um limite de luzes na cena; acima de WEB_LIGHTS as novas ficam
+## desligadas (o efeito continua, só sem a luz). Toda luz de efeito entra no grupo "fx_light".
+const WEB_LIGHTS := 10
+
+
+static func budget_light(l: OmniLight3D) -> void:
+	l.add_to_group("fx_light")
+	if OS.has_feature("web") and l.is_inside_tree() and l.get_tree().get_node_count_in_group("fx_light") > WEB_LIGHTS:
+		l.visible = false
+
+
 static func light_flash(parent: Node, pos: Vector3, color: Color, energy: float = 4.0, rng: float = 10.0, time: float = 0.35) -> void:
 	if not _valid(parent):
+		return
+	if OS.has_feature("web") and parent.get_tree().get_node_count_in_group("fx_light") >= WEB_LIGHTS:
 		return
 	var l := OmniLight3D.new()
 	l.light_color = color
@@ -201,6 +214,7 @@ static func light_flash(parent: Node, pos: Vector3, color: Color, energy: float 
 	l.omni_range = rng
 	parent.add_child(l)
 	l.global_position = pos
+	budget_light(l)
 	var tw := l.create_tween()
 	tw.tween_property(l, "light_energy", 0.0, time)
 	tw.tween_callback(l.queue_free)
