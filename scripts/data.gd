@@ -546,6 +546,10 @@ static func market_tax(level: int) -> float:
 	return 0.20
 
 
+## Guildas: criar custa gemas; até max_members; pontos com monstros (1) e boss global (dano/1000).
+const GUILD := {"cost": 200, "max_members": 30}
+
+
 ## Nome do herói: até HERO_NAME_MAX letras; tira espaços repetidos e caracteres de controle.
 const HERO_NAME_MAX := 18
 

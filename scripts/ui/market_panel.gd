@@ -173,6 +173,9 @@ func _on_event(kind: String, d: Dictionary) -> void:
 		"voltou":
 			_add(p, d["item"])
 			_msg.text = "Anúncio cancelado: o item voltou para o inventário."
+		"guilda_paga":
+			p.gems -= int(d["gems"])
+			game.call("toast", "Guilda criada! (-%d gemas)" % int(d["gems"]), 3.0)
 		"pago":
 			Shop.credit_gems(p, int(d["gems"]), "mercadinho")
 			game.call("toast", "Mercadinho: +%d gemas (%s)" % [int(d["gems"]), String(d["note"])], 3.5)

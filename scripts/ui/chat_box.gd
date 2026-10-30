@@ -6,7 +6,7 @@ extends CanvasLayer
 
 const KEEP := 40
 const COLORS := {"geral": Color(0.95, 0.92, 0.85), "mapa": Color(0.6, 0.9, 1.0), "privado": Color(1.0, 0.6, 0.95),
-	"grupo": Color(0.55, 1.0, 0.6), "sistema": Color(1.0, 0.8, 0.4)}
+	"grupo": Color(0.55, 1.0, 0.6), "guilda": Color(0.75, 0.6, 1.0), "sistema": Color(1.0, 0.8, 0.4)}
 
 var game: Node
 var _log: RichTextLabel
@@ -50,7 +50,7 @@ func _ready() -> void:
 	_log.add_theme_font_size_override("normal_font_size", 14)
 	v.add_child(_log)
 	_edit = LineEdit.new()
-	_edit.placeholder_text = "Enter: falar · /m mapa · /p Nome privado · /g grupo"
+	_edit.placeholder_text = "Enter: falar · /m mapa · /p Nome privado · /g grupo · /c guilda"
 	_edit.max_length = 140
 	_edit.visible = false
 	_edit.text_submitted.connect(_send)
@@ -80,7 +80,7 @@ func close() -> void:
 
 func add(ch: String, from: String, text: String) -> void:
 	var col: Color = COLORS.get(ch, Color.WHITE)
-	var tag: String = {"geral": "", "mapa": "[Mapa] ", "privado": "[Privado] ", "grupo": "[Grupo] ", "sistema": ""}.get(ch, "")
+	var tag: String = {"geral": "", "mapa": "[Mapa] ", "privado": "[Privado] ", "grupo": "[Grupo] ", "guilda": "[Guilda] ", "sistema": ""}.get(ch, "")
 	var line := "[color=#%s]%s%s%s[/color]" % [col.to_html(false), tag, ("[b]%s:[/b] " % _esc(from)) if from != "" else "", _esc(text)]
 	_log.append_text(line + "\n")
 	if _log.get_paragraph_count() > KEEP:
@@ -102,6 +102,9 @@ func _send(t: String) -> void:
 	var to := ""
 	if t.begins_with("/m "):
 		ch = "mapa"
+		t = t.substr(3)
+	elif t.begins_with("/c "):
+		ch = "guilda"
 		t = t.substr(3)
 	elif t.begins_with("/g "):
 		ch = "grupo"

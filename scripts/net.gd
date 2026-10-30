@@ -21,6 +21,9 @@ signal gift_done(uid: int, ok: bool, msg: String)
 signal ranking_list(rows: Array)
 signal market_rows(rows: Array)
 signal world_event(kind: String, map: String, pos: Vector3, text: String)
+signal guild_info(info: Dictionary)
+signal guild_invited(guild: String, from: String)
+signal guild_rank(rows: Array)
 signal market_event(kind: String, data: Dictionary)
 signal duel_asked(from: String)
 signal duel_started(peer: int, name: String)
@@ -88,6 +91,7 @@ func _start_server() -> void:
 	world.net = self
 	add_child(world)
 	_market_load()
+	_guild_load()
 	print("[servidor] Vale das Lendas ouvindo na porta %d · Supabase %s · chave secreta %s" % [port, sb_url, "OK" if sb_service != "" else "FALTANDO"])
 
 
@@ -108,7 +112,11 @@ func _process(delta: float) -> void:
 		_boss_dirty = false
 		_boss_all()
 	_save_t += delta
-	if _save_t > 60.0:   # grava os saves de todos a cada minuto (e sempre que alguém sai)
+	if _save_t > 60.0:
+		for gk in _guilds:   # pontos de guilda: grava de minuto em minuto
+			if _guilds[gk].get("dirty", false):
+				_guilds[gk].erase("dirty")
+				_guild_save(String(gk))   # grava os saves de todos a cada minuto (e sempre que alguém sai)
 		_save_t = 0.0
 		for id in _players:
 			_store(int(id))
@@ -122,7 +130,7 @@ func _broadcast() -> void:
 			continue
 		if not by_map.has(p["map"]):
 			by_map[p["map"]] = {}
-		by_map[p["map"]][id] = [p["name"], p["cls"], p["gear"], p["pos"], p["rot"], p["moving"], p.get("mount", "")]
+		by_map[p["map"]][id] = [p["name"], p["cls"], p["gear"], p["pos"], p["rot"], p["moving"], p.get("mount", ""), String(p.get("guild", ""))]
 	for id in _players:
 		var m: Variant = _players[id].get("map", null)
 		if m != null:
@@ -167,6 +175,7 @@ func hello(token: String) -> void:
 	_players[id]["save_t"] = Time.get_unix_time_from_system()
 	_welcome.rpc_id(id, true, save)
 	_market_payouts(id)
+	_guild_join_online(id)
 	_boss_send(id)
 	var left := _boss_at - Time.get_unix_time_from_system()
 	if left > -float(GameData.GLOBAL_BOSS["minutes"]) * 60.0 and _boss_at > 0.0:   # entrou durante o aviso/evento
@@ -278,6 +287,14 @@ func chat(ch: String, text: String, to: String) -> void:
 		"grupo":
 			for pid in party_of(id):
 				_chat_to.rpc_id(int(pid), "grupo", from, text)
+		"guilda":
+			var gk := String(p.get("guild", "")).to_lower()
+			if gk == "":
+				_chat_to.rpc_id(id, "sistema", "", "Você não está numa guilda.")
+				return
+			for pid in _players:
+				if String(_players[pid].get("guild", "")).to_lower() == gk:
+					_chat_to.rpc_id(int(pid), "guilda", from, text)
 		_:
 			for pid in _players:
 				_chat_to.rpc_id(int(pid), "geral", from, text)
@@ -426,6 +443,191 @@ func _gift_in(item: Dictionary, from: String) -> void:
 @rpc("authority", "reliable")
 func _gift_result(uid: int, ok: bool, msg: String) -> void:
 	gift_done.emit(uid, ok, msg)
+
+
+## ---------- guildas: {name_key: {name, leader(uid), members [{uid, name}], points}}
+var _guilds := {}
+
+
+func _guild_load() -> void:
+	if not _db():
+		return
+	var r := await _sb("/rest/v1/guilds?select=*", HTTPClient.METHOD_GET, null)
+	if r["json"] is Array:
+		for row in r["json"]:
+			_guilds[String(row["name_key"])] = {"name": String(row["name"]), "leader": String(row["leader"]), "members": row["members"], "points": int(row["points"])}
+
+
+func _guild_save(key: String) -> void:
+	if not _db():
+		return
+	if not _guilds.has(key):
+		_sb("/rest/v1/guilds?name_key=eq." + key.uri_encode(), HTTPClient.METHOD_DELETE, null)
+		return
+	var g: Dictionary = _guilds[key]
+	_sb("/rest/v1/guilds?on_conflict=name_key", HTTPClient.METHOD_POST, {"name_key": key, "name": g["name"], "leader": g["leader"], "members": g["members"], "points": g["points"]}, "", ["Prefer: resolution=merge-duplicates,return=minimal"])
+
+
+func _guild_of_uid(uid: String) -> String:
+	for k in _guilds:
+		for m in _guilds[k]["members"]:
+			if String(m["uid"]) == uid:
+				return String(k)
+	return ""
+
+
+func _guild_join_online(id: int) -> void:
+	var k := _guild_of_uid(String(_players[id]["uid"]))
+	_players[id]["guild"] = String(_guilds[k]["name"]) if k != "" else ""
+	_guild_send(id)
+
+
+func _guild_send(id: int) -> void:
+	var k := String(_players[id].get("guild", "")).to_lower()
+	var info := {}
+	if _guilds.has(k):
+		var g: Dictionary = _guilds[k]
+		var mem: Array = []
+		for m in g["members"]:
+			var on := false
+			for pid in _players:
+				on = on or String(_players[pid]["uid"]) == String(m["uid"])
+			mem.append([String(m["name"]), on, String(m["uid"]) == String(g["leader"])])
+		info = {"name": g["name"], "points": g["points"], "members": mem, "leader": String(g["leader"]) == String(_players[id]["uid"])}
+	_guild_info_to.rpc_id(id, info)
+
+
+func _guild_refresh(key: String) -> void:
+	for pid in _players:
+		if String(_players[pid].get("guild", "")).to_lower() == key:
+			_guild_send(int(pid))
+
+
+@rpc("any_peer", "reliable")
+func guild_create(nm: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	nm = GameData.clean_name(nm).substr(0, 16)
+	var key := nm.to_lower()
+	var c := _cur_char(id)
+	if nm.length() < 3:
+		return _chat_to.rpc_id(id, "sistema", "", "Nome da guilda: 3 a 16 letras.")
+	if String(_players[id].get("guild", "")) != "":
+		return _chat_to.rpc_id(id, "sistema", "", "Saia da sua guilda antes de criar outra.")
+	if _guilds.has(key):
+		return _chat_to.rpc_id(id, "sistema", "", "Já existe uma guilda com esse nome.")
+	if int(c.get("gems", 0)) < int(GameData.GUILD["cost"]):
+		return _chat_to.rpc_id(id, "sistema", "", "Criar guilda custa %d gemas." % GameData.GUILD["cost"])
+	c["gems"] = int(c.get("gems", 0)) - int(GameData.GUILD["cost"])
+	_guilds[key] = {"name": nm, "leader": String(_players[id]["uid"]), "members": [{"uid": String(_players[id]["uid"]), "name": String(_players[id]["name"])}], "points": 0}
+	_players[id]["guild"] = nm
+	_guild_save(key)
+	_guild_paid.rpc_id(id, int(GameData.GUILD["cost"]))
+	_guild_send(id)
+
+
+@rpc("any_peer", "reliable")
+func guild_invite(nm: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var k := String(_players[id].get("guild", "")).to_lower()
+	var to := _find(nm)
+	if k == "" or to == 0:
+		return _chat_to.rpc_id(id, "sistema", "", "%s precisa estar online (e você numa guilda)." % nm)
+	if (_guilds[k]["members"] as Array).size() >= int(GameData.GUILD["max_members"]):
+		return _chat_to.rpc_id(id, "sistema", "", "Guilda cheia.")
+	_players[to]["guild_invite"] = k
+	_guild_inv.rpc_id(to, String(_guilds[k]["name"]), String(_players[id]["name"]))
+	_chat_to.rpc_id(id, "sistema", "", "Convite da guilda enviado para %s." % nm)
+
+
+@rpc("any_peer", "reliable")
+func guild_accept() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var k := String(_players[id].get("guild_invite", ""))
+	if not _guilds.has(k) or String(_players[id].get("guild", "")) != "":
+		return
+	(_guilds[k]["members"] as Array).append({"uid": String(_players[id]["uid"]), "name": String(_players[id]["name"])})
+	_players[id]["guild"] = String(_guilds[k]["name"])
+	_guild_save(k)
+	_guild_refresh(k)
+
+
+@rpc("any_peer", "reliable")
+func guild_leave(kick_name: String = "") -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var k := String(_players[id].get("guild", "")).to_lower()
+	if not _guilds.has(k):
+		return
+	var g: Dictionary = _guilds[k]
+	var uid := String(_players[id]["uid"])
+	var target := uid
+	if kick_name != "":
+		if String(g["leader"]) != uid:
+			return
+		for m in g["members"]:
+			if String(m["name"]).to_lower() == kick_name.to_lower():
+				target = String(m["uid"])
+	var mem: Array = g["members"]
+	for i in range(mem.size() - 1, -1, -1):
+		if String(mem[i]["uid"]) == target:
+			mem.remove_at(i)
+	for pid in _players:
+		if String(_players[pid]["uid"]) == target:
+			_players[pid]["guild"] = ""
+			_guild_send(int(pid))
+	if mem.is_empty():
+		_guilds.erase(k)
+	elif String(g["leader"]) == target:
+		g["leader"] = String(mem[0]["uid"])
+	_guild_save(k)
+	_guild_refresh(k)
+
+
+## Pontos da guilda (monstros mortos, dano no boss).
+func guild_points(id: int, n: int) -> void:
+	var k := String(_players.get(id, {}).get("guild", "")).to_lower()
+	if _guilds.has(k) and n > 0:
+		_guilds[k]["points"] = int(_guilds[k]["points"]) + n
+		_guilds[k]["dirty"] = true
+
+
+@rpc("any_peer", "reliable")
+func guild_ranking() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var rows: Array = []
+	for k in _guilds:
+		rows.append([String(_guilds[k]["name"]), int(_guilds[k]["points"]), (_guilds[k]["members"] as Array).size()])
+	rows.sort_custom(func(a, b) -> bool: return int(a[1]) > int(b[1]))
+	_guild_rank_to.rpc_id(id, rows.slice(0, 20))
+
+
+@rpc("authority", "reliable")
+func _guild_info_to(info: Dictionary) -> void:
+	guild_info.emit(info)
+
+
+@rpc("authority", "reliable")
+func _guild_inv(g: String, from: String) -> void:
+	guild_invited.emit(g, from)
+
+
+@rpc("authority", "reliable")
+func _guild_rank_to(rows: Array) -> void:
+	guild_rank.emit(rows)
+
+
+@rpc("authority", "reliable")
+func _guild_paid(gems: int) -> void:
+	market_event.emit("guilda_paga", {"gems": gems})
 
 
 ## ---------- eventos no mundo
@@ -1001,6 +1203,7 @@ func _boss_dead(last: int) -> void:
 			var r := randf()
 			item = "lendaria" if r < float(odds["lendaria"]) else ("epica" if r < float(odds["lendaria"]) + float(odds["epica"]) else "rara")
 		_boss_reward.rpc_id(pid, i + 1, pid == last, item)
+		guild_points(pid, int(_boss["hits"][pid]) / 1000)
 		# o que o servidor deu entra na conta do próximo save (não conta como trapaça)
 		var cfg2: Dictionary = GameData.GLOBAL_BOSS
 		_players[pid]["credit_gems"] = int(_players[pid].get("credit_gems", 0)) + int(cfg2["reward_gems"]) + (int(cfg2["top_gems"][i]) if i < 3 else 0) + (int(cfg2["last_gems"]) if pid == last else 0)
@@ -1098,7 +1301,7 @@ func _snapshot(players: Dictionary) -> void:
 		if int(id) == my_id:
 			continue
 		var a: Array = players[id]
-		others[int(id)] = {"name": a[0], "cls": a[1], "gear": a[2], "pos": a[3], "rot": a[4], "moving": a[5], "mount": a[6]}
+		others[int(id)] = {"name": a[0], "cls": a[1], "gear": a[2], "pos": a[3], "rot": a[4], "moving": a[5], "mount": a[6], "guild": a[7] if a.size() > 7 else ""}
 
 
 @rpc("authority", "unreliable_ordered")

@@ -34,3 +34,14 @@ create table if not exists public.market_payouts (
 );
 alter table public.market enable row level security;
 alter table public.market_payouts enable row level security;
+
+-- Guildas (só o servidor lê e grava)
+create table if not exists public.guilds (
+  name_key text primary key,
+  name text not null,
+  leader uuid not null,
+  members jsonb not null default '[]',
+  points int not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.guilds enable row level security;

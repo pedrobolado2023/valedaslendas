@@ -13,6 +13,9 @@ var _msg: Label
 var _members: Array = []
 var _online: Array = []
 var _invite_from := ""
+var _guild := {}
+var _guild_box: VBoxContainer
+var _guild_inv := ""
 
 
 func setup(g: Node) -> void:
@@ -72,6 +75,9 @@ func setup(g: Node) -> void:
 	right.add_child(UiTheme.title("Amigos", 16))
 	_friends = VBoxContainer.new()
 	right.add_child(_friends)
+	v.add_child(UiTheme.title("Guilda", 16))
+	_guild_box = VBoxContainer.new()
+	v.add_child(_guild_box)
 	var ir := HBoxContainer.new()
 	ir.visible = false   # trocado pelo Mercadinho do Jogo (B)
 	v.add_child(ir)
@@ -87,6 +93,14 @@ func setup(g: Node) -> void:
 		_refresh_lists())
 	net.online_names.connect(func(n: Array) -> void:
 		_online = n
+		_refresh_lists())
+	net.guild_info.connect(func(info: Dictionary) -> void:
+		_guild = info
+		game.player.set_meta("guild", String(info.get("name", "")))
+		_refresh_lists())
+	net.guild_invited.connect(func(g: String, from: String) -> void:
+		_guild_inv = g
+		game.call("toast", "%s te convidou para a guilda %s — aperte G" % [from, g], 3.5)
 		_refresh_lists())
 	net.party_invited.connect(func(from: String) -> void:
 		_invite_from = from
@@ -129,6 +143,38 @@ func _net_call(m: String, arg: Variant = null) -> void:
 		net.rpc_id(1, m)
 	else:
 		net.rpc_id(1, m, arg)
+
+
+func _draw_guild() -> void:
+	for c in _guild_box.get_children():
+		c.queue_free()
+	if _guild_inv != "":
+		var r := HBoxContainer.new()
+		r.add_child(UiTheme.label("Convite da guilda %s  " % _guild_inv, 15, Color(0.75, 0.6, 1.0)))
+		r.add_child(_b("Entrar", func() -> void:
+			_net_call("guild_accept")
+			_guild_inv = ""
+			_refresh_lists()))
+		_guild_box.add_child(r)
+	if _guild.is_empty():
+		var r2 := HBoxContainer.new()
+		r2.add_child(UiTheme.label("Sem guilda. Digite o nome acima e crie (%d gemas)  " % GameData.GUILD["cost"], 14, Color(0.7, 0.7, 0.7)))
+		r2.add_child(_b("Criar guilda", func() -> void: _net_call("guild_create", _name.text.strip_edges())))
+		_guild_box.add_child(r2)
+		return
+	var names: Array = []
+	for m in _guild["members"]:
+		names.append(("★ " if m[2] else "") + String(m[0]) + (" ●" if m[1] else ""))
+	_guild_box.add_child(UiTheme.label("<%s>  ·  %d pontos  ·  %d membros  ·  chat: /c" % [_guild["name"], int(_guild["points"]), names.size()], 15, Color(0.75, 0.6, 1.0)))
+	var ml := UiTheme.label(", ".join(names), 13, Color(0.85, 0.8, 0.95))
+	ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_guild_box.add_child(ml)
+	var r3 := HBoxContainer.new()
+	r3.add_child(_b("Convidar o nome acima", func() -> void: _net_call("guild_invite", _name.text.strip_edges())))
+	if bool(_guild.get("leader", false)):
+		r3.add_child(_b("Expulsar o nome acima", func() -> void: _net_call("guild_leave", _name.text.strip_edges())))
+	r3.add_child(_b("Sair da guilda", func() -> void: _net_call("guild_leave", "")))
+	_guild_box.add_child(r3)
 
 
 func _add_friend() -> void:
@@ -194,6 +240,7 @@ func _refresh_lists() -> void:
 		_invite_box.add_child(_b("Recusar", func() -> void:
 			_invite_from = ""
 			_refresh_lists()))
+	_draw_guild()
 	if _members.is_empty():
 		_party.add_child(UiTheme.label("Sem grupo. Convide alguém pelo nome.", 14, Color(0.7, 0.7, 0.7)))
 	for m in _members:

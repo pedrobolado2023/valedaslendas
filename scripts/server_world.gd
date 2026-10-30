@@ -231,6 +231,8 @@ func _kill(m: String, e: Dictionary) -> void:
 					if e["hits"].has(mate):
 						credit = true
 			net._enemy_dead.rpc_id(int(pid), int(e["id"]), credit, drop if int(pid) == top else "")
+			if e["hits"].has(pid):
+				net.guild_points(int(pid), 5 if e["boss"] else 1)
 	if not e["boss"]:
 		maps[m]["respawn"].append([7.0, e["zone"]])
 	elif m.begins_with("m") and String(e["type"]) == String(GameData.ZONES[e["zone"]].get("boss", "")):

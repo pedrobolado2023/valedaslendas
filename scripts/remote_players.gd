@@ -44,7 +44,7 @@ func _make(o: Dictionary, key: String) -> Dictionary:
 		root.add_child(kit.root)
 		Player.attach_weapon(kit, String(o["cls"]), String((o["gear"] as Dictionary).get("offhand", "comum")))
 	var l := Label3D.new()
-	l.text = String(o["name"])
+	l.text = ("<%s>\n" % String(o["guild"]) if String(o.get("guild", "")) != "" else "") + String(o["name"])
 	l.font = Toon.title_font()
 	l.font_size = 30
 	l.pixel_size = 0.012
