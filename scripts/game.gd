@@ -32,6 +32,7 @@ var chat: ChatBox
 var social_panel: SocialPanel
 var ranking_panel: RankingPanel
 var market_panel: MarketPanel
+var forge_panel: ForgePanel
 var dungeon: Dungeon
 var _new_name := ""   # nome digitado no menu (jogo novo)
 var cloud: CloudSync
@@ -577,6 +578,7 @@ func _apply_save(d: Dictionary) -> void:
 	player.mount = String(d.get("mount", ""))
 	player.hero_name = String(d.get("name", ""))
 	player.friends = d.get("friends", [])
+	player.mats = d.get("mats", {})
 	player.stats = d.get("stats", {})
 	player.login = d.get("login", {})
 	player.achieved = d.get("achieved", [])
@@ -627,7 +629,7 @@ func save_now() -> void:
 	var data := {
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
-		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "name": player.hero_name, "friends": player.friends, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
+		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "name": player.hero_name, "friends": player.friends, "mats": player.mats, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
@@ -679,6 +681,9 @@ func _build_ui() -> void:
 	portal_panel = PortalPanel.new()
 	add_child(portal_panel)
 	portal_panel.setup(self)
+	forge_panel = ForgePanel.new()
+	add_child(forge_panel)
+	forge_panel.setup(self)
 	market_panel = MarketPanel.new()
 	add_child(market_panel)
 	market_panel.setup(self)
@@ -709,6 +714,7 @@ func _build_ui() -> void:
 	hud.social_pressed.connect(func() -> void: social_panel.toggle())
 	hud.ranking_pressed.connect(func() -> void: ranking_panel.toggle())
 	hud.market_pressed.connect(func() -> void: market_panel.toggle())
+	hud.forge_pressed.connect(func() -> void: forge_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
 	admin_panel.setup(self)
@@ -908,6 +914,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			gear_panel.toggle()
 		KEY_R:
 			player.toggle_ride()
+		KEY_U:
+			forge_panel.toggle()
 		KEY_B:
 			market_panel.toggle()
 		KEY_N:
@@ -932,7 +940,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or market_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or market_panel.visible or forge_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
@@ -944,6 +952,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			social_panel.visible = false
 			ranking_panel.visible = false
 			market_panel.visible = false
+			forge_panel.visible = false
 			admin_panel.visible = false
 			if not any_open:
 				settings_panel.toggle()
@@ -1336,6 +1345,7 @@ func _on_killed(e: Enemy) -> void:
 	var g: Vector2i = e.data["gold"]
 	_drop("gold", randi_range(g.x, g.y), "Ouro", e.global_position)
 	var table := "boss" if e.boss else "mob"
+	_drop_mats(table)
 	if e.net_id > 0:   # online: o servidor sorteou o drop (para quem mais bateu)
 		if e.net_drop != "":
 			_drop_item(e.net_drop, e.global_position + Vector3(1, 0, 0))
@@ -1374,6 +1384,19 @@ func _drop(kind: String, value: int, title: String, at: Vector3) -> void:
 	l.position = Vector3(at.x, 0.0, at.z)
 	l.picked.connect(_on_loot)
 	actors.add_child(l)
+
+
+## Materiais da forja: chance por monstro; chefe sempre dá alguns.
+func _drop_mats(table: String) -> void:
+	var got := []
+	for k in GameData.MAT_DROP[table]:
+		var v := float(GameData.MAT_DROP[table][k])
+		var n := int(v) if v >= 1.0 else (1 if randf() < v else 0)
+		if n > 0:
+			player.mats[k] = int(player.mats.get(k, 0)) + n
+			got.append("+%d %s" % [n, String(GameData.MATERIALS[k]["name"])])
+	if not got.is_empty():
+		Fx.damage_number(actors, player.global_position + Vector3(0, 3.2, 0), " ".join(got), Color(1.0, 0.75, 0.4))
 
 
 func _drop_item(rarity: String, at: Vector3) -> void:

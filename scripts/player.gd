@@ -33,6 +33,7 @@ var _pet_node: Pet
 # montaria (loja): R monta/desmonta; atacar desmonta; fora de combate, andando, monta sozinho
 var hero_name := ""   # nome escolhido pelo jogador na criação
 var friends: Array = []   # nomes dos amigos (painel Social, G)
+var mats: Dictionary = {}   # materiais da forja (ferro, cristal, essência)
 var mount := ""
 # recompensas: contadores (kills, bosses, global, quests, logins), login diário e conquistas resgatadas
 var stats: Dictionary = {}

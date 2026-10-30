@@ -19,6 +19,7 @@ signal settings_pressed
 signal social_pressed
 signal ranking_pressed
 signal market_pressed
+signal forge_pressed
 
 var player: Player
 var root: Control
@@ -278,6 +279,7 @@ func _build_buttons() -> void:
 	_menu_btn(v, "Ranking geral (N)", ranking_pressed)
 	_menu_btn(v, "Loja (L)", shop_pressed)
 	_menu_btn(v, "Mercadinho do Jogo (B)", market_pressed)
+	_menu_btn(v, "Forja (U)", forge_pressed)
 	_menu_btn(v, "Mapa (M)", map_pressed)
 	_menu_btn(v, "Música", music_pressed)
 	_menu_btn(v, "Configurações (Esc)", settings_pressed)

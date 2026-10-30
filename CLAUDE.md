@@ -149,6 +149,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - **Eventos no mundo:** servidor a cada `WORLD_EVENT.every` (20 min): Baú Dourado (primeiro a chegar ganha, `chest_claim`) ou Invasão (monstros extras no acampamento do mapa mais cheio); sem servidor o baú aparece sozinho. XP em dobro nas horas `XP_DOUBLE_HOURS` (20h). Admin F1 chama os eventos.
 - **Chefe de bioma:** o chefe da última zona de cada mapa gerado tem nome próprio (`GameData.BIOME_BOSS`), 1,3x maior, 1,6x vida e mecânicas (`scripts/boss_mech.gd`: meteoros, anel, gelo, veneno, invocar). Nos mapas gerados o chefe de cada zona nasce sozinho e volta 3 min depois (Zone e ServerWorld).
 - **Guildas (Social, G):** criar custa `GUILD.cost` gemas (cobrado no servidor), convidar/entrar/sair/expulsar, chat `/c`, nome `<Guilda>` acima do herói, pontos (monstro 1, chefe 5, boss global dano/1000) e ranking de guildas (aba no N). Tabela `guilds` em `supabase/seguranca.sql`.
+- **Forja (U, `ui/forge_panel.gd`):** materiais `player.mats` (ferro/cristal/essência, `MAT_DROP` por monstro/chefe em `game._drop_mats`); fundir 3 iguais → 1 de cima (`FORGE`: ouro + materiais; vendável só se os 3 eram) e desmontar (`SALVAGE`).
 - **Celular:** `ui/touch_controls.gd` (só em tela de toque): joystick (`Player.touch_dir`) e botão Atacar (`touch_attack`).
 - **Mercadinho do Jogo (B, `ui/market_panel.gd`):** jogadores anunciam itens por gemas; só itens com `"sell": true`
   (os que caem: `_drop_item`, boss) — iniciais e da loja não. Imposto `GameData.market_tax` (20% até nv 59, 10% 60-79,

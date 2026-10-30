@@ -550,6 +550,18 @@ static func market_tax(level: int) -> float:
 const GUILD := {"cost": 200, "max_members": 30}
 
 
+## Forja: materiais (caem dos monstros/chefes), custo de fundir 3 → 1 de cima e o que desmontar devolve.
+const MATERIALS := {"ferro": {"name": "Ferro"}, "cristal": {"name": "Cristal"}, "essencia": {"name": "Essência"}}
+const FORGE := {
+	"comum": {"to": "rara", "gold": 500, "mats": {"ferro": 5}},
+	"rara": {"to": "epica", "gold": 5000, "mats": {"ferro": 10, "cristal": 3}},
+	"epica": {"to": "lendaria", "gold": 50000, "mats": {"cristal": 10, "essencia": 2}},
+}
+const SALVAGE := {"comum": {"ferro": 1}, "rara": {"ferro": 3}, "epica": {"cristal": 2}, "lendaria": {"essencia": 1}}
+## Chance de material por monstro (chefe sempre dá).
+const MAT_DROP := {"mob": {"ferro": 0.18, "cristal": 0.02}, "boss": {"ferro": 3, "cristal": 2, "essencia": 0.15}}
+
+
 ## Nome do herói: até HERO_NAME_MAX letras; tira espaços repetidos e caracteres de controle.
 const HERO_NAME_MAX := 18
 
