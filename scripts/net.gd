@@ -55,6 +55,12 @@ var _boss_at := 0.0   # boss invocado pelo admin: começa neste horário Unix do
 var _t := 0.0
 var _save_t := 0.0
 var world: ServerWorld
+## Painel admin (página /admin): configuração aplicada no jogo e comandos lidos da tabela admin_commands.
+var cfg := {"xp_mult": 1.0, "gold_mult": 1.0, "drop_mult": 1.0, "motd": "", "maintenance": false}
+var _adm_t := 0.0
+var _adm_busy := false
+var _st_t := 0.0
+var _started := 0.0
 
 
 func _ready() -> void:
@@ -92,6 +98,8 @@ func _start_server() -> void:
 	add_child(world)
 	_market_load()
 	_guild_load()
+	_started = Time.get_unix_time_from_system()
+	_config_load()
 	print("[servidor] Vale das Lendas ouvindo na porta %d · Supabase %s · chave secreta %s" % [port, sb_url, "OK" if sb_service != "" else "FALTANDO"])
 
 
@@ -106,6 +114,14 @@ func _process(delta: float) -> void:
 	if _ev_t >= float(GameData.WORLD_EVENT["every"]) and not _players.is_empty():
 		_ev_t = 0.0
 		_start_event("bau" if randf() < 0.6 else "invasao")
+	_adm_t += delta
+	if _adm_t >= 3.0 and not _adm_busy and _db():
+		_adm_t = 0.0
+		_admin_poll()
+	_st_t += delta
+	if _st_t >= 10.0 and _db():
+		_st_t = 0.0
+		_status_push()
 	_rank_t += delta
 	if _rank_t >= 0.25 and _boss_dirty:
 		_rank_t = 0.0
@@ -169,11 +185,25 @@ func hello(token: String) -> void:
 		save = row["json"][0]["data"]
 	save = SaveGame.normalize(save)   # conta com vários heróis
 	var meta: Variant = user["json"].get("app_metadata", {})
-	_players[id] = {"uid": uid, "name": mail.get_slice("@", 0), "cls": "", "gear": {}, "save": save,
-		"admin": meta is Dictionary and bool(meta.get("admin", false))}
+	var is_adm: bool = meta is Dictionary and bool(meta.get("admin", false))
+	var ban := await _sb("/rest/v1/bans?select=reason&user_id=eq." + uid, HTTPClient.METHOD_GET, null)
+	var refuse := ""
+	if ban["json"] is Array and not (ban["json"] as Array).is_empty():
+		refuse = "Conta banida. " + String(ban["json"][0].get("reason", ""))
+	elif bool(cfg["maintenance"]) and not is_adm:
+		refuse = "Servidor em manutenção. Volte daqui a pouco!"
+	if refuse != "":
+		_world_ev.rpc_id(id, "expulso", "", Vector3.ZERO, refuse)
+		_welcome.rpc_id(id, false, {})
+		Fx.later(self, 1.0).connect(func() -> void: multiplayer.multiplayer_peer.disconnect_peer(id))
+		return
+	_players[id] = {"uid": uid, "name": mail.get_slice("@", 0), "cls": "", "gear": {}, "save": save, "admin": is_adm}
 	print("[servidor] entrou: ", mail, " (", _players.size(), " online)")
 	_players[id]["save_t"] = Time.get_unix_time_from_system()
 	_welcome.rpc_id(id, true, save)
+	_config.rpc_id(id, cfg)
+	if String(cfg["motd"]) != "":
+		_world_ev.rpc_id(id, "anuncio", "", Vector3.ZERO, String(cfg["motd"]))
 	_market_payouts(id)
 	_guild_join_online(id)
 	_boss_send(id)
@@ -1123,12 +1153,12 @@ func _save_check(p: Dictionary, data: Dictionary, old: Dictionary) -> String:
 	var hours := maxf((Time.get_unix_time_from_system() - float(p.get("save_t", Time.get_unix_time_from_system() - 60.0))) / 3600.0, 1.0 / 60.0)
 	var lv0 := int(old.get("level", 1))
 	var lv1 := int(data.get("level", 1))
-	if lv1 > lv0 + maxi(20, int(hours * 30.0)):
+	if lv1 > lv0 + maxi(20, int(hours * 30.0 * maxf(1.0, float(cfg["xp_mult"])))):
 		return "nível subiu rápido demais"
 	var gem_cap := 150 + 5 * maxi(0, lv1 - lv0) + int(hours * 400.0) + int(p.get("credit_gems", 0))
 	if int(data.get("gems", 0)) - int(old.get("gems", 0)) > gem_cap:
 		return "gemas a mais (%d)" % (int(data.get("gems", 0)) - int(old.get("gems", 0)))
-	var gold_cap := 50000 + int(hours * 3600.0 * (200.0 + lv1 * 60.0)) + int(p.get("credit_gold", 0))
+	var gold_cap := 50000 + int(hours * 3600.0 * (200.0 + lv1 * 60.0) * maxf(1.0, float(cfg["gold_mult"]))) + int(p.get("credit_gold", 0))
 	if int(data.get("gold", 0)) - int(old.get("gold", 0)) > gold_cap:
 		return "ouro a mais"
 	var leg0 := 0
@@ -1174,12 +1204,171 @@ func admin_boss(delay: float) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if not is_server or not _players.has(id) or not bool(_players[id].get("admin", false)):
 		return
+	_summon_boss(delay, String(_players[id]["name"]))
+
+
+func _summon_boss(delay: float, by: String) -> void:
 	delay = clampf(delay, 0.0, 3600.0)
 	_boss_at = Time.get_unix_time_from_system() + delay
 	_boss = {"key": "", "hp": 0, "max": 0, "hits": {}, "atk": {}, "base": 0, "dead": false}
-	print("[servidor] boss global invocado por ", _players[id]["name"], " para daqui a ", int(delay), " s")
+	print("[servidor] boss global invocado por ", by, " para daqui a ", int(delay), " s")
 	for pid in _players:
 		_boss_call.rpc_id(int(pid), delay, int(GameData.GLOBAL_BOSS["minutes"]))
+
+
+# ------------------------------------------------------------------ painel admin
+
+## Configuração salva no banco (multiplicadores, mensagem do dia, manutenção).
+func _config_load() -> void:
+	if not _db():
+		return
+	var r := await _sb("/rest/v1/game_config?select=key,value", HTTPClient.METHOD_GET, null)
+	if r["json"] is Array:
+		for row in r["json"]:
+			if cfg.has(String(row["key"])):
+				cfg[String(row["key"])] = row["value"]
+	_config_apply()
+
+
+func _config_apply() -> void:
+	GameData.XP_MULT = clampf(float(cfg["xp_mult"]), 0.1, 10.0)
+	GameData.GOLD_MULT = clampf(float(cfg["gold_mult"]), 0.1, 10.0)
+	GameData.DROP_MULT = clampf(float(cfg["drop_mult"]), 0.1, 10.0)
+
+
+@rpc("authority", "reliable")
+func _config(c: Dictionary) -> void:
+	for k in c:
+		cfg[k] = c[k]
+	_config_apply()
+
+
+func _admin_poll() -> void:
+	_adm_busy = true
+	var r := await _sb("/rest/v1/admin_commands?select=id,cmd,args&done=eq.false&order=id.asc&limit=20", HTTPClient.METHOD_GET, null)
+	if r["json"] is Array:
+		for row in r["json"]:
+			var a: Variant = row.get("args", {})
+			var res := await _admin_run(String(row["cmd"]), a if a is Dictionary else {})
+			print("[admin] ", row["cmd"], " → ", res)
+			await _sb("/rest/v1/admin_commands?id=eq.%d" % int(row["id"]), HTTPClient.METHOD_PATCH, {"done": true, "result": res})
+	_adm_busy = false
+
+
+## Jogador online pelo nome do herói ou da conta (sem maiúsculas). 0 se não estiver.
+func _peer_by_name(nm: String) -> int:
+	nm = nm.strip_edges().to_lower()
+	for pid in _players:
+		if String(_players[pid]["name"]).to_lower() == nm:
+			return int(pid)
+	return 0
+
+
+## Dono (user_id) de um nome de herói: online ou pela tabela hero_names.
+func _uid_by_name(nm: String) -> String:
+	var pid := _peer_by_name(nm)
+	if pid != 0:
+		return String(_players[pid]["uid"])
+	var r := await _sb("/rest/v1/hero_names?select=user_id&name_key=eq." + nm.strip_edges().to_lower().uri_encode(), HTTPClient.METHOD_GET, null)
+	if r["json"] is Array and not (r["json"] as Array).is_empty():
+		return String(r["json"][0]["user_id"])
+	return ""
+
+
+func _admin_run(cmd: String, a: Dictionary) -> String:
+	match cmd:
+		"anuncio":
+			var text := String(a.get("text", "")).strip_edges().left(200)
+			for pid in _players:
+				_world_ev.rpc_id(int(pid), "anuncio", "", Vector3.ZERO, text)
+			return "aviso enviado para %d jogadores" % _players.size()
+		"boss":
+			_summon_boss(float(a.get("minutes", 5)) * 60.0, "painel")
+			return "boss global em %d min" % int(a.get("minutes", 5))
+		"evento":
+			_start_event("bau" if String(a.get("kind", "bau")) == "bau" else "invasao")
+			return "evento começou"
+		"dar":
+			var nm := String(a.get("name", ""))
+			var gems := clampi(int(a.get("gems", 0)), 0, 1000000)
+			var gold := clampi(int(a.get("gold", 0)), 0, 1000000000)
+			var items := clampi(int(a.get("items", 0)), 0, 10)
+			var pid := _peer_by_name(nm)
+			if pid != 0:
+				var p: Dictionary = _players[pid]
+				p["credit_gems"] = int(p.get("credit_gems", 0)) + gems
+				p["credit_gold"] = int(p.get("credit_gold", 0)) + gold
+				p["credit_items"] = int(p.get("credit_items", 0)) + items
+				_world_ev.rpc_id(pid, "presente", "", Vector3.ZERO, JSON.stringify({"gems": gems, "gold": gold, "items": items, "rarity": String(a.get("rarity", "lendaria"))}))
+				return "entregue para %s (online)" % nm
+			if gems <= 0:
+				return "%s está offline: offline só dá para mandar gemas" % nm
+			var uid := await _uid_by_name(nm)
+			if uid == "":
+				return "herói %s não encontrado" % nm
+			await _sb("/rest/v1/market_payouts", HTTPClient.METHOD_POST, {"user_id": uid, "gems": gems, "note": "Presente do administrador"})
+			return "%d gemas guardadas para %s (entra no próximo login)" % [gems, nm]
+		"expulsar":
+			var pid := _peer_by_name(String(a.get("name", "")))
+			if pid == 0:
+				return "não está online"
+			_world_ev.rpc_id(pid, "expulso", "", Vector3.ZERO, String(a.get("reason", "Você foi desconectado pelo administrador.")))
+			Fx.later(self, 1.0).connect(func() -> void: multiplayer.multiplayer_peer.disconnect_peer(pid))
+			return "expulso"
+		"banir":
+			var nm := String(a.get("name", ""))
+			var uid := await _uid_by_name(nm)
+			if uid == "":
+				return "herói %s não encontrado" % nm
+			await _sb("/rest/v1/bans", HTTPClient.METHOD_POST, {"user_id": uid, "name": nm.to_lower(), "reason": String(a.get("reason", ""))}, "", ["Prefer: resolution=merge-duplicates"])
+			var pid := _peer_by_name(nm)
+			if pid != 0:
+				_world_ev.rpc_id(pid, "expulso", "", Vector3.ZERO, "Conta banida. " + String(a.get("reason", "")))
+				Fx.later(self, 1.0).connect(func() -> void: multiplayer.multiplayer_peer.disconnect_peer(pid))
+			return "%s banido" % nm
+		"desbanir":
+			await _sb("/rest/v1/bans?name=eq." + String(a.get("name", "")).strip_edges().to_lower().uri_encode(), HTTPClient.METHOD_DELETE, null)
+			return "desbanido"
+		"config":
+			var rows: Array = []
+			for k in a:
+				if cfg.has(k):
+					cfg[k] = a[k]
+					rows.append({"key": k, "value": a[k]})
+			_config_apply()
+			if not rows.is_empty():
+				await _sb("/rest/v1/game_config", HTTPClient.METHOD_POST, rows, "", ["Prefer: resolution=merge-duplicates"])
+			for pid in _players:
+				_config.rpc_id(int(pid), cfg)
+			if bool(cfg["maintenance"]):   # manutenção: tira quem não é admin
+				for pid in _players.keys():
+					if not bool(_players[pid].get("admin", false)):
+						_world_ev.rpc_id(int(pid), "expulso", "", Vector3.ZERO, "Servidor em manutenção. Volte daqui a pouco!")
+						var kp := int(pid)
+						Fx.later(self, 1.0).connect(func() -> void: multiplayer.multiplayer_peer.disconnect_peer(kp))
+			return "configuração aplicada"
+		"salvar":
+			for pid in _players:
+				_store(int(pid))
+			return "saves gravados"
+	return "comando desconhecido"
+
+
+## Estado do servidor para o painel (a cada 10 s).
+func _status_push() -> void:
+	var list: Array = []
+	var maps := {}
+	for pid in _players:
+		var p: Dictionary = _players[pid]
+		var c := _cur_char(int(pid))
+		var m := String(p.get("map", ""))
+		maps[m] = int(maps.get(m, 0)) + 1
+		list.append({"name": p["name"], "level": int(c.get("level", 1)), "cls": String(p.get("cls", "")),
+			"map": String(GameData.MAPS[m]["name"]) if GameData.MAPS.has(m) else m, "guild": String(p.get("guild", "")), "admin": bool(p.get("admin", false))})
+	var data := {"online": _players.size(), "players": list, "uptime": int(Time.get_unix_time_from_system() - _started),
+		"boss_in": int(_boss_at - Time.get_unix_time_from_system()) if _boss_at > 0.0 else null, "cfg": cfg,
+		"market": _market.size(), "guilds": _guilds.size(), "time": Time.get_datetime_string_from_system()}
+	await _sb("/rest/v1/server_status", HTTPClient.METHOD_POST, {"id": 1, "data": data, "updated_at": Time.get_datetime_string_from_system(true) + "Z"}, "", ["Prefer: resolution=merge-duplicates"])
 
 
 @rpc("authority", "reliable")

@@ -1349,7 +1349,7 @@ func _on_killed(e: Enemy) -> void:
 	if e.net_id > 0:   # online: o servidor sorteou o drop (para quem mais bateu)
 		if e.net_drop != "":
 			_drop_item(e.net_drop, e.global_position + Vector3(1, 0, 0))
-	elif randf() < float(GameData.DROP_CHANCE[table]):
+	elif randf() < float(GameData.DROP_CHANCE[table]) * GameData.DROP_MULT:
 		_drop_item(GameData.roll_rarity(table), e.global_position + Vector3(1, 0, 0))
 	var q := current_quest()
 	if not q.is_empty() and e.zone_id == String(q["zone"]):

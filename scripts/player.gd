@@ -642,7 +642,7 @@ func revive(at: Vector3) -> void:
 func gain_xp(n: int) -> int:
 	if level >= GameData.MAX_LEVEL:
 		return 0
-	n = maxi(1, int(round(n * GameData.xp_gain_mult(level) * Shop.xp_mult(self))))
+	n = maxi(1, int(round(n * GameData.xp_gain_mult(level) * Shop.xp_mult(self) * GameData.XP_MULT)))
 	return gain_xp_raw(n)
 
 
@@ -677,6 +677,8 @@ func gain_xp_raw(n: int) -> int:
 
 
 func add_gold(n: int) -> void:
+	if n > 0:
+		n = int(n * GameData.GOLD_MULT)
 	gold += n
 	stats_changed.emit()
 

@@ -222,7 +222,7 @@ func _kill(m: String, e: Dictionary) -> void:
 		if int(e["hits"][pid]) > best:
 			best = int(e["hits"][pid])
 			top = int(pid)
-	var drop := GameData.roll_rarity(table) if randf() < float(GameData.DROP_CHANCE[table]) else ""
+	var drop := GameData.roll_rarity(table) if randf() < float(GameData.DROP_CHANCE[table]) * GameData.DROP_MULT else ""
 	for pid in net._players:
 		if String(net._players[pid].get("map", "")) == m:
 			var credit: bool = e["hits"].has(pid)

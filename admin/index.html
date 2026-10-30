@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do Administrador</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0b0d12; --panel: #141821; --panel2: #1b2030; --line: #2a3145; --text: #e9e4d8; --muted: #9aa0ae;
+  --gold: #e8b85a; --gold2: #f5d58f; --cyan: #6fd6ff; --red: #ff6b6b; --green: #6ee7a0; --purple: #b98cff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: radial-gradient(1200px 600px at 20% -10%, #1d2340 0%, var(--bg) 55%) fixed; color: var(--text);
+  font: 15px/1.5 Inter, system-ui, sans-serif; min-height: 100vh; }
+h1, h2, .brand { font-family: Cinzel, serif; letter-spacing: .04em; }
+a { color: var(--cyan); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 24px 16px 60px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+.brand { font-size: 24px; color: var(--gold); }
+.brand small { display: block; font: 500 12px Inter, sans-serif; color: var(--muted); letter-spacing: .12em; text-transform: uppercase; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); font-size: 13px; color: var(--muted); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+.dot.on { background: var(--green); box-shadow: 0 0 10px var(--green); }
+.dot.off { background: var(--red); }
+.card { background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.card h2 { margin: 0 0 12px; font-size: 16px; color: var(--gold2); }
+.grid { display: grid; gap: 16px; }
+.stats { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); margin-bottom: 16px; }
+.stat .v { font: 700 28px Cinzel, serif; color: var(--text); }
+.stat .l { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .1em; }
+.cols { grid-template-columns: 1.5fr 1fr; }
+@media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .08em; }
+input, select, textarea { width: 100%; background: #0e1118; color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; font: inherit; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > * { flex: 1 1 120px; }
+.hdr { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+button { cursor: pointer; border: 1px solid #6b5426; background: linear-gradient(180deg, #4a3a1c, #2c2312); color: var(--gold2);
+  padding: 9px 14px; border-radius: 9px; font: 600 14px Inter, sans-serif; }
+button:hover { border-color: var(--gold); }
+button.ghost { background: transparent; border-color: var(--line); color: var(--text); }
+button.danger { border-color: #7a2d2d; background: linear-gradient(180deg, #4a1c1c, #2c1212); color: #ffc2c2; }
+button.small { padding: 4px 9px; font-size: 12px; }
+.mt { margin-top: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 8px; border-bottom: 1px solid #1f2535; vertical-align: middle; }
+.tablewrap { overflow-x: auto; }
+.tag { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: #2a2140; color: var(--purple); margin-left: 6px; }
+.muted { color: var(--muted); }
+.log { max-height: 320px; overflow: auto; font-size: 13px; }
+.log div { padding: 6px 0; border-bottom: 1px solid #1f2535; }
+.ok { color: var(--green); } .wait { color: var(--gold); }
+#login { max-width: 400px; margin: 10vh auto 0; }
+#login .card { padding: 26px; }
+#login h1 { color: var(--gold); margin: 0 0 4px; font-size: 26px; text-align: center; }
+#login p { text-align: center; margin: 0 0 14px; }
+.err { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 8px; }
+#toast { position: fixed; right: 16px; bottom: 16px; background: var(--panel2); border: 1px solid var(--gold); color: var(--gold2); padding: 10px 14px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.show { opacity: 1; }
+.check { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.check input { width: auto; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <section id="login">
+    <div class="card">
+      <h1>Vale das Lendas</h1>
+      <p class="muted">Painel do administrador</p>
+      <form id="loginForm">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" autocomplete="username" required>
+        <label for="pass">Senha</label>
+        <input id="pass" type="password" autocomplete="current-password" required>
+        <button class="mt" style="width:100%" type="submit">Entrar</button>
+        <div class="err" id="loginErr"></div>
+      </form>
+      <p class="muted mt" style="font-size:12px">Use a mesma conta do jogo. Só contas de administrador entram.</p>
+    </div>
+  </section>
+
+  <section id="app" class="hidden">
+    <header>
+      <div class="brand">Vale das Lendas<small>Painel do administrador</small></div>
+      <div class="hdr">
+        <span class="pill"><span class="dot" id="srvDot"></span><span id="srvText">carregando…</span></span>
+        <span class="pill" id="who"></span>
+        <button class="ghost small" id="logout">Sair</button>
+      </div>
+    </header>
+
+    <div class="grid stats">
+      <div class="card stat"><div class="l">Jogadores online</div><div class="v" id="sOnline">–</div></div>
+      <div class="card stat"><div class="l">Servidor ligado há</div><div class="v" id="sUp">–</div></div>
+      <div class="card stat"><div class="l">Boss global</div><div class="v" id="sBoss">–</div></div>
+      <div class="card stat"><div class="l">Anúncios no Mercadinho</div><div class="v" id="sMarket">–</div></div>
+      <div class="card stat"><div class="l">Guildas</div><div class="v" id="sGuilds">–</div></div>
+    </div>
+
+    <div class="grid cols">
+      <div class="grid">
+        <div class="card">
+          <h2>Jogadores online</h2>
+          <div class="tablewrap"><table>
+            <thead><tr><th>Herói</th><th>Nível</th><th>Classe</th><th>Mapa</th><th>Guilda</th><th></th></tr></thead>
+            <tbody id="players"><tr><td colspan="6" class="muted">Ninguém online.</td></tr></tbody>
+          </table></div>
+        </div>
+
+        <div class="card">
+          <h2>Presente para um jogador</h2>
+          <div class="row">
+            <div><label for="gName">Nome do herói</label><input id="gName" placeholder="ex.: Lyra"></div>
+            <div><label for="gGems">Gemas</label><input id="gGems" type="number" min="0" value="0"></div>
+            <div><label for="gGold">Ouro</label><input id="gGold" type="number" min="0" value="0"></div>
+          </div>
+          <div class="row">
+            <div><label for="gItems">Itens</label><input id="gItems" type="number" min="0" max="10" value="0"></div>
+            <div><label for="gRar">Raridade dos itens</label>
+              <select id="gRar"><option value="comum">Comum</option><option value="rara">Rara</option><option value="epica">Épica</option><option value="lendaria" selected>Lendária</option></select></div>
+          </div>
+          <button class="mt" id="giveBtn">Enviar presente</button>
+          <p class="muted" style="font-size:12px;margin:8px 0 0">Online: chega na hora. Offline: só gemas (entram no próximo login).</p>
+        </div>
+
+        <div class="card">
+          <h2>Moderação</h2>
+          <div class="row">
+            <div><label for="mName">Nome do herói</label><input id="mName"></div>
+            <div><label for="mReason">Motivo</label><input id="mReason" placeholder="opcional"></div>
+          </div>
+          <div class="row mt">
+            <button class="ghost" id="kickBtn">Expulsar</button>
+            <button class="danger" id="banBtn">Banir</button>
+            <button class="ghost" id="unbanBtn">Desbanir</button>
+          </div>
+          <label>Banidos</label>
+          <div id="bans" class="muted">–</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Eventos</h2>
+          <div class="row">
+            <div><label for="bossMin">Boss global daqui a (min)</label><input id="bossMin" type="number" min="0" max="60" value="5"></div>
+          </div>
+          <div class="row mt">
+            <button id="bossBtn">Invocar boss global</button>
+          </div>
+          <div class="row mt">
+            <button class="ghost" id="chestBtn">Baú Dourado</button>
+            <button class="ghost" id="invBtn">Invasão</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Aviso para todos</h2>
+          <textarea id="annText" rows="3" maxlength="200" placeholder="Aparece no meio da tela e no chat"></textarea>
+          <button class="mt" id="annBtn">Enviar aviso</button>
+        </div>
+
+        <div class="card">
+          <h2>Configuração do jogo</h2>
+          <div class="row">
+            <div><label for="cXp">XP ×</label><input id="cXp" type="number" step="0.1" min="0.1" max="10" value="1"></div>
+            <div><label for="cGold">Ouro ×</label><input id="cGold" type="number" step="0.1" min="0.1" max="10" value="1"></div>
+            <div><label for="cDrop">Drop ×</label><input id="cDrop" type="number" step="0.1" min="0.1" max="10" value="1"></div>
+          </div>
+          <label for="cMotd">Mensagem ao entrar</label>
+          <input id="cMotd" maxlength="200" placeholder="vazio = sem mensagem">
+          <div class="check"><input id="cMaint" type="checkbox"><span>Manutenção (só administradores entram)</span></div>
+          <div class="row mt">
+            <button id="cfgBtn">Aplicar</button>
+            <button class="ghost" id="saveBtn">Gravar saves agora</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Histórico</h2>
+          <div class="log" id="log"><span class="muted">–</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const cfg = window.VALE_SB || {};
+const sb = supabase.createClient(cfg.url, cfg.key);
+const $ = (id) => document.getElementById(id);
+const CLS = { druida: "Druida", assassino: "Assassino", mecanico: "Mecânico", nautico: "Náutico" };
+const NAMES = { anuncio: "Aviso", boss: "Boss global", evento: "Evento", dar: "Presente", expulsar: "Expulsar", banir: "Banir", desbanir: "Desbanir", config: "Configuração", salvar: "Gravar saves" };
+let timer = null;
+
+function toast(t) { const e = $("toast"); e.textContent = t; e.classList.add("show"); setTimeout(() => e.classList.remove("show"), 2500); }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function dur(s) { s = Math.max(0, s | 0); const h = (s / 3600) | 0, m = ((s % 3600) / 60) | 0; return h ? `${h}h ${m}min` : `${m}min`; }
+
+async function send(cmd, args = {}) {
+  const { error } = await sb.from("admin_commands").insert({ cmd, args });
+  if (error) { toast("Erro: " + error.message); return; }
+  toast(NAMES[cmd] + " enviado — o servidor executa em até 3 s");
+  setTimeout(refresh, 3500);
+}
+
+async function start(session) {
+  const admin = session?.user?.app_metadata?.admin === true;
+  if (!admin) { await sb.auth.signOut(); $("loginErr").textContent = "Esta conta não é administradora."; return; }
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  $("who").textContent = session.user.email;
+  await loadConfig();
+  refresh();
+  clearInterval(timer);
+  timer = setInterval(refresh, 5000);
+}
+
+async function loadConfig() {
+  const { data } = await sb.from("game_config").select("key,value");
+  const c = Object.fromEntries((data || []).map((r) => [r.key, r.value]));
+  $("cXp").value = c.xp_mult ?? 1; $("cGold").value = c.gold_mult ?? 1; $("cDrop").value = c.drop_mult ?? 1;
+  $("cMotd").value = c.motd ?? ""; $("cMaint").checked = !!c.maintenance;
+}
+
+async function refresh() {
+  const [st, log, bans] = await Promise.all([
+    sb.from("server_status").select("data,updated_at").eq("id", 1).maybeSingle(),
+    sb.from("admin_commands").select("id,cmd,args,done,result,created_at").order("id", { ascending: false }).limit(25),
+    sb.from("bans").select("name,reason,created_at").order("created_at", { ascending: false }),
+  ]);
+  const s = st.data?.data || {};
+  const age = st.data ? (Date.now() - new Date(st.data.updated_at).getTime()) / 1000 : 1e9;
+  const on = age < 30;
+  $("srvDot").className = "dot " + (on ? "on" : "off");
+  $("srvText").textContent = on ? "Servidor ligado" : "Servidor sem resposta";
+  $("sOnline").textContent = on ? s.online : "–";
+  $("sUp").textContent = on ? dur(s.uptime) : "–";
+  $("sBoss").textContent = on && s.boss_in != null && s.boss_in > -900 ? (s.boss_in > 0 ? "em " + dur(s.boss_in) : "agora") : "—";
+  $("sMarket").textContent = on ? s.market : "–";
+  $("sGuilds").textContent = on ? s.guilds : "–";
+  const pl = on ? (s.players || []) : [];
+  $("players").innerHTML = pl.length ? pl.sort((a, b) => b.level - a.level).map((p) => `<tr>
+    <td>${esc(p.name)}${p.admin ? '<span class="tag">admin</span>' : ""}</td><td>${p.level}</td><td>${esc(CLS[p.cls] || p.cls)}</td>
+    <td>${esc(p.map)}</td><td>${esc(p.guild) || '<span class="muted">—</span>'}</td>
+    <td><button class="ghost small" data-pick="${esc(p.name)}">Selecionar</button></td></tr>`).join("")
+    : `<tr><td colspan="6" class="muted">Ninguém online.</td></tr>`;
+  $("log").innerHTML = (log.data || []).map((r) => `<div><b>${esc(NAMES[r.cmd] || r.cmd)}</b>
+    <span class="muted">${new Date(r.created_at).toLocaleString("pt-BR")}</span><br>
+    <span class="${r.done ? "ok" : "wait"}">${r.done ? esc(r.result) : "aguardando o servidor…"}</span></div>`).join("") || '<span class="muted">Nenhum comando ainda.</span>';
+  $("bans").innerHTML = (bans.data || []).map((b) => `${esc(b.name)}${b.reason ? " — " + esc(b.reason) : ""}`).join("<br>") || "Ninguém.";
+}
+
+$("players").addEventListener("click", (e) => {
+  const n = e.target.dataset.pick;
+  if (n) { $("gName").value = n; $("mName").value = n; toast(n + " selecionado"); }
+});
+$("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("loginErr").textContent = "";
+  const { data, error } = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pass").value });
+  if (error) { $("loginErr").textContent = "E-mail ou senha errados."; return; }
+  start(data.session);
+});
+$("logout").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+$("bossBtn").onclick = () => send("boss", { minutes: +$("bossMin").value || 0 });
+$("chestBtn").onclick = () => send("evento", { kind: "bau" });
+$("invBtn").onclick = () => send("evento", { kind: "invasao" });
+$("annBtn").onclick = () => { const t = $("annText").value.trim(); if (t) { send("anuncio", { text: t }); $("annText").value = ""; } };
+$("giveBtn").onclick = () => {
+  const name = $("gName").value.trim();
+  if (!name) return toast("Escreva o nome do herói");
+  send("dar", { name, gems: +$("gGems").value || 0, gold: +$("gGold").value || 0, items: +$("gItems").value || 0, rarity: $("gRar").value });
+};
+const mod = (cmd) => () => {
+  const name = $("mName").value.trim();
+  if (!name) return toast("Escreva o nome do herói");
+  if (cmd === "banir" && !confirm("Banir " + name + "?")) return;
+  send(cmd, { name, reason: $("mReason").value.trim() });
+};
+$("kickBtn").onclick = mod("expulsar");
+$("banBtn").onclick = mod("banir");
+$("unbanBtn").onclick = mod("desbanir");
+$("cfgBtn").onclick = () => send("config", { xp_mult: +$("cXp").value || 1, gold_mult: +$("cGold").value || 1, drop_mult: +$("cDrop").value || 1,
+  motd: $("cMotd").value.trim(), maintenance: $("cMaint").checked });
+$("saveBtn").onclick = () => send("salvar");
+
+sb.auth.getSession().then(({ data }) => { if (data.session) start(data.session); });
+</script>
+</body>
+</html>

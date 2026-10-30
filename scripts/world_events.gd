@@ -76,6 +76,23 @@ func _on_world_event(kind: String, m: String, pos: Vector3, text: String) -> voi
 		"invasao":
 			game.hud.banner("Invasão!", text, 4.0)
 			Sfx.play("boss", -6.0)
+		"anuncio":   # painel admin
+			game.hud.banner("Aviso", text, 6.0)
+			Sfx.play("legendary", -8.0)
+		"expulso":
+			game.hud.banner("Desconectado", text, 8.0)
+		"presente":   # painel admin: {"gems", "gold", "items"}
+			var g: Variant = JSON.parse_string(text)
+			text = ""
+			if g is Dictionary and game.player != null:
+				var p: Player = game.player
+				Shop.credit_gems(p, int(g.get("gems", 0)), "admin")
+				p.gold += int(g.get("gold", 0))
+				for i in int(g.get("items", 0)):
+					game._drop_item(String(g.get("rarity", "lendaria")), p.global_position + Vector3(2.0 * (i - 0.5), 0, 2))
+				game.hud.banner("Presente do administrador!", "+%d gemas   +%d ouro   %s" % [int(g.get("gems", 0)), int(g.get("gold", 0)), "+ itens no chão" if int(g.get("items", 0)) > 0 else ""], 5.0)
+				Sfx.play("legendary", -4.0)
+				p.stats_changed.emit()
 	if text != "" and game.get("chat") != null:
 		game.chat.add("sistema", "", text)
 

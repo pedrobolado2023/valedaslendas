@@ -10,6 +10,10 @@ const BASE_MAX_LEVEL := 60
 ## Menu de administrador (F1) e mana extra de teste: ligados no editor/versão de teste e DESLIGADOS sozinhos no
 ## executável final (exportado como "release"). Para forçar desligado também nos testes, troque FORCE_RELEASE.
 const FORCE_RELEASE := false
+## Multiplicadores ligados pelo painel admin (servidor manda em Net._config).
+static var XP_MULT := 1.0
+static var GOLD_MULT := 1.0
+static var DROP_MULT := 1.0
 static var ADMIN_ENABLED: bool = OS.is_debug_build() and not FORCE_RELEASE
 ## Mana extra por segundo só para testes (todas as classes); 0 no jogo final.
 static var TEST_MP_REGEN: float = 25.0 if (OS.is_debug_build() and not FORCE_RELEASE) else 0.0
