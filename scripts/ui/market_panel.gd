@@ -111,8 +111,11 @@ func _draw() -> void:
 	for r in _rows:
 		var it: Dictionary = r["item"]
 		var row := HBoxContainer.new()
-		var lab := UiTheme.label("%s  (%s · %s)\n%s  ·  vendedor: %s" % [GameData.item_name(it), String(GameData.SLOT_INFO[it["slot"]]["name"]),
-			String(GameData.RARITY[it["rarity"]]["name"]), EquipmentPanel.bonus_text(it), String(r["seller"])], 13, GameData.RARITY[it["rarity"]]["color"])
+		row.add_child(_icon(it))
+		var mat := String(it.get("slot", "")) == "material"
+		var desc := "Material da forja" if mat else "%s · %s\n%s" % [String(GameData.SLOT_INFO[it["slot"]]["name"]), String(GameData.RARITY[it["rarity"]]["name"]), EquipmentPanel.bonus_text(it)]
+		var lab := UiTheme.label("%s  (%s)  ·  vendedor: %s" % [GameData.item_name(it), desc, String(r["seller"])], 13, GameData.RARITY[it["rarity"]]["color"])
+		lab.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lab)
 		var b := Button.new()
@@ -133,6 +136,7 @@ func _draw() -> void:
 			continue
 		any = true
 		var row := HBoxContainer.new()
+		row.add_child(_icon(it))
 		var lab := UiTheme.label("%s  (%s)" % [GameData.item_name(it), String(GameData.RARITY[it["rarity"]]["name"])], 13, GameData.RARITY[it["rarity"]]["color"])
 		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lab)
@@ -153,6 +157,51 @@ func _draw() -> void:
 		_sell.add_child(row)
 	if not any:
 		_sell.add_child(UiTheme.label("Sem itens vendáveis. Itens que caem de monstros, chefes e masmorras podem ser vendidos.", 14, Color(0.7, 0.7, 0.7)))
+	# materiais da forja (lotes)
+	_sell.add_child(UiTheme.title("Materiais (lote: quantidade e preço)", 15))
+	for k in GameData.MATERIALS:
+		var have := int(p.mats.get(k, 0))
+		if have <= 0:
+			continue
+		var row := HBoxContainer.new()
+		row.add_child(_icon({"slot": "material", "mat": k}))
+		row.add_child(UiTheme.label("%s (tem %d)" % [String(GameData.MATERIALS[k]["name"]), have], 13, GameData.RARITY[GameData.MATERIALS[k]["rarity"]]["color"]))
+		var qty := SpinBox.new()
+		qty.min_value = 1
+		qty.max_value = have
+		qty.value = mini(have, 10)
+		qty.prefix = "qtd"
+		row.add_child(qty)
+		var price := SpinBox.new()
+		price.min_value = GameData.MARKET["min_price"]
+		price.max_value = GameData.MARKET["max_price"]
+		price.value = {"ferro": 10, "cristal": 40, "essencia": 120}.get(k, 10)
+		price.suffix = "gemas"
+		row.add_child(price)
+		var b := Button.new()
+		b.text = "Anunciar"
+		b.focus_mode = Control.FOCUS_NONE
+		var mk := String(k)
+		b.pressed.connect(func() -> void:
+			game.call("save_now")
+			await get_tree().create_timer(0.5).timeout
+			get_node("/root/Net").market_sell_mat.rpc_id(1, mk, int(qty.value), int(price.value)))
+		row.add_child(b)
+		_sell.add_child(row)
+
+
+## Imagem do item: equipamento (ícone da classe/tipo, com borda do refino) ou material da forja.
+func _icon(it: Dictionary) -> TextureRect:
+	var t := TextureRect.new()
+	t.custom_minimum_size = Vector2(52, 52)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	if String(it.get("slot", "")) == "material":
+		t.texture = ShopPanel.icon_of("mat_" + String(it["mat"]))
+	else:
+		t.texture = EquipmentPanel.icon_for(it)
+		EquipmentPanel._border(t, it)
+	return t
 
 
 func _on_event(kind: String, d: Dictionary) -> void:
@@ -165,6 +214,9 @@ func _on_event(kind: String, d: Dictionary) -> void:
 				if int(it["uid"]) == int(d["uid"]):
 					p.inventory.erase(it)
 			_msg.text = "Anunciado por %d gemas (você recebe %d depois do imposto)." % [int(d["price"]), int(d["payout"])]
+		"vendendo_mat":
+			p.mats[String(d["mat"])] = maxi(0, int(p.mats.get(String(d["mat"]), 0)) - int(d["qty"]))
+			_msg.text = "Lote anunciado por %d gemas (você recebe %d)." % [int(d["price"]), int(d["payout"])]
 		"comprou":
 			p.gems -= int(d["price"])
 			_add(p, d["item"])
@@ -186,6 +238,9 @@ func _on_event(kind: String, d: Dictionary) -> void:
 
 
 func _add(p: Player, item: Dictionary) -> void:
+	if String(item.get("slot", "")) == "material":
+		p.mats[String(item["mat"])] = int(p.mats.get(String(item["mat"]), 0)) + int(item["qty"])
+		return
 	var it := p.new_item(String(item["slot"]), String(item["rarity"]))
 	it["cls"] = item.get("cls", p.class_key)
 	it["refine"] = int(item.get("refine", 0))

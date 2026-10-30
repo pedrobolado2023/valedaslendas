@@ -58,14 +58,31 @@ func setup(p: Player) -> void:
 	visible = false
 
 
+## Imagem de um item da loja (ou "mat_ferro" etc. para materiais). null se não existir.
+static func icon_of(id: String) -> Texture2D:
+	var path := "res://textures/shop/%s.png" % id
+	return load(path) if ResourceLoader.exists(path) else null
+
+
 func _card(it: Dictionary) -> Control:
 	var col: Color = it["color"]
 	var box := PanelContainer.new()
-	box.custom_minimum_size = Vector2(350, 140)
+	box.custom_minimum_size = Vector2(400, 140)
 	box.add_theme_stylebox_override("panel", Toon.ui_box(Color(0.12, 0.07, 0.08, 0.95), col.darkened(0.35), 10, 8, 2))
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	box.add_child(hb)
+	var icon := TextureRect.new()   # imagem do item (tools/make_shop_icons.py)
+	icon.custom_minimum_size = Vector2(84, 84)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = ShopPanel.icon_of(String(it["id"]))
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hb.add_child(icon)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
-	box.add_child(v)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(v)
 	v.add_child(UiTheme.title(String(it["name"]), 18, col))
 	var d := UiTheme.label(String(it["desc"]), 14)
 	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

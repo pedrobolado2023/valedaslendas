@@ -552,7 +552,8 @@ const GUILD := {"cost": 200, "max_members": 30}
 
 
 ## Forja: materiais (caem dos monstros/chefes), custo de fundir 3 → 1 de cima e o que desmontar devolve.
-const MATERIALS := {"ferro": {"name": "Ferro"}, "cristal": {"name": "Cristal"}, "essencia": {"name": "Essência"}}
+const MATERIALS := {"ferro": {"name": "Ferro", "rarity": "comum"}, "cristal": {"name": "Cristal", "rarity": "rara"},
+	"essencia": {"name": "Essência", "rarity": "epica"}}
 const FORGE := {
 	"comum": {"to": "rara", "gold": 500, "mats": {"ferro": 5}},
 	"rara": {"to": "epica", "gold": 5000, "mats": {"ferro": 10, "cristal": 3}},
@@ -865,6 +866,8 @@ const DROP_RARITY := {"mob": [0.78, 0.18, 0.035, 0.005], "boss": [0.0, 0.6, 0.32
 
 
 static func item_name(item: Dictionary) -> String:
+	if String(item.get("slot", "")) == "material":   # lote de material do Mercadinho
+		return "%d × %s" % [int(item.get("qty", 1)), String(MATERIALS[String(item["mat"])]["name"])]
 	var idx := RARITIES.find(String(item["rarity"]))
 	var names: Dictionary = GEAR_NAMES[item["cls"]]
 	var slot := String(item["slot"])

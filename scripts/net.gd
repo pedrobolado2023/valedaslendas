@@ -783,6 +783,37 @@ func market_sell(uid: int, price: int) -> void:
 	_market_reply(id, "erro", {"msg": "Salve e tente de novo (o servidor ainda não viu esse item)."})
 
 
+## Anunciar um lote de material da forja (o servidor confere se o jogador tem).
+@rpc("any_peer", "reliable")
+func market_sell_mat(mat: String, qty: int, price: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id) or not GameData.MATERIALS.has(mat):
+		return
+	var cfg: Dictionary = GameData.MARKET
+	var c := _cur_char(id)
+	var p: Dictionary = _players[id]
+	var mats: Dictionary = c.get("mats", {})
+	if qty < 1 or int(mats.get(mat, 0)) < qty:
+		_market_reply(id, "erro", {"msg": "Você não tem esse tanto de material (salve e tente de novo)."})
+		return
+	if price < int(cfg["min_price"]) or price > int(cfg["max_price"]):
+		_market_reply(id, "erro", {"msg": "Preço entre %d e %d gemas." % [cfg["min_price"], cfg["max_price"]]})
+		return
+	mats[mat] = int(mats[mat]) - qty
+	c["mats"] = mats
+	var item := {"slot": "material", "mat": mat, "qty": qty, "rarity": String(GameData.MATERIALS[mat]["rarity"]), "cls": "", "sell": true}
+	var payout := int(price * (1.0 - GameData.market_tax(int(c.get("level", 1)))))
+	var l := {"id": _market_next, "seller": p["uid"], "seller_name": p["name"], "item": item, "price": price, "payout": payout}
+	_market_next += 1
+	if _db():
+		var r := await _sb("/rest/v1/market", HTTPClient.METHOD_POST, {"seller": p["uid"], "seller_name": p["name"], "item": item, "price": price, "payout": payout}, "", ["Prefer: return=representation"])
+		if r["json"] is Array and not (r["json"] as Array).is_empty():
+			l["id"] = int(r["json"][0]["id"])
+	_market.push_front(l)
+	_store(id)
+	_market_reply(id, "vendendo_mat", {"mat": mat, "qty": qty, "price": price, "payout": payout})
+
+
 @rpc("any_peer", "reliable")
 func market_buy(lid: int) -> void:
 	var id := multiplayer.get_remote_sender_id()
