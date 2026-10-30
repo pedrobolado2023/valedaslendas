@@ -1133,7 +1133,7 @@ func _story_goal() -> Dictionary:
 func _mission_goal(kind: String) -> Dictionary:
 	if kind == "farm":
 		# masmorras do dia antes de caçar (3 por dia)
-		if map_id == String(GameData.DUNGEON["map"]):
+		if GameData.is_dungeon(map_id):
 			var best: Enemy = null
 			for e in get_tree().get_nodes_in_group("enemy"):
 				var en := e as Enemy
@@ -1141,7 +1141,7 @@ func _mission_goal(kind: String) -> Dictionary:
 					best = en
 			if best != null:
 				return {"pos": best.global_position, "kind": "hunt", "near": 3.0}
-			return {"pos": GameData.ZONES[String(GameData.DUNGEON["zone"])]["center"], "kind": "zone", "near": 4.0}
+			return {"pos": GameData.ZONES[String(GameData.MAPS[map_id]["zones"][0])]["center"], "kind": "zone", "near": 4.0}
 		if dungeon != null and dungeon.state == "" and dungeon.runs_today() < int(GameData.DUNGEON["per_day"]) and not _traveling:
 			dungeon.enter()
 			return {}

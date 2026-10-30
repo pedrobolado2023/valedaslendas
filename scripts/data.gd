@@ -377,6 +377,24 @@ const BOSS_OF := {"wolf": "wolf_alpha", "wolf_ice": "wolf_glacial", "slime": "sl
 static func _static_init() -> void:
 	MAPS = BASE_MAPS.duplicate(true)
 	ZONES = BASE_ZONES.duplicate(true)
+	# masmorra de cada bioma: mesma sala, com o visual (chão, luz, vegetação) do bioma
+	for b in BIOMES:
+		var mid := "masmorra_" + String(b["key"])
+		var md: Dictionary = MAPS["masmorra"].duplicate(true)
+		md["name"] = "Masmorra: " + String(b["names"][0])
+		md["zones"] = ["sala_" + String(b["key"])]
+		var th: Dictionary = md["theme"]
+		for key in ["ground", "path", "ground_tint", "forest_tint", "path_tint", "stone_tint", "trees", "forest_trees", "props", "forest_props", "glow_prop", "glow_color", "sun", "sun_energy", "ambient", "ambient_energy"]:
+			if b.has(key):
+				th[key] = b[key]
+		th["grass_count"] = 0
+		th["flowers"] = 0
+		md["lake"]["type"] = String(b["lake"])
+		md["biome"] = String(b["key"])
+		MAPS[mid] = md
+		var zd: Dictionary = ZONES["sala_masmorra"].duplicate(true)
+		zd["map"] = mid
+		ZONES["sala_" + String(b["key"])] = zd
 	MAP_ORDER = BASE_MAP_ORDER.duplicate()
 	_gen_maps()
 
@@ -579,6 +597,24 @@ static func clean_name(s: String) -> String:
 ## Masmorras: 3 por dia; 3 ondas e um chefe com os monstros do mapa do nível do herói; 10 minutos.
 const DUNGEON := {"map": "masmorra", "zone": "sala_masmorra", "per_day": 3, "waves": [8, 10, 12], "minutes": 10,
 	"boss_hp_mult": 3.0, "reward_gold_levels": 0.0, "reward_gems": 10, "reward_xp_levels": 0.35, "items": 2}
+
+## Dificuldades da masmorra: força dos monstros, prêmio e ondas extras.
+const DUNGEON_DIFF := {
+	"normal": {"name": "Normal", "power": 1.0, "reward": 1.0, "extra_wave": 0, "table": "boss"},
+	"dificil": {"name": "Difícil", "power": 2.5, "reward": 2.0, "extra_wave": 0, "table": "boss"},
+	"pesadelo": {"name": "Pesadelo", "power": 6.0, "reward": 4.0, "extra_wave": 1, "table": "boss"},
+}
+
+
+## Mapa da masmorra do bioma (masmorra_<bioma>; os mapas base usam "masmorra").
+static func dungeon_map_for(map_id: String) -> String:
+	var b := String(MAPS.get(map_id, {}).get("biome", ""))
+	return "masmorra_" + b if b != "" and MAPS.has("masmorra_" + b) else "masmorra"
+
+
+static func is_dungeon(map_id: String) -> bool:
+	return map_id.begins_with("masmorra")
+
 
 ## Loja (tecla L). Preços em gemas (moeda premium). Depois o banco de dados/pagamento credita as gemas
 ## (ver scripts/shop.gd: toda compra passa por Shop.buy). "max" = quantas vezes dá para comprar (0 = sem limite).

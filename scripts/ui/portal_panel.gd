@@ -80,12 +80,12 @@ func refresh() -> void:
 		b.pressed.connect(func() -> void: _go(String(GameData.GLOBAL_BOSS["map"]), true))
 		_top.add_child(b)
 	var dg: Dungeon = game.get("dungeon")
-	if dg != null and cur != String(GameData.DUNGEON["map"]):
-		var b2 := _btn("Masmorra Sombria  ·  %d/%d hoje" % [dg.runs_today(), int(GameData.DUNGEON["per_day"])], Color(0.6, 0.7, 1.0), true)
+	if dg != null and not GameData.is_dungeon(cur):
+		var b2 := _btn("Masmorra do bioma (Normal, Difícil, Pesadelo)  ·  %d/%d hoje" % [dg.runs_today(), int(GameData.DUNGEON["per_day"])], Color(0.6, 0.7, 1.0), true)
 		b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b2.pressed.connect(func() -> void:
 			visible = false
-			dg.enter())
+			dg.choose())
 		_top.add_child(b2)
 	var focus: Control = null
 	for id in GameData.MAP_ORDER:

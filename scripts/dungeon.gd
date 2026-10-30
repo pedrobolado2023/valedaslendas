@@ -11,6 +11,9 @@ var time_left := 0.0
 var _alive: Array = []
 var _enemy := ""
 var _boss := ""
+var _map := "masmorra"
+var _zone := "sala_masmorra"
+var diff := "normal"
 var _label: Label
 
 
@@ -31,7 +34,22 @@ func runs_today() -> int:
 	return int(p.stats.get("dg_count", 0)) if String(p.stats.get("dg_day", "")) == Rewards.today() else 0
 
 
-func enter() -> void:
+## Escolher a dificuldade (janela do diálogo) e entrar.
+func choose() -> void:
+	var opts: Array = []
+	for k in GameData.DUNGEON_DIFF:
+		var d: Dictionary = GameData.DUNGEON_DIFF[k]
+		var kk := String(k)
+		opts.append(["%s  ·  monstros %sx  ·  prêmio %sx" % [String(d["name"]), str(d["power"]), str(d["reward"])], func() -> void:
+			game.dialog.close()
+			enter(kk)])
+	opts.append(["Fechar", game.dialog.close])
+	var mid := GameData.dungeon_map_for(GameData.best_map(game.player.level))
+	game.dialog.open(String(GameData.MAPS[mid]["name"]), "Escolha a dificuldade (%d/%d masmorras hoje). Quanto mais difícil, mais fortes os monstros e maior o prêmio." % [runs_today(), int(GameData.DUNGEON["per_day"])], opts)
+
+
+func enter(difficulty: String = "normal") -> void:
+	diff = difficulty if GameData.DUNGEON_DIFF.has(difficulty) else "normal"
 	var cfg: Dictionary = GameData.DUNGEON
 	if runs_today() >= int(cfg["per_day"]):
 		game.toast("Você já fez as %d masmorras de hoje. Volte amanhã!" % int(cfg["per_day"]), 2.5)
@@ -49,10 +67,12 @@ func enter() -> void:
 			best = zd
 	_enemy = String(best["enemy"])
 	_boss = String(best.get("boss", _enemy))
+	_map = GameData.dungeon_map_for(bm)
+	_zone = String(GameData.MAPS[_map]["zones"][0])
 	state = "wait"
 	wave = 0
 	time_left = float(cfg["minutes"]) * 60.0
-	game.travel(String(cfg["map"]), true)
+	game.travel(_map, true)
 
 
 func _process(delta: float) -> void:
@@ -60,7 +80,7 @@ func _process(delta: float) -> void:
 		_label.text = hud_text()
 	if state == "" or game.player == null:
 		return
-	if String(game.map_id) != String(GameData.DUNGEON["map"]):
+	if String(game.map_id) != _map:
 		if state != "wait":
 			state = ""
 		return
@@ -92,16 +112,22 @@ func hud_text() -> String:
 
 func _spawn(type_id: String, at: Vector3) -> Enemy:
 	var e := Enemy.new()
-	e.setup(type_id, at, String(GameData.DUNGEON["zone"]))
+	e.setup(type_id, at, _zone)
 	e.died.connect(game._on_killed)
 	game.actors.add_child(e)
+	var pw := float(GameData.DUNGEON_DIFF[diff]["power"])   # dificuldade: vida e dano
+	e.max_hp = int(e.max_hp * pw)
+	e.hp = e.max_hp
+	e.dmg = int(e.dmg * pw)
 	_alive.append(e)
 	return e
 
 
 func _next_wave() -> void:
-	var waves: Array = GameData.DUNGEON["waves"]
-	var z: Dictionary = GameData.ZONES[String(GameData.DUNGEON["zone"])]
+	var waves: Array = (GameData.DUNGEON["waves"] as Array).duplicate()
+	for i in int(GameData.DUNGEON_DIFF[diff]["extra_wave"]):
+		waves.append(int(waves[-1]) + 4)
+	var z: Dictionary = GameData.ZONES[_zone]
 	var c: Vector3 = z["center"]
 	wave += 1
 	if wave > waves.size():
@@ -122,13 +148,17 @@ func _win() -> void:
 	state = "done"
 	var cfg: Dictionary = GameData.DUNGEON
 	var p: Player = game.player
-	var xp := int(GameData.xp_need(p.level) * float(cfg["reward_xp_levels"]))
+	var rw := float(GameData.DUNGEON_DIFF[diff]["reward"])
+	var xp := int(GameData.xp_need(p.level) * float(cfg["reward_xp_levels"]) * rw)
+	var gems := int(int(cfg["reward_gems"]) * rw)
 	p.gain_xp(xp)
-	Shop.credit_gems(p, int(cfg["reward_gems"]), "masmorra")
+	Shop.credit_gems(p, gems, "masmorra")
 	p.stat_add("dungeons")
-	for i in int(cfg["items"]):
+	for k in GameData.MAT_DROP["boss"]:   # materiais da forja, mais na dificuldade alta
+		p.mats[k] = int(p.mats.get(k, 0)) + int(ceil(float(GameData.MAT_DROP["boss"][k]) * rw))
+	for i in int(cfg["items"]) * int(rw):
 		game._drop_item(GameData.roll_rarity("boss"), p.global_position + Vector3(2.0 * (i - 0.5), 0, 2))
-	game.hud.banner("Masmorra concluída!", "+%d XP   +%d gemas   ·   itens no chão   ·   saindo em 8 s" % [xp, int(cfg["reward_gems"])], 5.0)
+	game.hud.banner("Masmorra %s concluída!" % String(GameData.DUNGEON_DIFF[diff]["name"]), "+%d XP   +%d gemas   + materiais   ·   itens no chão   ·   saindo em 8 s" % [xp, gems], 5.0)
 	Sfx.play("legendary", -2.0)
 	_leave(8.0)
 
@@ -146,5 +176,5 @@ func _fail(why: String) -> void:
 func _leave(secs: float) -> void:
 	await get_tree().create_timer(secs).timeout
 	state = ""
-	if String(game.map_id) == String(GameData.DUNGEON["map"]):
+	if GameData.is_dungeon(String(game.map_id)):
 		game.travel(String(game.return_map), true)
