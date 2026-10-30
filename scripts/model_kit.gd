@@ -51,6 +51,9 @@ static func load_kit(model: String, outline: float = 0.03, detail: float = 0.3) 
 const HERO_SLOTS := ["helmet", "chest", "pants", "gloves", "boots", "offhand"]
 
 
+const HAIR_SHADER := preload("res://shaders/toon_hair.gdshader")
+
+
 static func load_hero(cls: String, rarities: Dictionary, outline: float = 0.035) -> ModelKit:
 	var kit := load_kit("hero_%s_base" % cls, outline)
 	if kit == null:
@@ -147,7 +150,12 @@ static func convert_material(src_mat: Material, outline: float, detail: float, c
 	var tex: Texture2D = src.albedo_texture if src != null else null
 	if tex != null and "eye" in tex.resource_path.to_lower():
 		outline = 0.0   # olhos sem contorno (roupas com textura de tecido mantêm o contorno)
-	var sm := Toon.make(src.albedo_color if src != null else Color.WHITE, outline, tex, Vector2.ONE, detail)
+	var cards := src != null and src.transparency == BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	if cards:
+		outline = 0.0   # cabelo/sobrancelha do MakeHuman: recorte de transparência, sem contorno
+	var sm := Toon.make(src.albedo_color if src != null else Color.WHITE, outline, tex, Vector2.ONE, 0.0 if cards else detail)
+	if cards:
+		sm.shader = HAIR_SHADER
 	if collect != null:
 		collect.append(sm)
 	return sm

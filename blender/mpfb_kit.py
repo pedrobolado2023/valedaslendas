@@ -49,6 +49,10 @@ def srgb_to_lin(c):
     return tuple(x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c)
 
 
+def srgb_to_linear(x):
+    return x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4
+
+
 def color_mat(name, rgb, glow=0.0, rough=0.7, metal=0.0, tex=None):
     """Material com cor em sRGB (como num seletor de cores), convertida para linear."""
     rgb = srgb_to_lin(rgb)
@@ -72,6 +76,12 @@ def color_mat(name, rgb, glow=0.0, rough=0.7, metal=0.0, tex=None):
 
 # =================================================================== corpo
 
+## Cabelos/sobrancelhas de verdade do MakeHuman (pacote CC0 em MH_DATA/hair e MH_DATA/eyebrows), carregados junto
+## com o corpo: EXTRA = [(caminho relativo em MH_DATA, "Hair"|"Eyebrows")]; os objetos criados ficam em LAST_EXTRA.
+EXTRA = []
+LAST_EXTRA = []
+
+
 def create_body(macros, targets, rig="game_engine"):
     """Cria o humano, aplica formas (macros e alvos), esqueleto e olhos. Devolve (corpo, armadura, olhos)."""
     HS = _svc("services.humanservice", "HumanService")
@@ -90,7 +100,55 @@ def create_body(macros, targets, rig="game_engine"):
     mhclo = os.path.join(MH_DATA, "eyes", "high-poly", "high-poly.mhclo")
     if MH_DATA and os.path.exists(mhclo):
         eyes = HS.add_mhclo_asset(mhclo, body, asset_type="Eyes", subdiv_levels=0, material_type="MAKESKIN")
+    LAST_EXTRA.clear()
+    for rel, kind in EXTRA:
+        p = os.path.join(MH_DATA, rel)
+        if MH_DATA and os.path.exists(p):
+            LAST_EXTRA.append(HS.add_mhclo_asset(p, body, asset_type=kind, subdiv_levels=0, material_type="MAKESKIN"))
+        else:
+            print("AVISO: asset do MakeHuman não encontrado:", p)
     return body, arm, eyes
+
+
+def card_asset(c, o, name, rgb, bright=1.15):
+    """Cabelo/sobrancelha do MakeHuman: pinta a textura na cor pedida (mantém a transparência das mechas),
+    exporta com recorte de transparência (alpha MASK no glTF) e entra nas peças com o nome do encaixe."""
+    o.name = name
+    o["cards"] = True                      # fora do Decimate (lighten) e das texturas de roupa (paint_clothes)
+    for m in o.data.materials:
+        if m is None or not m.use_nodes:
+            continue
+        nt = m.node_tree
+        tex = next((n for n in nt.nodes if n.type == "TEX_IMAGE" and n.image is not None and "diffuse" in n.image.name.lower()), None)
+        if tex is None:
+            tex = next((n for n in nt.nodes if n.type == "TEX_IMAGE" and n.image is not None), None)
+        bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+        if tex is None or bsdf is None:
+            continue
+        src = tex.image
+        w, h = src.size
+        px = list(src.pixels)
+        r, g, b = [srgb_to_linear(x) for x in rgb]
+        out = [0.0] * len(px)
+        for i in range(0, len(px), 4):
+            lum = min(1.0, (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) * 2.2 * bright)
+            out[i], out[i + 1], out[i + 2], out[i + 3] = r * lum, g * lum, b * lum, px[i + 3]
+        img = bpy.data.images.new("%s_%s" % (name, src.name.split(".")[0]), w, h, alpha=True)
+        img.pixels = out
+        img.pack()
+        for l in list(nt.links):           # liga direto: textura → cor; textura.alpha > 0,5 → alpha (vira MASK)
+            if l.to_node == bsdf and l.to_socket.name in ("Base Color", "Alpha"):
+                nt.links.remove(l)
+        tex.image = img
+        nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+        gt = nt.nodes.new("ShaderNodeMath")
+        gt.operation = "GREATER_THAN"
+        gt.inputs[1].default_value = 0.5
+        nt.links.new(tex.outputs["Alpha"], gt.inputs[0])
+        nt.links.new(gt.outputs[0], bsdf.inputs["Alpha"])
+        bsdf.inputs["Roughness"].default_value = 0.6
+    c.parts.append(o)
+    return o
 
 
 def bake_shape_keys(obj):
@@ -677,7 +735,7 @@ def paint_clothes(objs):
     """Põe as texturas de tecido/couro/metal nas peças e desdobra cada uma na mesma densidade."""
     done = set()
     for o in objs:
-        if o.type != "MESH" or not o.data.materials:
+        if o.type != "MESH" or not o.data.materials or o.get("cards"):
             continue
         kinds = [cloth_kind(m) for m in o.data.materials if m is not None]
         kinds = [k for k in kinds if k]
@@ -699,7 +757,7 @@ VERT_CAP_DEFAULT = 3500
 def lighten(objs):
     """Reduz peças pesadas (Decimate antes do esqueleto, para não "congelar" a pose)."""
     for o in objs:
-        if o.type != "MESH" or o.name.split(".")[0] == "base" or o.name.startswith("high-poly") or o.parent_type == "BONE":
+        if o.type != "MESH" or o.name.split(".")[0] == "base" or o.name.startswith("high-poly") or o.parent_type == "BONE" or o.get("cards"):
             continue
         cap = VERT_CAP.get(o.name.split(".")[0], VERT_CAP_DEFAULT)
         n = len(o.data.vertices)
@@ -722,7 +780,7 @@ SLOT_OF = {
     "helmet": ("Capuz", "CapuzPonta", "Gola", "Mascara", "Elmo", "Visor", "VisorV", "Crista", "Escama", "ChifreDragao", "Chifre",
                "Galho", "Bone", "Aba", "Oculos", "Lente", "TiraOculos", "Capacete", "OlhoRobo", "AroOlho", "Parafuso", "Joia",
                "Coroa", "Coral", "Barbatana", "OrelhaFolha", "OlhoBrilho", "Runa", "Cabelo", "MechaLado", "Franja", "Rabo",
-               "Liga", "Costeleta", "Barba", "Bigode", "Sobrancelha"),
+               "Liga", "Costeleta", "Barba", "Bigode", "Sobrancelha", "Mechas"),
     "chest": ("Tunica", "Gibao", "Traje", "Peitoral", "Camisa", "Colete", "Capa", "CapaBarra", "Ombreira", "OmbreiraBorda",
               "Espinho", "GemaOmbro", "FolhaOuro", "Bandoleira", "FacaArremesso", "GemaPeito", "Sol", "Listra", "Botao",
               "Peitilho", "HaloDisco", "HaloFuro", "Avental", "Bolso", "Ferramenta", "Mochila", "Nucleo", "Exaustor", "Aureola", "Gorjal"),
