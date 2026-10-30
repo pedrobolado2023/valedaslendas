@@ -671,8 +671,18 @@ static func xp_need(level: int) -> int:
 
 
 ## Multiplicador de XP por nível (o antigo "10x menos a partir do 31" foi trocado pela curva suave acima).
+## XP em dobro todo dia nestes horários (hora do computador/servidor).
+const XP_DOUBLE_HOURS := [20]
+## Eventos no mundo (a cada `every` segundos, um deles): baú dourado e invasão no acampamento.
+const WORLD_EVENT := {"every": 1200.0, "chest_gems": 30, "chest_gold_levels": 0.15, "invasion_count": 16, "invasion_mins": 8}
+
+
+static func xp_double() -> bool:
+	return int(Time.get_datetime_dict_from_system()["hour"]) in XP_DOUBLE_HOURS
+
+
 static func xp_gain_mult(_level: int) -> float:
-	return 1.0
+	return 2.0 if xp_double() else 1.0
 
 
 ## XP da missão de história: o valor da tabela era para a curva antiga; mantém a mesma fração de um nível.

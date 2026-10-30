@@ -20,6 +20,7 @@ signal item_received(item: Dictionary, from: String)
 signal gift_done(uid: int, ok: bool, msg: String)
 signal ranking_list(rows: Array)
 signal market_rows(rows: Array)
+signal world_event(kind: String, map: String, pos: Vector3, text: String)
 signal market_event(kind: String, data: Dictionary)
 signal duel_asked(from: String)
 signal duel_started(peer: int, name: String)
@@ -97,6 +98,10 @@ func _process(delta: float) -> void:
 	if _t >= 1.0 / SNAP_HZ:
 		_t = 0.0
 		_broadcast()
+	_ev_t += delta
+	if _ev_t >= float(GameData.WORLD_EVENT["every"]) and not _players.is_empty():
+		_ev_t = 0.0
+		_start_event("bau" if randf() < 0.6 else "invasao")
 	_rank_t += delta
 	if _rank_t >= 0.25 and _boss_dirty:
 		_rank_t = 0.0
@@ -421,6 +426,77 @@ func _gift_in(item: Dictionary, from: String) -> void:
 @rpc("authority", "reliable")
 func _gift_result(uid: int, ok: bool, msg: String) -> void:
 	gift_done.emit(uid, ok, msg)
+
+
+## ---------- eventos no mundo
+var _ev_t := 0.0
+var _chest := {}   # {"map", "pos"} enquanto ninguém pegou
+
+
+func _busy_map() -> String:
+	var count := {}
+	for pid in _players:
+		var m := String(_players[pid].get("map", ""))
+		if GameData.MAPS.has(m) and not bool(GameData.MAPS[m].get("event", false)):
+			count[m] = int(count.get(m, 0)) + 1
+	var best := "vale"
+	for m in count:
+		if int(count[m]) > int(count.get(best, 0)):
+			best = m
+	return best
+
+
+func _start_event(kind: String) -> void:
+	var m := _busy_map()
+	var mname := String(GameData.MAPS[m]["name"])
+	if kind == "bau":
+		var a := randf() * TAU
+		var pos := Vector3(cos(a), 0, sin(a)) * randf_range(25.0, 60.0)
+		_chest = {"map": m, "pos": pos}
+		for pid in _players:
+			_world_ev.rpc_id(int(pid), "bau", m, pos, "Um Baú Dourado apareceu em %s! O primeiro a chegar leva." % mname)
+	else:
+		if world != null and world.maps.has(m):
+			for zid in GameData.MAPS[m]["zones"]:
+				for i in int(GameData.WORLD_EVENT["invasion_count"]) / 3:
+					var e: Dictionary = world._spawn(m, String(zid), String(GameData.ZONES[zid]["enemy"]), false)
+					var a2 := randf() * TAU
+					e["pos"] = Vector3(cos(a2), 0, sin(a2)) * randf_range(10.0, 22.0)
+					e["home"] = e["pos"]
+		for pid in _players:
+			_world_ev.rpc_id(int(pid), "invasao", m, Vector3.ZERO, "Invasão! Monstros atacam o acampamento de %s." % mname)
+	print("[servidor] evento ", kind, " em ", mname)
+
+
+## Admin: começa um evento agora (teste).
+@rpc("any_peer", "reliable")
+func admin_event(kind: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(id) and bool(_players[id].get("admin", false)):
+		_start_event(kind)
+
+
+@rpc("any_peer", "reliable")
+func chest_claim() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id) or _chest.is_empty():
+		return
+	var p: Dictionary = _players[id]
+	if String(p.get("map", "")) != String(_chest["map"]) or Vector2((p["pos"] as Vector3).x - (_chest["pos"] as Vector3).x, (p["pos"] as Vector3).z - (_chest["pos"] as Vector3).z).length() > 5.0:
+		return
+	var m := String(_chest["map"])
+	_chest = {}
+	p["credit_gems"] = int(p.get("credit_gems", 0)) + int(GameData.WORLD_EVENT["chest_gems"])
+	p["credit_gold"] = int(p.get("credit_gold", 0)) + 100000
+	p["credit_items"] = int(p.get("credit_items", 0)) + 1
+	for pid in _players:
+		_world_ev.rpc_id(int(pid), "bau_fim", m, Vector3.ZERO, "%s pegou o Baú Dourado!" % p["name"])
+	_world_ev.rpc_id(id, "bau_premio", m, Vector3.ZERO, "")
+
+
+@rpc("authority", "reliable")
+func _world_ev(kind: String, m: String, pos: Vector3, text: String) -> void:
+	world_event.emit(kind, m, pos, text)
 
 
 ## ---------- Mercadinho do Jogo (anúncios por gemas; imposto de GameData.market_tax; só itens "sell")

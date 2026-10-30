@@ -20,8 +20,16 @@ var rank_ui: BossRank
 var _last_top: Array = []
 
 
+var chest: Node3D
+var _chest_pos := Vector3.ZERO
+var _chest_map := ""
+var _local_ev_t := 0.0
+var _xp2_said := false
+
+
 func _ready() -> void:
 	var net := get_node("/root/Net")
+	net.world_event.connect(_on_world_event)
 	# online: a vida que vale é a do servidor (todos batem no mesmo dragão); ranking e prêmios vêm de lá
 	net.boss_hp.connect(_on_net_hp)
 	net.boss_rank.connect(func(top: Array) -> void:
@@ -50,7 +58,104 @@ func boss_hp_for(atk_total: float, base_hp: int) -> int:
 	return maxi(base_hp * int(cfg["hp_mult"]), int(atk_total * float(cfg["dps_k"]) * float(cfg["target_secs"])))
 
 
+## Eventos no mundo (baú dourado / invasão), vindos do servidor — ou locais, sem servidor.
+func _on_world_event(kind: String, m: String, pos: Vector3, text: String) -> void:
+	match kind:
+		"bau":
+			_chest_map = m
+			_chest_pos = pos
+			_place_chest()
+			game.hud.banner("Baú Dourado!", text, 4.0)
+			Sfx.play("legendary", -6.0)
+		"bau_fim":
+			_chest_map = ""
+			_remove_chest()
+			game.toast(text, 3.0)
+		"bau_premio":
+			_chest_reward()
+		"invasao":
+			game.hud.banner("Invasão!", text, 4.0)
+			Sfx.play("boss", -6.0)
+	if text != "" and game.get("chat") != null:
+		game.chat.add("sistema", "", text)
+
+
+func _place_chest() -> void:
+	_remove_chest()
+	if _chest_map != game.map_id or game.world == null:
+		return
+	chest = Node3D.new()
+	game.actors.add_child(chest)
+	chest.global_position = _chest_pos
+	var kit := ModelKit.load_kit("loot_crystal", 0.03)
+	if kit != null:
+		kit.root.scale = Vector3.ONE * 1.6
+		chest.add_child(kit.root)
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.8, 0.3)
+	l.light_energy = 2.5
+	l.omni_range = 8.0
+	l.position.y = 1.5
+	chest.add_child(l)
+	var lab := Label3D.new()
+	lab.text = "Baú Dourado"
+	lab.font = Toon.title_font()
+	lab.font_size = 36
+	lab.pixel_size = 0.014
+	lab.modulate = Color(1.0, 0.85, 0.35)
+	lab.outline_size = 8
+	lab.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lab.position.y = 3.0
+	chest.add_child(lab)
+
+
+func _remove_chest() -> void:
+	if chest != null and is_instance_valid(chest):
+		chest.queue_free()
+	chest = null
+
+
+func _chest_reward() -> void:
+	var p = game.player
+	var cfgw: Dictionary = GameData.WORLD_EVENT
+	var gold := int(GameData.xp_need(p.level) * 0.0) + int(800 + p.level * 120)
+	Shop.credit_gems(p, int(cfgw["chest_gems"]), "bau_dourado")
+	p.gold += gold
+	game._drop_item(GameData.roll_rarity("chest"), p.global_position + Vector3(1.5, 0, 0))
+	game.hud.banner("Você pegou o Baú Dourado!", "+%d gemas   +%d de ouro   + um item" % [int(cfgw["chest_gems"]), gold], 4.0)
+	Sfx.play("legendary", -2.0)
+	p.stats_changed.emit()
+	game.save_now()
+
+
 func _process(delta: float) -> void:
+	# baú dourado: chegar perto pega (online o servidor decide quem chegou primeiro)
+	if chest == null and _chest_map != "" and _chest_map == game.map_id and game.world != null:
+		_place_chest()
+	if chest != null and is_instance_valid(chest) and game.player != null:
+		chest.rotation.y += delta
+		if Skills.flat(game.player.global_position - chest.global_position).length() < 3.0:
+			var net := get_node("/root/Net")
+			if net.online:
+				net.chest_claim.rpc_id(1)
+				_chest_map = ""
+				_remove_chest()
+			else:
+				_chest_map = ""
+				_remove_chest()
+				_chest_reward()
+	# sem servidor: baú no próprio mapa a cada 20 min
+	if not get_node("/root/Net").online and game.player != null and not bool(GameData.MAPS[game.map_id].get("event", false)):
+		_local_ev_t += delta
+		if _local_ev_t >= float(GameData.WORLD_EVENT["every"]):
+			_local_ev_t = 0.0
+			var a := randf() * TAU
+			_on_world_event("bau", game.map_id, Vector3(cos(a), 0, sin(a)) * randf_range(20.0, 45.0), "Um Baú Dourado apareceu perto do acampamento!")
+	# XP em dobro (avisa uma vez quando começa)
+	if GameData.xp_double() != _xp2_said and game.get("hud") != null:
+		_xp2_said = GameData.xp_double()
+		if _xp2_said:
+			game.hud.banner("XP em dobro!", "Até as %dh: todo monstro e missão dá o dobro de XP" % (int(GameData.XP_DOUBLE_HOURS[0]) + 1), 4.0)
 	if rank_ui != null and is_instance_valid(rank_ui) and boss != null and is_instance_valid(boss) and not get_node("/root/Net").online:
 		rank_ui.show_top([["Você", boss.my_dmg]])
 	_tick -= delta

@@ -160,6 +160,19 @@ func _hero_col() -> Control:
 		else:
 			(game.get("events") as WorldEvents).schedule(float(GameData.GLOBAL_BOSS["warn_minutes"]) * 60.0, int(GameData.GLOBAL_BOSS["minutes"]))
 		_done("Boss global invocado: todos os jogadores foram avisados (começa em 5 min)."))
+	_btn(v, "Evento: Baú Dourado agora", func() -> void:
+		var net: Node = get_node("/root/Net")
+		if net.online:
+			net.admin_event.rpc_id(1, "bau")
+		else:
+			var ev: WorldEvents = game.get("events")
+			ev._local_ev_t = 999999.0
+		_done("Baú Dourado chamado."))
+	_btn(v, "Evento: Invasão agora (online)", func() -> void:
+		var net: Node = get_node("/root/Net")
+		if net.online:
+			net.admin_event.rpc_id(1, "invasao")
+		_done("Invasão chamada." if net.online else "Invasão só funciona online."))
 	_btn(v, "Boss global: começar agora (15 min)", func() -> void:
 		var ev: WorldEvents = game.get("events")
 		ev.force(int(GameData.GLOBAL_BOSS["minutes"]))
