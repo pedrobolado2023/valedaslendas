@@ -147,6 +147,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   do dano; quem cair perde, `duel_ended`).
 - **Mapa leve:** vegetação em pedaços (`World.CHUNK`); só os perto do herói (raio pelo zoom da câmera) são desenhados (`World._process`; qualidade baixa marca `q_off`). Vento nos shaders toon/outline (`wind`, ligado em árvores e arbustos por `_windy`). Clima por bioma (`_build_weather`: folhas, neve, cinza, areia). Navegador começa em qualidade média (celular: baixa, 75%).
 - **Eventos no mundo:** servidor a cada `WORLD_EVENT.every` (20 min): Baú Dourado (primeiro a chegar ganha, `chest_claim`) ou Invasão (monstros extras no acampamento do mapa mais cheio); sem servidor o baú aparece sozinho. XP em dobro nas horas `XP_DOUBLE_HOURS` (20h). Admin F1 chama os eventos.
+- **Chefe de bioma:** o chefe da última zona de cada mapa gerado tem nome próprio (`GameData.BIOME_BOSS`), 1,3x maior, 1,6x vida e mecânicas (`scripts/boss_mech.gd`: meteoros, anel, gelo, veneno, invocar). Nos mapas gerados o chefe de cada zona nasce sozinho e volta 3 min depois (Zone e ServerWorld).
 - **Celular:** `ui/touch_controls.gd` (só em tela de toque): joystick (`Player.touch_dir`) e botão Atacar (`touch_attack`).
 - **Mercadinho do Jogo (B, `ui/market_panel.gd`):** jogadores anunciam itens por gemas; só itens com `"sell": true`
   (os que caem: `_drop_item`, boss) — iniciais e da loja não. Imposto `GameData.market_tax` (20% até nv 59, 10% 60-79,

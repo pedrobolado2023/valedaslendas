@@ -269,7 +269,7 @@ static func enemy(id: String) -> Dictionary:
 	# até o nível 60 a curva antiga; depois cresce em linha reta, no mesmo ritmo do herói (ataque e vida ~ nível)
 	var Lc := minf(L, 60.0)
 	var grow := maxf(1.0, L / 60.0)
-	d["hp"] = int((10.0 * pow(Lc, 1.5) + 40.0) * grow * (6.0 if boss else 1.0))
+	d["hp"] = int((10.0 * pow(Lc, 1.5) + 40.0) * grow * (6.0 if boss else 1.0) * float(d.get("hp_mult", 1.0)))
 	d["dmg"] = int((4.0 + 1.3 * pow(Lc, 1.15)) * grow * (2.2 if boss else 1.0))
 	d["xp"] = int(10.0 * pow(L, 1.55) * (15.0 if boss else 1.0))
 	d["gold"] = Vector2i(int(L), int(L * 3.0)) * (20 if boss else 1)
@@ -358,6 +358,17 @@ const BIOMES := [
 ]
 
 ## Chefe de cada modelo comum (mesmo esqueleto, maior).
+## Chefe único de cada bioma (o da última zona de cada mapa gerado): nome, mecânicas (BossMech) e tamanho.
+const BIOME_BOSS := {
+	"encantada": {"name": "Rainha das Raízes", "mech": ["veneno", "invocar"]},
+	"pantano": {"name": "Hidra do Brejo", "mech": ["veneno", "anel"]},
+	"cristal": {"name": "Colosso Prismático", "mech": ["gelo", "anel"]},
+	"tundra": {"name": "Senhor do Inverno", "mech": ["gelo", "anel"]},
+	"sombrias": {"name": "Ceifador Sombrio", "mech": ["invocar", "meteoros"]},
+	"celeste": {"name": "Arcanjo Caído", "mech": ["anel", "meteoros"]},
+	"estelar": {"name": "Devorador de Estrelas", "mech": ["meteoros", "gelo"]},
+	"brasas": {"name": "Titã da Forja", "mech": ["meteoros", "anel"]},
+}
 const BOSS_OF := {"wolf": "wolf_alpha", "wolf_ice": "wolf_glacial", "slime": "slime_king", "golem_minion": "golem_boss", "golem_sand": "golem_sand_boss",
 		"golem_ice": "golem_ice_boss", "golem_magma": "golem_magma_boss", "scorpion": "scorpion_queen", "skeleton": "skeleton_king",
 		"yeti": "yeti_ancient", "imp": "imp_lord", "dragon_whelp": "dragon_ancient"}
@@ -410,6 +421,15 @@ static func _gen_maps() -> void:
 			var tb := _template(String(BOSS_OF.get(String(mob[0]), mob[0]))).duplicate()
 			tb.merge({"name": "%s Supremo" % String(mob[1]), "level": zl + 4, "tint": col, "tint_amt": float(mob[3]), "boss": true,
 					"style": "slam", "slam_r": float(tb.get("slam_r", 5.5))}, true)
+			if k == 2:   # última zona: chefe único do bioma, maior e com mecânicas
+				var bb: Dictionary = BIOME_BOSS.get(String(b["key"]), {})
+				if not bb.is_empty():
+					tb["name"] = "%s %s" % [String(bb["name"]), ["", "II", "III", "IV", "V", "VI", "VII", "VIII"][round_n % 8]]
+					tb["name"] = String(tb["name"]).strip_edges()
+					tb["mech"] = bb["mech"]
+					tb["minion"] = mob_id
+					tb["scale"] = float(tb.get("scale", 1.0)) * 1.3
+					tb["hp_mult"] = 1.6
 			for key in ["hp", "dmg", "xp", "gold"]:
 				tb.erase(key)
 			GEN_ENEMIES[boss_id] = tb

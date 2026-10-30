@@ -42,6 +42,8 @@ func _open(m: String) -> void:
 		var z: Dictionary = GameData.ZONES[zid]
 		for i in int(z["count"]):
 			_spawn(m, String(zid), String(z["enemy"]), false)
+		if m.begins_with("m") and z.has("boss"):   # mapas gerados: chefe da zona sempre presente
+			_spawn(m, String(zid), String(z["boss"]), true)
 
 
 func _spawn(m: String, zid: String, type_id: String, is_boss: bool) -> Dictionary:
@@ -73,7 +75,9 @@ func _tick_map(m: String, dt: float) -> void:
 	for r in md["respawn"]:
 		r[0] -= dt
 		if r[0] <= 0.0:
-			_spawn(m, String(r[1]), String(GameData.ZONES[r[1]]["enemy"]), false)
+			var zr: Dictionary = GameData.ZONES[r[1]]
+			var is_b: bool = r.size() > 2 and bool(r[2])
+			_spawn(m, String(r[1]), String(zr["boss"] if is_b else zr["enemy"]), is_b)
 		else:
 			keep.append(r)
 	md["respawn"] = keep
@@ -229,6 +233,8 @@ func _kill(m: String, e: Dictionary) -> void:
 			net._enemy_dead.rpc_id(int(pid), int(e["id"]), credit, drop if int(pid) == top else "")
 	if not e["boss"]:
 		maps[m]["respawn"].append([7.0, e["zone"]])
+	elif m.begins_with("m") and String(e["type"]) == String(GameData.ZONES[e["zone"]].get("boss", "")):
+		maps[m]["respawn"].append([180.0, e["zone"], true])
 
 
 ## Chefe de missão: nasce uma vez por zona (se já existir, nada).

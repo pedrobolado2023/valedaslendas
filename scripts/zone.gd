@@ -22,6 +22,8 @@ func setup(id: String, root: Node3D, w: World) -> void:
 func _ready() -> void:
 	if get_node("/root/Net").online and not bool(GameData.MAPS[String(data["map"])].get("event", false)):
 		return   # online: os monstros vêm do servidor (NetMonsters)
+	if _auto_boss():
+		Fx.later(self, 4.0).connect(func() -> void: spawn_boss(String(data["boss"])))
 	for i in int(data["count"]):
 		spawn_one()
 
@@ -82,11 +84,21 @@ func alive_enemies() -> Array[Enemy]:
 	return out
 
 
+## Mapas gerados (m1..m63) não têm história: o chefe da zona aparece sozinho e volta 3 min depois de morrer.
+const BOSS_RESPAWN := 180.0
+
+
+func _auto_boss() -> bool:
+	return String(data.get("map", "")).begins_with("m") and data.has("boss") and not get_node("/root/Net").online
+
+
 func _on_died(e: Enemy) -> void:
 	_alive.erase(e)
 	killed.emit(e)
 	if e == boss:
 		boss = null
+		if _auto_boss():
+			Fx.later(self, BOSS_RESPAWN).connect(func() -> void: spawn_boss(String(data["boss"])))
 		return
 	Fx.later(self, 7.0).connect(func() -> void:
 		if is_inside_tree() and _alive.size() < int(data["count"]):

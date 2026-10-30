@@ -60,6 +60,11 @@ func setup(t: String, pos: Vector3, zone: String = "") -> void:
 
 func _ready() -> void:
 	add_to_group("enemy")
+	if data.has("mech"):   # chefe de bioma: mecânicas próprias
+		var bm := BossMech.new()
+		bm.boss = self
+		bm.mechs = data["mech"]
+		add_child(bm)
 	collision_layer = 4
 	collision_mask = 1
 	level = int(data["level"])
