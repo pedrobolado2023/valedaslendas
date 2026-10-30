@@ -353,14 +353,88 @@ def sk_ninfa(c):
     D.cape(c, K.color_mat("skn_veu", (0.55, 0.85, 0.92), rough=0.3), 1.2, 0.48, scale)
 
 
+def sk_bruxa(c):
+    """Bruxa do Pântano Sombrio (Sombras): manto roxo-escuro com capuz pontudo, saia longa rasgada em tiras, cogumelos
+    roxos brilhando nos ombros e no cinto, olhos roxos brilhando, colar de ossinhos e cabelo preto solto."""
+    robe = K.color_mat("skb_manto", (0.22, 0.13, 0.28), rough=0.85)
+    dark = K.color_mat("skb_escuro", (0.1, 0.08, 0.12), rough=0.8)
+    moss = K.color_mat("skb_musgo", (0.25, 0.32, 0.16), rough=0.9)
+    glow = K.color_mat("skb_brilho", (0.75, 0.35, 1.0), glow=1.4)
+    cap = K.color_mat("skb_chapeu", (0.5, 0.2, 0.6), rough=0.5)
+    stem = K.color_mat("skb_talo", (0.85, 0.8, 0.72), rough=0.6)
+    bone = K.color_mat("skb_osso", (0.88, 0.84, 0.74), rough=0.5)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, dark, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO + UPPER, robe, offset=0.012, zmin=c.hip_z - 0.04)
+    long_skirt(c, robe, c.hip_z + 0.06, c.knee_z - 0.05, 0.27, 0.2)
+    # tiras rasgadas descendo da saia até perto do pé (barra irregular)
+    import random
+    rnd = random.Random(5)
+    py = K.bone_head(c.arm, "pelvis").y + 0.01
+    z_top, z_bot = c.knee_z + 0.06, c.ankle_z + 0.06
+    for k in range(28):
+        a = k / 28 * math.tau
+        ln = rnd.uniform(0.65, 1.0) * (z_top - z_bot)
+        r = 0.25 + 0.012
+        tr = leaf("Barra", robe if k % 4 else moss, Vector((math.sin(a) * r, py - math.cos(a) * r * 0.82, z_top - ln / 2)), ln, 0.055,
+                  (math.pi + 0.08 * math.cos(a), -0.08 * math.sin(a), a))
+        rigid(c, tr, "pelvis")
+    piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, dark, offset=0.014, thresh=0.3, zmax=c.knee_z - 0.06)
+    D.gloves(c, dark)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.06, 0.05, 0.07), 1.6)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.08, 0.06, 0.09), 1.0)
+    hd, sh2 = c.head, (c.head_top - c.head).length   # capuz pontudo (sem a gola grossa do hood padrão)
+    chin, brow = c.head.z - sh2 * 0.6, c.eye_z + sh2 * 0.3
+    D.head_shell(c, "Capuz", robe, 0.035, lambda p: p.z > chin - 0.02 and not (p.y < hd.y - sh2 * 0.05 and chin < p.z < brow and abs(p.x) < sh2 * 0.62), 0.012, 2)
+    tip = prim("cone", "CapuzPonta", robe, hd + Vector((0, sh2 * 0.75, sh2 * 0.55)), (sh2 * 0.7, sh2 * 0.6, sh2 * 1.1), rot=(-2.1, 0, 0), r2=0.05)
+    rigid(c, tip, "head")
+    h, s2 = c.head, (c.head_top - c.head).length
+    for side in (-1, 1):   # olhos roxos brilhando (por cima das íris)
+        eye = prim("sphere", "OlhoBrilho", glow, Vector((side * s2 * 0.2, h.y - s2 * 0.66, c.eye_z + 0.004)), (0.018, 0.005, 0.008))
+        rigid(c, eye, "head")
+
+    def mushroom(pos, size, bone_n):
+        st = prim("cyl", "Bolsa", stem, pos + Vector((0, 0, size * 0.5)), (size * 0.35, size * 0.35, size), seg=8)
+        rigid(c, st, bone_n)
+        cp = prim("sphere", "Bolsa", cap, pos + Vector((0, 0, size * 1.05)), (size * 1.4, size * 1.4, size * 0.7), seg=12)
+        rigid(c, cp, bone_n)
+        for j in range(3):
+            dt = prim("sphere", "Bolsa", glow, pos + Vector((math.cos(j * 2.1) * size * 0.45, math.sin(j * 2.1) * size * 0.45, size * 1.3)), (size * 0.25,) * 3, seg=6)
+            rigid(c, dt, bone_n)
+
+    for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):   # cogumelos nos ombros
+        sh = K.bone_head(c.arm, bone_n)
+        pad = leaf("Ombreira", moss, sh + Vector((side * 0.04, 0.0, 0.04)), 0.16, 0.13, (0.0, side * 1.25, 0.0))
+        rigid(c, pad, bone_n)
+        mushroom(sh + Vector((side * 0.06, 0.0, 0.07)), 0.07, bone_n)
+        mushroom(sh + Vector((side * 0.11, 0.04, 0.05)), 0.045, bone_n)
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", K.color_mat("skb_corda", (0.35, 0.27, 0.18), rough=0.9), Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.4), minor=0.05)
+    rigid(c, band, "spine_01")
+    mushroom(Vector((rx * 0.75, cy - ry * 0.6, zb - 0.02)), 0.05, "spine_01")
+    # colar de ossinhos com uma gema roxa
+    neck = K.bone_head(c.arm, "neck_01")
+    cy3, rx3, ry3 = Mc.torso_size(c, neck.z - 0.05)
+    for k in range(7):
+        a = (k - 3) * 0.3
+        p = Vector((math.sin(a) * (rx3 + 0.01), cy3 - math.cos(a) * (ry3 + 0.012), neck.z - 0.05 - (3 - abs(k - 3)) * 0.012))
+        b = prim("cyl", "Espinho", bone, p + Vector((0, -0.004, -0.015)), (0.012, 0.012, 0.035), rot=(0.2, 0, 0), seg=6)
+        rigid(c, b, "spine_03")
+    gm = prim("sphere", "GemaPeito", glow, Vector((0, cy3 - ry3 - 0.02, neck.z - 0.11)), (0.03, 0.014, 0.036))
+    rigid(c, gm, "spine_03")
+    D.cape(c, robe, 1.2, 0.48, moss)
+
+
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
-         "sk_areias": ("druida", D, sk_areias), "sk_ninfa": ("druida", D, sk_ninfa)}
+         "sk_areias": ("druida", D, sk_areias), "sk_ninfa": ("druida", D, sk_ninfa),
+         "sk_bruxa": ("druida", D, sk_bruxa)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
           "sk_inverno": [("hair/bob02/bob02.mhclo", "Hair"), ("eyebrows/eyebrow003/eyebrow003.mhclo", "Eyebrows")],
           "sk_areias": [("hair/ponytail01/ponytail01.mhclo", "Hair"), ("eyebrows/eyebrow010/eyebrow010.mhclo", "Eyebrows")],
-          "sk_ninfa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")]}
+          "sk_ninfa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")],
+          "sk_bruxa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")]}
 
 
 def main():
