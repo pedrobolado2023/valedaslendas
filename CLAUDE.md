@@ -187,8 +187,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   a partir de 8 biomas em `GameData.BIOMES` (nomes, cores, vegetação, lago, luz e monstros por bioma). Cada mapa
   tem 3 zonas com monstro e chefe próprios (modelos existentes com `tint`/`tint_amt` e nome novo, em
   `GEN_ENEMIES`). Inimigos acima do 60 crescem em linha reta com o nível (mesmo ritmo do herói).
-  Portal com páginas de 6 mapas; o modo automático caça no `GameData.best_map(nível)`. Missões de história
-  continuam só nos 4 mapas base.
+  Portal com páginas de 6 mapas; o modo automático caça no `GameData.best_map(nível)`. Missões de história:
+  12 feitas à mão nos mapas base + 3 geradas por mapa novo (`GameData._story_for`, falas em `STORY_TEXT` por bioma; total 201).
 - **Balanceamento (29/10):** ritmo escolhido pelo dono = nv 60 em ~30 h e nv 1000 em ~1500 h só caçando. XP para subir
   = `kills_per_level(L)` × `mob_xp(L)` (`XP_KILLS_C`/`XP_KILLS_P` em data.gd); acabou o "10x menos a partir do 31";
   XP da história escala com a curva (`quest_xp`). Classes perto umas das outras com `skill_power` (Assassino 1,17,

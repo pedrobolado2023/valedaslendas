@@ -463,6 +463,7 @@ static func _gen_maps() -> void:
 				"regions": [{"type": "forest", "c": Vector2(c0.x, c0.z), "r": 32.0}, {"type": "stone", "c": Vector2(c2.x, c2.z), "r": 18.0}],
 				"theme": theme}
 		MAP_ORDER.append(id)
+		_story_for(id, b, zone_ids, round_n)
 
 
 ## Mapa mais alto que o herói já alcança (para o modo automático caçar onde rende mais).
@@ -642,7 +643,8 @@ const BASE_ZONES := {
 }
 
 ## Missões de história (em ordem). O NPC de cada mapa entrega as missões do seu mapa.
-const QUESTS := [
+## História: 12 missões feitas à mão (mapas base) + 3 geradas para cada mapa novo (`_story_for`).
+static var QUESTS: Array = [
 	{"id": "q1", "title": "Praga no Campo", "zone": "campo", "count": 10, "min_level": 1, "xp": 450, "gold": 120,
 		"text": "Viajante! Os slimes tomaram o Campo das Flores, a leste da vila. Derrote 10 deles e o Slime Rei vai aparecer. Acabe com ele e volte aqui."},
 	{"id": "q2", "title": "Uivos na Floresta", "zone": "floresta", "count": 12, "min_level": 4, "xp": 2600, "gold": 400,
@@ -722,6 +724,37 @@ static func xp_gain_mult(_level: int) -> float:
 
 
 ## XP da missão de história: o valor da tabela era para a curva antiga; mantém a mesma fração de um nível.
+## Falas da história por bioma: abertura do mapa e um gancho para cada zona ({zona}, {mob}, {chefe}, {hub}).
+const STORY_TEXT := {
+	"encantada": ["As fadas de {hub} pedem socorro: a floresta adoeceu.", "Algo corrompeu a magia daqui", "a própria floresta chora"],
+	"pantano": ["O brejo de {hub} sobe a cada noite, e com ele os afogados.", "O lodo esconde segredos antigos", "o pântano está engolindo as trilhas"],
+	"cristal": ["Os cristais de {hub} cantam uma música estranha.", "Alguém quebrou o Cristal-Mãe", "a luz dos cristais virou contra nós"],
+	"tundra": ["O inverno em {hub} não acaba mais.", "Uma tempestade eterna desceu das montanhas", "o gelo está avançando sobre o refúgio"],
+	"sombrias": ["Em {hub} as velas apagam sozinhas.", "As almas não descansam", "a escuridão tem um dono"],
+	"celeste": ["Os sinos de {hub} tocaram sem ninguém tocar.", "Os guardiões do céu enlouqueceram", "um anjo caiu e trouxe a guerra"],
+	"estelar": ["As estrelas sobre {hub} estão sumindo uma a uma.", "O vazio abriu uma fenda", "algo devora a luz"],
+	"brasas": ["As forjas de {hub} nunca esfriam — e agora transbordam.", "O magma ganhou vontade própria", "o coração do vulcão bate cada vez mais forte"],
+}
+
+
+static func _story_for(id: String, b: Dictionary, zone_ids: Array, round_n: int) -> void:
+	var lines: Array = STORY_TEXT.get(String(b["key"]), ["Este lugar precisa de um herói.", "O mal cresceu aqui", "o perigo aumenta"])
+	var hub := String(b["hubs"][round_n % 8])
+	var parts := ["Primeiro", "Depois", "Por fim"]
+	for k in zone_ids.size():
+		var zid := String(zone_ids[k])
+		var z: Dictionary = ZONES[zid]
+		var mob := String(GEN_ENEMIES[z["enemy"]]["name"])
+		var chefe := String(GEN_ENEMIES[z["boss"]]["name"])
+		var lv := int(z["lvl"].x)
+		var intro := (String(lines[0]).replace("{hub}", hub) + " ") if k == 0 else ""
+		var hook := String(lines[1 + k]) if k < 2 else "chegou a hora do confronto final: %s espera por você" % chefe
+		hook = hook.substr(0, 1).to_upper() + hook.substr(1)
+		var txt := "%s%s. %s, vá até %s, derrote 12 × %s e enfrente %s." % [intro, hook, parts[k], String(z["name"]), mob, chefe]
+		QUESTS.append({"id": "%s_h%d" % [id, k], "title": "%s — %s" % [String(MAPS[id]["name"]), ["A chegada", "O avanço", "O confronto final"][k]],
+			"zone": zid, "count": 12, "min_level": lv, "xp": int(60.0 * pow(float(lv), 1.75) * 0.25), "gold": 400 + lv * 60, "text": txt})
+
+
 static func quest_xp(q: Dictionary) -> int:
 	var L := float(maxi(1, int(q["min_level"])))
 	return int(float(q["xp"]) / (60.0 * pow(L, 1.75)) * xp_need(int(L)))
