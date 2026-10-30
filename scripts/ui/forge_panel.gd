@@ -143,6 +143,7 @@ func _fuse(items: Array) -> void:
 	nw["sell"] = all_sell
 	p.add_item(nw)
 	_msg.text = "Forjado: %s!" % GameData.item_name(nw)
+	game.call("quest_event", "forge", 1)
 	Sfx.play("legendary" if String(cost["to"]) == "lendaria" else "equip", -4.0)
 	p.stats_changed.emit()
 	game.call("save_now")
@@ -156,6 +157,7 @@ func _salvage(it: Dictionary) -> void:
 	for k in got:
 		p.mats[k] = int(p.mats.get(k, 0)) + int(got[k])
 	_msg.text = "Desmontado: +" + _cost_text(got)
+	game.call("quest_event", "forge", 1)
 	Sfx.play("hit", -6.0, 0.8)
 	game.call("save_now")
 	refresh()

@@ -136,6 +136,8 @@ func refresh() -> void:
 		var extra := "Recarga %.1f s  ·  Mana %d" % [Skills.cooldown(sk, maxi(lvl, 1)), int(Skills.mp_cost(sk, maxi(lvl, 1)))]
 		if player.level < need:
 			extra += "   ·   Liberada no nível %d" % need
+		elif i >= player.story_skills:
+			extra += "   ·   Liberada na campanha principal"
 		elif lvl < GameData.MAX_SKILL_LEVEL and sk.has("mult"):
 			extra += "   ·   Próximo nível: %d%% de dano" % int(round(float(sk["mult"]) * Skills.level_mult(lvl + 1) * power * 100.0))
 		(r["info"] as Label).text = extra

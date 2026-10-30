@@ -72,7 +72,7 @@ func refresh() -> void:
 	var p: Player = game.get("player")
 	var cur := String(game.get("map_id"))
 	var ev: WorldEvents = game.get("events")
-	if ev != null and cur != String(GameData.GLOBAL_BOSS["map"]):
+	if ev != null and cur != String(GameData.GLOBAL_BOSS["map"]) and game.call("feature_on", "global_boss"):
 		var txt := "BOSS GLOBAL: Covil do Dragão  ·  termina em %d min" % ev.minutes_left() if ev.active() else ("Boss global em %d:%02d — ir e esperar" % [ev.seconds_to_next() / 60, ev.seconds_to_next() % 60] if ev.seconds_to_next() <= int(GameData.GLOBAL_BOSS["warn_minutes"]) * 60 else "Boss global: próximo às %s" % ev.next_text())
 		var b := _btn(txt, Color(1.0, 0.55, 0.25), true)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -80,7 +80,7 @@ func refresh() -> void:
 		b.pressed.connect(func() -> void: _go(String(GameData.GLOBAL_BOSS["map"]), true))
 		_top.add_child(b)
 	var dg: Dungeon = game.get("dungeon")
-	if dg != null and not GameData.is_dungeon(cur):
+	if dg != null and not GameData.is_dungeon(cur) and game.call("feature_on", "dungeon"):
 		var b2 := _btn("Masmorra do bioma (Normal, Difícil, Pesadelo)  ·  %d/%d hoje" % [dg.runs_today(), int(GameData.DUNGEON["per_day"])], Color(0.6, 0.7, 1.0), true)
 		b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b2.pressed.connect(func() -> void:
@@ -90,16 +90,17 @@ func refresh() -> void:
 	var focus: Control = null
 	for id in GameData.MAP_ORDER:
 		var md: Dictionary = GameData.MAPS[id]
-		var locked := p.level < int(md["min_level"])
+		var by_story: bool = not game.call("map_open", String(id))
+		var locked: bool = p.level < int(md["min_level"]) or by_story
 		var here := String(id) == cur
-		var label := "%s\n%s%s" % [String(md["name"]), String(md["levels"]), "  · você está aqui" if here else ("  · nível %d" % int(md["min_level"]) if locked else "")]
+		var label := "%s\n%s%s" % [String(md["name"]), String(md["levels"]), "  · você está aqui" if here else ("  · nível %d" % int(md["min_level"]) if p.level < int(md["min_level"]) else ("  · campanha" if by_story else ""))]
 		var col := Color(0.55, 0.9, 1.0) if here else (Color(0.5, 0.5, 0.5) if locked else Color(0.95, 0.9, 0.8))
 		var b := _btn(label, col, false)
 		b.disabled = locked or here
 		var mid := String(id)
 		b.pressed.connect(func() -> void: _go(mid, false))
 		_grid.add_child(b)
-		if String(id) == GameData.best_map(p.level):
+		if String(id) == String(game.call("best_open_map")):
 			focus = b
 	if focus != null:
 		_scroll.ensure_control_visible.call_deferred(focus)

@@ -417,7 +417,7 @@ func refresh() -> void:
 			icon.modulate = Color(0.3, 0.3, 0.3)
 			cd_rect.size.y = 70
 			var need: int = GameData.SKILL_UNLOCK[i]
-			cd_t.text = "Nv %d" % need if p.level < need else "K"
+			cd_t.text = "Nv %d" % need if p.level < need else ("Missão" if i >= p.story_skills else "K")
 			cd_t.add_theme_font_size_override("font_size", 16)
 			lv_l.text = ""
 			continue

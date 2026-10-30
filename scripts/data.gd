@@ -485,7 +485,7 @@ static func _gen_maps() -> void:
 				"regions": [{"type": "forest", "c": Vector2(c0.x, c0.z), "r": 32.0}, {"type": "stone", "c": Vector2(c2.x, c2.z), "r": 18.0}],
 				"theme": theme}
 		MAP_ORDER.append(id)
-		_story_for(id, b, zone_ids, round_n)
+	_build_campaign()
 
 
 ## Mapa mais alto que o herói já alcança (para o modo automático caçar onde rende mais).
@@ -687,34 +687,130 @@ const BASE_ZONES := {
 		"enemy": "dragon_whelp", "boss": "dragon_ancient", "count": 8, "boss_pos": Vector3(-36, 0, 82), "color": Color(0.9, 0.3, 0.2)},
 }
 
-## Missões de história (em ordem). O NPC de cada mapa entrega as missões do seu mapa.
-## História: 12 missões feitas à mão (mapas base) + 3 geradas para cada mapa novo (`_story_for`).
-static var QUESTS: Array = [
-	{"id": "q1", "title": "Praga no Campo", "zone": "campo", "count": 10, "min_level": 1, "xp": 450, "gold": 120,
-		"text": "Viajante! Os slimes tomaram o Campo das Flores, a leste da vila. Derrote 10 deles e o Slime Rei vai aparecer. Acabe com ele e volte aqui."},
-	{"id": "q2", "title": "Uivos na Floresta", "zone": "floresta", "count": 12, "min_level": 4, "xp": 2600, "gold": 400,
-		"text": "Os lobos da Floresta Sombria, a noroeste, estão atacando os viajantes. Derrote 12 lobos e enfrente o Lobo Alfa."},
-	{"id": "q3", "title": "O Guardião das Ruínas", "zone": "ruinas", "count": 10, "min_level": 8, "xp": 9000, "gold": 1200,
-		"text": "Algo despertou nas Ruínas Antigas, ao norte. Destrua 10 golens de pedra e derrote o Golem Guardião antes que ele chegue à vila."},
-	{"id": "q4", "title": "Ferrões nas Dunas", "zone": "dunas", "count": 12, "min_level": 15, "xp": 30000, "gold": 2500,
-		"text": "Bem-vindo ao Deserto Escarlate. Escorpiões gigantes cercam as Dunas Ferventes. Derrote 12 e a Rainha Escorpião sairá da toca."},
-	{"id": "q5", "title": "O Cemitério de Areia", "zone": "cemiterio", "count": 12, "min_level": 20, "xp": 60000, "gold": 3500,
-		"text": "Os mortos se levantaram no Cemitério de Areia. Derrube 12 esqueletos e enfrente o Rei Esqueleto."},
-	{"id": "q6", "title": "O Colosso Soterrado", "zone": "templo", "count": 10, "min_level": 25, "xp": 110000, "gold": 5000,
-		"text": "O Templo Soterrado acordou. Destrua 10 golens de areia e derrote o Colosso que guarda o templo."},
-	{"id": "q7", "title": "Uivos Gelados", "zone": "tundra", "count": 12, "min_level": 30, "xp": 300000, "gold": 8000,
-		"text": "Nos Picos Gelados, matilhas de lobos de gelo vagam pela tundra. Derrote 12 e o Lobo Glacial virá atrás de você."},
-	{"id": "q8", "title": "A Fúria dos Yetis", "zone": "cavernas", "count": 10, "min_level": 35, "xp": 420000, "gold": 11000,
-		"text": "Os yetis desceram das cavernas e estão destruindo as trilhas. Derrote 10 yetis e o Yeti Ancião."},
-	{"id": "q9", "title": "O Coração de Cristal", "zone": "glaciar", "count": 10, "min_level": 40, "xp": 560000, "gold": 15000,
-		"text": "No Glaciar de Cristal, golens de gelo protegem um coração mágico. Destrua 10 golens e o Golem de Cristal."},
-	{"id": "q10", "title": "A Praga dos Diabretes", "zone": "fendas", "count": 12, "min_level": 45, "xp": 750000, "gold": 20000,
-		"text": "O Abismo Vulcânico está infestado de diabretes. Derrote 12 deles e enfrente o Senhor dos Diabretes."},
-	{"id": "q11", "title": "A Forja de Magma", "zone": "forja", "count": 10, "min_level": 50, "xp": 950000, "gold": 26000,
-		"text": "Golens de magma tomaram a antiga forja. Destrua 10 golens e derrote o Titã de Magma."},
-	{"id": "q12", "title": "O Dragão Ancestral", "zone": "ninho", "count": 10, "min_level": 55, "xp": 1200000, "gold": 40000,
-		"text": "O último desafio: o Ninho do Dragão. Derrote 10 dragões filhotes e enfrente o Dragão Ancestral para salvar o reino."},
-]
+## Campanha principal (missões de história): em ordem, entregues pelo NPC de cada mapa. Cada missão tem um objetivo
+## ("type") e pode liberar partes do jogo ("unlock"); sem ela a função ou o mapa fica travado, mesmo com o nível.
+## Tipos: kill (N × monstro da zona), collect (N itens que caem desse monstro), boss (chefe da zona), forge (usar a
+## Forja), refine (algum item com refino +N), dungeon (masmorras concluídas). Montada em `_build_campaign`.
+## Liberações: "skill:N" (até N skills), "board", "pets", "forge", "refine", "dungeon", "market", "mounts", "guild",
+## "global_boss", "duel", "map:<id>". A história com falas entra depois (o dono está escrevendo).
+static var QUESTS: Array = []
+const FEATURE_NAMES := {"board": "Quadro de Missões (J)", "pets": "Pets (P)", "forge": "Forja (U)", "refine": "Refino de itens (I)",
+	"dungeon": "Masmorras (Portal)", "market": "Mercadinho (B)", "mounts": "Montarias (R)", "guild": "Guildas (G)",
+	"global_boss": "Boss global", "duel": "Duelos (G)"}
+## O que cada etapa libera nos mapas base: zona → [na caçada, na coleta, no chefe]. Nos mapas gerados o chefe da
+## última zona libera o mapa seguinte.
+const CAMPAIGN_UNLOCKS := {
+	"campo": [["skill:2"], ["board"], ["skill:3", "pets"]],
+	"floresta": [[], ["forge"], ["skill:4"]],
+	"ruinas": [["dungeon"], ["market"], ["skill:5", "map:deserto"]],
+	"dunas": [[], ["mounts"], ["skill:6"]],
+	"cemiterio": [[], [], ["skill:7", "guild"]],
+	"templo": [[], [], ["skill:8", "map:gelo"]],
+	"tundra": [[], ["global_boss"], []],
+	"cavernas": [[], [], ["duel"]],
+	"glaciar": [[], [], ["skill:9", "map:vulcao"]],
+	"fendas": [[], [], []],
+	"forja": [[], [], ["skill:10"]],
+	"ninho": [[], [], ["map:m1"]],
+}
+## Missões que ensinam uma função, logo depois de uma etapa da zona: zona → [[etapa (0 caçada, 1 coleta, 2 chefe), missão]].
+const CAMPAIGN_EXTRA := {
+	"floresta": [[1, {"type": "forge", "count": 1, "title": "A Forja", "unlock": ["refine"],
+			"text": "Abra a Forja (U) e funda 3 itens iguais ou desmonte um item que não usa."}],
+		[1, {"type": "refine", "count": 3, "title": "Aprimorar o equipamento",
+			"text": "Na tela de Equipamentos (I), aprimore qualquer item até +3. Até o +3 o refino nunca quebra o item."}]],
+	"ruinas": [[0, {"type": "dungeon", "count": 1, "title": "A Masmorra",
+			"text": "Uma masmorra se abriu sob as ruínas. Entre pelo Portal de Viagem e vença as ondas e o chefe."}]],
+}
+## Fração de um nível de XP que cada tipo de missão dá, e a chance de o item de coleta cair.
+const QUEST_FRAC := {"kill": 0.6, "collect": 0.6, "boss": 1.2, "forge": 0.4, "refine": 0.4, "dungeon": 0.8}
+const QUEST_DROP := 0.55
+## Nome do item de coleta pelo tipo do monstro (palavra no modelo).
+const QUEST_ITEM := {"slime": "Gosma", "wolf": "Presa", "golem": "Núcleo", "scorp": "Ferrão", "skel": "Osso Antigo",
+	"yeti": "Pelo", "imp": "Chifre", "dragon": "Escama", "bat": "Asa", "spider": "Seda", "ghost": "Ectoplasma"}
+
+
+static func quest_item(enemy_id: String) -> String:
+	var d := enemy(enemy_id)
+	var key := (String(d.get("model", "")) + " " + enemy_id).to_lower()
+	for k in QUEST_ITEM:
+		if key.contains(k):
+			return "%s de %s" % [QUEST_ITEM[k], String(d["name"])]
+	return "Relíquia de %s" % String(d["name"])
+
+
+static func _quest(type: String, map: String, zone: String, lv: int, title: String, text: String, count: int, unlock: Array) -> Dictionary:
+	var L := float(maxi(1, lv))
+	return {"id": "%s_%s_%d" % [zone if zone != "" else map, type, QUESTS.size()], "type": type, "map": map, "zone": zone, "min_level": lv,
+		"title": title, "text": text, "count": count, "unlock": unlock,
+		"xp": int(60.0 * pow(L, 1.75) * float(QUEST_FRAC[type])), "gold": 100 + lv * 50}
+
+
+static func _build_campaign() -> void:
+	QUESTS = []
+	for mid in MAP_ORDER:
+		var md: Dictionary = MAPS[mid]
+		var zs: Array = md["zones"]
+		var intro := ""
+		if md.has("biome"):
+			intro = String(STORY_TEXT.get(String(md["biome"]), [""])[0]).replace("{hub}", String(md["hub"])) + " "
+		for zi in zs.size():
+			var zid := String(zs[zi])
+			var z: Dictionary = ZONES[zid]
+			var lo := int(z["lvl"].x)
+			var span := maxi(1, int(z["lvl"].y) - lo + 1)
+			var mob := String(enemy(String(z["enemy"]))["name"])
+			var chefe := String(enemy(String(z["boss"]))["name"])
+			var zn := String(z["name"])
+			var unl: Array = CAMPAIGN_UNLOCKS.get(zid, [[], [], []])
+			var last_unlock: Array = (unl[2] as Array).duplicate()
+			if md.has("biome") and zi == zs.size() - 1:   # mapa gerado: o chefe final libera o próximo mapa
+				var i := MAP_ORDER.find(mid)
+				if i + 1 < MAP_ORDER.size():
+					last_unlock.append("map:" + String(MAP_ORDER[i + 1]))
+			var item := quest_item(String(z["enemy"]))
+			var steps := [
+				_quest("kill", mid, zid, lo, "%s: Caçada" % zn, "%sDerrote 12 × %s em %s." % [intro if zi == 0 else "", mob, zn], 12, unl[0]),
+				_quest("collect", mid, zid, lo + span / 3, "%s: Coleta" % zn, "Os %s carregam %s. Recolha 8 deles." % [mob, item], 8, unl[1]),
+				_quest("boss", mid, zid, lo + span * 2 / 3, "%s: %s" % [zn, chefe], "O chefe %s domina %s. Derrote-o!" % [chefe, zn], 1, last_unlock),
+			]
+			steps[1]["item"] = item
+			for k in 3:
+				QUESTS.append(steps[k])
+				for ex in CAMPAIGN_EXTRA.get(zid, []):
+					if int(ex[0]) == k:
+						var e: Dictionary = ex[1]
+						QUESTS.append(_quest(String(e["type"]), mid, "", int(steps[k]["min_level"]), String(e["title"]), String(e["text"]),
+							int(e["count"]), e.get("unlock", [])))
+
+
+## Tudo o que as missões antes de `index` já liberaram (chave → true). Fim da campanha libera tudo.
+static func story_unlocks(index: int) -> Dictionary:
+	var out := {}
+	for i in mini(index, QUESTS.size()):
+		for u in QUESTS[i]["unlock"]:
+			out[String(u)] = true
+	if index >= QUESTS.size():
+		out["all"] = true
+	return out
+
+
+## Índice da missão em que um save antigo (12 missões + 3 por mapa gerado, por zona) está agora.
+static func legacy_quest_index(old: int) -> int:
+	var zone := ""
+	var base := ["campo", "floresta", "ruinas", "dunas", "cemiterio", "templo", "tundra", "cavernas", "glaciar", "fendas", "forja", "ninho"]
+	if old < base.size():
+		zone = base[old]
+	else:
+		var gi := (old - base.size()) / 3
+		var maps_gen: Array = MAP_ORDER.slice(BASE_MAP_ORDER.size())
+		if gi >= maps_gen.size():
+			return QUESTS.size()
+		zone = String(MAPS[maps_gen[gi]]["zones"][(old - base.size()) % 3])
+	for i in QUESTS.size():
+		if String(QUESTS[i]["zone"]) == zone:
+			return i
+	return 0
 
 
 static func quest_kill(q: Dictionary) -> String:
@@ -726,7 +822,7 @@ static func quest_boss(q: Dictionary) -> String:
 
 
 static func quest_map(q: Dictionary) -> String:
-	return String(ZONES[q["zone"]]["map"])
+	return String(q["map"])
 
 
 # =================================================================== experiência
@@ -769,7 +865,7 @@ static func xp_gain_mult(_level: int) -> float:
 
 
 ## XP da missão de história: o valor da tabela era para a curva antiga; mantém a mesma fração de um nível.
-## Falas da história por bioma: abertura do mapa e um gancho para cada zona ({zona}, {mob}, {chefe}, {hub}).
+## Falas por bioma: a primeira abre a campanha de cada mapa gerado ({hub} = acampamento).
 const STORY_TEXT := {
 	"encantada": ["As fadas de {hub} pedem socorro: a floresta adoeceu.", "Algo corrompeu a magia daqui", "a própria floresta chora"],
 	"pantano": ["O brejo de {hub} sobe a cada noite, e com ele os afogados.", "O lodo esconde segredos antigos", "o pântano está engolindo as trilhas"],
@@ -780,24 +876,6 @@ const STORY_TEXT := {
 	"estelar": ["As estrelas sobre {hub} estão sumindo uma a uma.", "O vazio abriu uma fenda", "algo devora a luz"],
 	"brasas": ["As forjas de {hub} nunca esfriam — e agora transbordam.", "O magma ganhou vontade própria", "o coração do vulcão bate cada vez mais forte"],
 }
-
-
-static func _story_for(id: String, b: Dictionary, zone_ids: Array, round_n: int) -> void:
-	var lines: Array = STORY_TEXT.get(String(b["key"]), ["Este lugar precisa de um herói.", "O mal cresceu aqui", "o perigo aumenta"])
-	var hub := String(b["hubs"][round_n % 8])
-	var parts := ["Primeiro", "Depois", "Por fim"]
-	for k in zone_ids.size():
-		var zid := String(zone_ids[k])
-		var z: Dictionary = ZONES[zid]
-		var mob := String(GEN_ENEMIES[z["enemy"]]["name"])
-		var chefe := String(GEN_ENEMIES[z["boss"]]["name"])
-		var lv := int(z["lvl"].x)
-		var intro := (String(lines[0]).replace("{hub}", hub) + " ") if k == 0 else ""
-		var hook := String(lines[1 + k]) if k < 2 else "chegou a hora do confronto final: %s espera por você" % chefe
-		hook = hook.substr(0, 1).to_upper() + hook.substr(1)
-		var txt := "%s%s. %s, vá até %s, derrote 12 × %s e enfrente %s." % [intro, hook, parts[k], String(z["name"]), mob, chefe]
-		QUESTS.append({"id": "%s_h%d" % [id, k], "title": "%s — %s" % [String(MAPS[id]["name"]), ["A chegada", "O avanço", "O confronto final"][k]],
-			"zone": zid, "count": 12, "min_level": lv, "xp": int(60.0 * pow(float(lv), 1.75) * 0.25), "gold": 400 + lv * 60, "text": txt})
 
 
 static func quest_xp(q: Dictionary) -> int:

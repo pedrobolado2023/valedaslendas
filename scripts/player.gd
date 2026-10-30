@@ -193,6 +193,15 @@ func in_combat() -> bool:
 
 
 ## Quantas skills a classe tem (até GameData.MAX_SKILLS).
+## Quantas skills a campanha principal já liberou (o jogo atualiza em game._recalc_unlocks).
+var story_skills := 10
+
+
+## Skill i liberada: nível do herói e campanha.
+func skill_open(i: int) -> bool:
+	return level >= int(GameData.SKILL_UNLOCK[i]) and i < story_skills
+
+
 func skill_count() -> int:
 	return mini(GameData.SKILLS[class_key].size(), GameData.MAX_SKILLS)
 
@@ -202,13 +211,16 @@ func skill_ready(i: int) -> bool:
 		return false
 	if is_passive(i):
 		return false
-	return alive and skill_levels[i] >= 1 and skill_cd[i] <= 0.0 and mp >= skill_cost(i) and not _leaping
+	return alive and i < story_skills and skill_levels[i] >= 1 and skill_cd[i] <= 0.0 and mp >= skill_cost(i) and not _leaping
 
 
 func cast_skill(i: int, point: Vector3) -> bool:
 	if not alive or _leaping or i >= skill_count():
 		return false
 	set_riding(false)
+	if i >= story_skills:
+		message.emit("%s: liberada na campanha principal" % skill(i)["name"])
+		return false
 	if skill_levels[i] < 1:
 		var need: int = GameData.SKILL_UNLOCK[i]
 		message.emit("%s: %s" % [skill(i)["name"], ("aprenda no painel de Skills (K)" if level >= need else "liberada no nível %d" % need)])
@@ -234,7 +246,7 @@ func cast_skill(i: int, point: Vector3) -> bool:
 
 
 func can_learn(i: int) -> bool:
-	return skill_points > 0 and skill_levels[i] < GameData.MAX_SKILL_LEVEL and level >= int(GameData.SKILL_UNLOCK[i])
+	return skill_points > 0 and skill_levels[i] < GameData.MAX_SKILL_LEVEL and skill_open(i)
 
 
 func learn(i: int) -> bool:
@@ -936,7 +948,7 @@ func _mount_tick(delta: float, moving: bool) -> void:
 	if mount == "":
 		return
 	if not riding:
-		_ride_t = _ride_t + delta if moving and not in_combat() else 0.0
+		_ride_t = _ride_t + delta if moving and not in_combat() and get_meta("mounts_on", true) else 0.0
 		if _ride_t > 2.0:
 			set_riding(true)
 		return

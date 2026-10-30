@@ -311,7 +311,7 @@ func force(minutes: int) -> void:
 
 ## Janela no meio da tela: contagem e botão para ir direto ao Covil.
 func _popup() -> void:
-	if game.map_id == String(cfg["map"]):
+	if game.map_id == String(cfg["map"]) or not game.call("feature_on", "global_boss"):
 		return
 	var old: Node = game.get_node_or_null("BossCall")
 	if old != null:

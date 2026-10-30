@@ -55,7 +55,7 @@ func choose() -> void:
 			game.dialog.close()
 			enter(kk)])
 	opts.append(["Fechar", game.dialog.close])
-	var mid := GameData.dungeon_map_for(GameData.best_map(game.player.level))
+	var mid := GameData.dungeon_map_for(String(game.best_open_map()))
 	game.dialog.open(String(GameData.MAPS[mid]["name"]), "Escolha a dificuldade (%d/%d masmorras hoje). Quanto mais difícil, mais fortes os monstros e maior o prêmio." % [runs_today(), int(GameData.DUNGEON["per_day"])], opts)
 
 
@@ -95,7 +95,7 @@ func enter(difficulty: String = "normal", guild_boss: bool = false) -> void:
 		p.stats["dg_day"] = Rewards.today()
 		p.stats["dg_count"] = runs_today() + 1
 	# monstros e chefe da zona mais alta que o herói alcança
-	var bm := GameData.best_map(p.level)
+	var bm := String(game.best_open_map())
 	var zs: Array = GameData.MAPS[bm]["zones"]
 	var best: Dictionary = GameData.ZONES[zs[0]]
 	for z in zs:
@@ -213,6 +213,7 @@ func _win() -> void:
 		game._drop_item(GameData.roll_rarity("boss"), p.global_position + Vector3(2.0 * (i - 0.5), 0, 2))
 	game.hud.banner("Masmorra %s concluída!" % String(GameData.DUNGEON_DIFF[diff]["name"]), "+%d XP   +%d gemas   + materiais   ·   itens no chão   ·   saindo em 8 s" % [xp, gems], 5.0)
 	Sfx.play("legendary", -2.0)
+	game.quest_event("dungeon", 1)
 	_leave(8.0)
 
 
@@ -282,6 +283,8 @@ func _on_net(kind: String, d: Dictionary) -> void:
 			var title := "Boss da Guilda derrotado!" if guild else "Masmorra %s concluída!" % String(GameData.DUNGEON_DIFF[diff]["name"])
 			game.hud.banner(title, "+%d XP   +%d gemas%s   ·   itens no chão   ·   saindo em 8 s" % [xp, int(d["gems"]), "   +%d pontos da guilda" % int(d["points"]) if guild else ""], 5.0)
 			Sfx.play("legendary", -2.0)
+			if not guild:
+				game.quest_event("dungeon", 1)
 			game.call("save_now")
 			_leave(8.0)
 		"fail":

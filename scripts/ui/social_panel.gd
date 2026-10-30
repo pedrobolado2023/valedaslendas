@@ -54,7 +54,9 @@ func setup(g: Node) -> void:
 	nr.add_child(_name)
 	nr.add_child(_b("Convidar para o grupo", func() -> void: _net_call("party_invite", _name.text.strip_edges())))
 	nr.add_child(_b("Adicionar amigo", _add_friend))
-	nr.add_child(_b("Desafiar (duelo)", func() -> void: _net_call("duel_request", _name.text.strip_edges())))
+	nr.add_child(_b("Desafiar (duelo)", func() -> void:
+		if game.call("gate", "duel"):
+			_net_call("duel_request", _name.text.strip_edges())))
 	_invite_box = HBoxContainer.new()
 	_invite_box.visible = false
 	v.add_child(_invite_box)
@@ -156,6 +158,9 @@ func _draw_guild() -> void:
 			_guild_inv = ""
 			_refresh_lists()))
 		_guild_box.add_child(r)
+	if not game.call("feature_on", "guild"):
+		_guild_box.add_child(UiTheme.label("Guildas: libera na campanha principal.", 14, Color(0.7, 0.7, 0.7)))
+		return
 	if _guild.is_empty():
 		var r2 := HBoxContainer.new()
 		r2.add_child(UiTheme.label("Sem guilda. Digite o nome acima e crie (%d gemas)  " % GameData.GUILD["cost"], 14, Color(0.7, 0.7, 0.7)))

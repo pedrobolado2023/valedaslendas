@@ -230,6 +230,9 @@ func _world_col() -> Control:
 	_btn(v, "Pular para a próxima missão", func() -> void:
 		game.call("admin_skip_quest")
 		_done("Missão de história pulada."))
+	_btn(v, "Campanha: liberar tudo (pular até o fim)", func() -> void:
+		game.call("admin_finish_campaign")
+		_done("Campanha concluída: tudo liberado."))
 	_btn(v, "Zerar limites das missões do quadro", func() -> void:
 		var book: MissionBook = game.get("missions")
 		for kind in GameData.MISSION_KINDS:

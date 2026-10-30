@@ -188,7 +188,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   tem 3 zonas com monstro e chefe próprios (modelos existentes com `tint`/`tint_amt` e nome novo, em
   `GEN_ENEMIES`). Inimigos acima do 60 crescem em linha reta com o nível (mesmo ritmo do herói).
   Portal com páginas de 6 mapas; o modo automático caça no `GameData.best_map(nível)`. Missões de história:
-  12 feitas à mão nos mapas base + 3 geradas por mapa novo (`GameData._story_for`, falas em `STORY_TEXT` por bioma; total 201).
+  ver "Campanha principal" abaixo.
 - **Balanceamento (29/10):** ritmo escolhido pelo dono = nv 60 em ~30 h e nv 1000 em ~1500 h só caçando. XP para subir
   = `kills_per_level(L)` × `mob_xp(L)` (`XP_KILLS_C`/`XP_KILLS_P` em data.gd); acabou o "10x menos a partir do 31";
   XP da história escala com a curva (`quest_xp`). Classes perto umas das outras com `skill_power` (Assassino 1,17,
@@ -234,6 +234,13 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   limites em `_dg_limits`), `ServerWorld.start_dungeon/_dg_tick/_dg_end` (chave `mapa#n`, `Net.map_key`), prêmios
   sorteados no servidor e creditados (`credit_gems/items`); cliente em `Dungeon._on_net`. Offline continua local.
   Empurrão/puxão vão por `Net.enemy_move`. Heróis: `VERT_CAP` em `mpfb_kit.py` pela metade (pacote web ~38 MB).
+- **Campanha principal (missões de história):** `GameData._build_campaign` monta 606 missões (3 por zona: caçada `kill`,
+  coleta `collect` com item que cai do monstro, chefe `boss`; + especiais `forge`, `refine`, `dungeon`). Cada uma pode
+  liberar algo (`unlock`): skills (`skill:N`), quadro, pets, forja, refino, masmorra, mercadinho, montarias, guilda,
+  boss global, duelo e mapas (`map:<id>`). Tabelas `CAMPAIGN_UNLOCKS`/`CAMPAIGN_EXTRA`. No jogo: `game.feature_on`,
+  `gate` (avisa qual missão libera), `map_open`, `best_open_map`, `quest_event` (forja/refino/masmorra), `_auto_manual`
+  (automático desmonta/aprimora). Save guarda `quest_id`; saves antigos convertem por zona (`legacy_quest_index`).
+  Sem falas ainda (o dono está escrevendo a história). Admin F1: "Campanha: liberar tudo".
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

@@ -249,10 +249,14 @@ func _refine(key: String) -> void:
 	var it: Dictionary = player.gear.get(key, {})
 	if it.is_empty():
 		return
-	var r := player.refine(it)
 	var g: Node = player.get_parent()
 	while g != null and not g.has_method("toast"):
 		g = g.get_parent()
+	if g != null and not g.call("gate", "refine"):
+		return
+	var r := player.refine(it)
+	if g != null and r == 1:
+		g.call("quest_event", "refine", int(it.get("refine", 0)))
 	if g != null:
 		var msg: String = {0: "Refino falhou (só o ouro foi gasto).", 2: "O item QUEBROU no refino!", 3: "Falhou, mas a Pedra de Proteção salvou o item!", -1: "Sem ouro suficiente."}.get(r, "%s refinado!" % GameData.item_name(it))
 		g.call("toast", msg, 2.0)

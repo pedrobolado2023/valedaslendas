@@ -43,7 +43,9 @@ var tutorial_done := false
 var return_map := "vale"         # mapa para onde o herói volta ao sair de um mapa de evento (o save não guarda o covil)
 
 var quest_index := 0
-var quest_state := "none"      # none | kill | boss | done
+var quest_state := "none"      # none | active | done (campanha: GameData.QUESTS)
+var unlocks := {}              # o que a campanha já liberou (skills, funções, mapas)
+var _boss_req_t := 0.0
 var quest_kills := 0
 var show_path := false
 var focus := "story"           # o que a trilha e o automático seguem: "story" ou "diaria" / "semanal" / "mensal"
@@ -456,6 +458,9 @@ func travel(id: String, ignore_level: bool = false) -> void:
 	if player.level < int(md["min_level"]) and not ignore_level:
 		toast("%s libera no nível %d" % [String(md["name"]), int(md["min_level"])], 2.0)
 		return
+	if not ignore_level and not map_open(id):
+		toast("%s libera na campanha principal — %s" % [String(md["name"]), _unlock_hint("map:" + id)], 3.0)
+		return
 	_traveling = true
 	dialog.close()
 	if bool(md.get("event", false)) and not bool(GameData.MAPS[map_id].get("event", false)):
@@ -514,6 +519,8 @@ func start_game(key: String, save: Dictionary) -> void:
 		_apply_save(save)
 	else:
 		player.gems = GameData.GEMS_START
+		quest_index = 0
+		_recalc_unlocks(false)
 	var start_map := String(save.get("map", "vale")) if not save.is_empty() else "vale"
 	if not GameData.MAPS.has(start_map):
 		start_map = "vale"
@@ -601,12 +608,23 @@ func _apply_save(d: Dictionary) -> void:
 		for k in eq:
 			if int(eq[k]) == int(item["uid"]):
 				player.gear[String(k)] = item
-	quest_index = int(d.get("quest_index", 0))
+	quest_index = -1
+	var qid := String(d.get("quest_id", ""))
+	if qid == "fim":
+		quest_index = GameData.QUESTS.size()
+	elif qid != "":
+		for i in GameData.QUESTS.size():
+			if String(GameData.QUESTS[i]["id"]) == qid:
+				quest_index = i
 	quest_state = String(d.get("quest_state", "none"))
 	quest_kills = int(d.get("quest_kills", 0))
-	if quest_state == "boss":
-		quest_state = "kill"
-		quest_kills = maxi(0, int(current_quest().get("count", 1)) - 1)
+	if quest_index < 0:   # save antigo (missões por número): volta ao começo da zona em que estava
+		quest_index = GameData.legacy_quest_index(int(d.get("quest_index", 0))) if d.has("quest_index") else 0
+		quest_state = "none"
+		quest_kills = 0
+	if quest_state in ["kill", "boss"]:
+		quest_state = "active"
+	_recalc_unlocks(false)
 	missions.from_dict(d.get("missions", {}))
 	player.give_all_skins(player.gear.size() < GameData.GEAR_SLOTS.size())
 
@@ -633,7 +651,7 @@ func save_now() -> void:
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
-		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_state": quest_state, "quest_kills": quest_kills,
+		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	}
 	SaveGame.write(data)
@@ -654,7 +672,9 @@ func _build_ui() -> void:
 	hud.music_pressed.connect(func() -> void: toast("Música ligada" if Sfx.toggle_music() else "Música desligada", 1.2))
 	hud.path_pressed.connect(toggle_path)
 	hud.auto_quest_pressed.connect(toggle_auto_quest)
-	hud.missions_pressed.connect(func() -> void: board_panel.toggle())
+	hud.missions_pressed.connect(func() -> void:
+		if gate("board"):
+			board_panel.toggle())
 	hud.gear_pressed.connect(func() -> void: gear_panel.toggle())
 	hud.shop_pressed.connect(func() -> void: shop_panel.toggle())
 
@@ -708,13 +728,19 @@ func _build_ui() -> void:
 		tutorial_done = true
 		save_now())
 	hud.admin_pressed.connect(func() -> void: admin_panel.toggle())
-	hud.pets_pressed.connect(func() -> void: pet_panel.toggle())
+	hud.pets_pressed.connect(func() -> void:
+		if gate("pets"):
+			pet_panel.toggle())
 	hud.rewards_pressed.connect(func() -> void: rewards_panel.toggle())
 	hud.settings_pressed.connect(func() -> void: settings_panel.toggle())
 	hud.social_pressed.connect(func() -> void: social_panel.toggle())
 	hud.ranking_pressed.connect(func() -> void: ranking_panel.toggle())
-	hud.market_pressed.connect(func() -> void: market_panel.toggle())
-	hud.forge_pressed.connect(func() -> void: forge_panel.toggle())
+	hud.market_pressed.connect(func() -> void:
+		if gate("market"):
+			market_panel.toggle())
+	hud.forge_pressed.connect(func() -> void:
+		if gate("forge"):
+			forge_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
 	admin_panel.setup(self)
@@ -778,6 +804,15 @@ func admin_skip_quest() -> void:
 	quest_index += 1
 	quest_state = "none"
 	quest_kills = 0
+	_recalc_unlocks(true)
+	refresh_quest_ui()
+	save_now()
+
+
+func admin_finish_campaign() -> void:
+	quest_index = GameData.QUESTS.size()
+	quest_state = "none"
+	_recalc_unlocks(true)
 	refresh_quest_ui()
 	save_now()
 
@@ -909,15 +944,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_K:
 			skill_panel.toggle()
 		KEY_J:
-			board_panel.toggle()
+			if gate("board"):
+				board_panel.toggle()
 		KEY_I:
 			gear_panel.toggle()
 		KEY_R:
-			player.toggle_ride()
+			if gate("mounts"):
+				player.toggle_ride()
 		KEY_U:
-			forge_panel.toggle()
+			if gate("forge"):
+				forge_panel.toggle()
 		KEY_B:
-			market_panel.toggle()
+			if gate("market"):
+				market_panel.toggle()
 		KEY_N:
 			ranking_panel.toggle()
 		KEY_G:
@@ -925,7 +964,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_O:
 			rewards_panel.toggle()
 		KEY_P:
-			pet_panel.toggle()
+			if gate("pets"):
+				pet_panel.toggle()
 		KEY_L:
 			shop_panel.toggle()
 		KEY_F1:
@@ -1046,12 +1086,15 @@ func _auto_next(prefer: String = "") -> void:
 			return
 	var q := current_quest()
 	if not q.is_empty():
+		if quest_state == "active" and String(q["type"]) in ["forge", "refine"]:
+			_auto_manual(q)   # o automático usa a Forja / o refino sozinho
 		if quest_state != "none" or player.level >= int(q["min_level"]):
-			focus = "story"
-			refresh_quest_ui()
-			return
+			if not (quest_state == "active" and String(q["type"]) in ["forge", "refine"]):
+				focus = "story"
+				refresh_quest_ui()
+				return
 	for kind in GameData.MISSION_KINDS:
-		if mission_accept(kind, true):
+		if feature_on("board") and mission_accept(kind, true):
 			focus = kind
 			refresh_quest_ui()
 			return
@@ -1065,6 +1108,157 @@ func toast(t: String, secs: float = 2.5) -> void:
 
 
 # =================================================================== metas (história e missões)
+
+## Texto do objetivo da missão (com progresso quando já aceita).
+func quest_objective(q: Dictionary, progress: bool) -> String:
+	var n := int(q["count"])
+	var where := String(GameData.ZONES[q["zone"]]["name"]) if String(q["zone"]) != "" else ""
+	var p := (" %d / %d" % [quest_kills, n]) if progress else ""
+	match String(q["type"]):
+		"kill":
+			return "Derrote %d × %s em %s.%s" % [n, String(GameData.enemy(GameData.quest_kill(q))["name"]), where, p]
+		"collect":
+			return "Recolha %d × %s (caem dos %s em %s).%s" % [n, String(q["item"]), String(GameData.enemy(GameData.quest_kill(q))["name"]), where, p]
+		"boss":
+			return "Derrote o chefe %s em %s." % [String(GameData.enemy(GameData.quest_boss(q))["name"]), where]
+		"forge":
+			return "Use a Forja (U): funda 3 itens iguais ou desmonte um item.%s" % p
+		"refine":
+			return "Aprimore um item até +%d (Equipamentos, I).%s" % [n, (" Melhor agora: +%d" % quest_kills) if progress else ""]
+		"dungeon":
+			return "Vença %d masmorra (Portal de Viagem).%s" % [n, p]
+	return String(q["text"])
+
+
+func _quest_complete() -> void:
+	quest_state = "done"
+	Sfx.play("quest", 0.0)
+	hud.banner("Missão concluída!", "Volte ao %s para receber a recompensa" % String(GameData.MAPS[GameData.quest_map(current_quest())]["npc"]), 3.5)
+	_route_t = 0.0
+	refresh_quest_ui()
+	save_now()
+
+
+## Progresso de missões que não são de caça: "forge" (usou a Forja), "refine" (valor = refino do item), "dungeon".
+func quest_event(kind: String, value: int = 1) -> void:
+	var q := current_quest()
+	if q.is_empty() or quest_state != "active" or String(q["type"]) != kind:
+		return
+	quest_kills = maxi(quest_kills, value) if kind == "refine" else quest_kills + value
+	if quest_kills >= int(q["count"]):
+		_quest_complete()
+	else:
+		refresh_quest_ui()
+
+
+func _spawn_quest_boss(q: Dictionary) -> void:
+	_boss_req_t = Time.get_ticks_msec() / 1000.0
+	if GameData.quest_map(q) != map_id:
+		return
+	if get_node("/root/Net").online and not bool(GameData.MAPS[map_id].get("event", false)):
+		get_node("/root/Net").request_boss.rpc_id(1, String(q["zone"]), GameData.quest_boss(q))
+	else:
+		var z: Zone = zones.get(String(q["zone"]))
+		if z != null:
+			z.spawn_boss(GameData.quest_boss(q))
+	hud.banner(String(GameData.enemy(GameData.quest_boss(q))["name"]), "O chefe apareceu!", 3.0)
+
+
+## Modo automático nas missões de Forja e refino: desmonta o item mais fraco que não usa / aprimora a arma até o alvo.
+func _auto_manual(q: Dictionary) -> void:
+	if String(q["type"]) == "forge":
+		var worn := {}
+		for k in player.gear:
+			worn[int(player.gear[k]["uid"])] = true
+		var pick: Dictionary = {}
+		for it in player.inventory:
+			if not worn.has(int(it["uid"])) and (pick.is_empty() or GameData.RARITIES.find(String(it["rarity"])) < GameData.RARITIES.find(String(pick["rarity"]))):
+				pick = it
+		if not pick.is_empty():
+			var got: Dictionary = GameData.SALVAGE[String(pick["rarity"])]
+			player.inventory.erase(pick)
+			for k in got:
+				player.mats[k] = int(player.mats.get(k, 0)) + int(got[k])
+			toast("Automático: desmontou %s na Forja" % GameData.item_name(pick), 2.5)
+			quest_event("forge", 1)
+	elif String(q["type"]) == "refine":
+		var w: Dictionary = player.gear.get("weapon", {})
+		var guard := 0
+		while not w.is_empty() and int(w.get("refine", 0)) < int(q["count"]) and guard < 40:
+			guard += 1
+			if player.refine(w) < 0:
+				break
+		if not w.is_empty():
+			quest_event("refine", int(w.get("refine", 0)))
+			if quest_state == "done":
+				toast("Automático: aprimorou %s" % GameData.item_name(w), 2.5)
+	save_now()
+
+
+## Liberações da campanha (skills, funções, mapas). O fim da campanha libera tudo.
+func feature_on(key: String) -> bool:
+	return unlocks.has("all") or unlocks.has(key)
+
+
+func map_open(id: String) -> bool:
+	return id == "vale" or bool(GameData.MAPS[id].get("event", false)) or feature_on("map:" + id)
+
+
+## Mapa mais alto que o nível alcança e que a campanha já liberou.
+func best_open_map() -> String:
+	var best := "vale"
+	for id in GameData.MAP_ORDER:
+		if player.level >= int(GameData.MAPS[id]["min_level"]) and map_open(String(id)):
+			best = String(id)
+	return best
+
+
+## true se a função já foi liberada; senão avisa qual missão libera.
+func gate(key: String) -> bool:
+	if feature_on(key):
+		return true
+	toast("%s: libera na campanha principal — %s" % [String(GameData.FEATURE_NAMES.get(key, key)), _unlock_hint(key)], 3.0)
+	return false
+
+
+func _unlock_hint(key: String) -> String:
+	for i in range(quest_index, GameData.QUESTS.size()):
+		if key in GameData.QUESTS[i]["unlock"]:
+			return "missão \"%s\" (nível %d)" % [String(GameData.QUESTS[i]["title"]), int(GameData.QUESTS[i]["min_level"])]
+	return "continue a campanha"
+
+
+func _unlock_name(key: String) -> String:
+	if key.begins_with("skill:") and player != null:
+		var i := int(key.get_slice(":", 1)) - 1
+		return "Skill %s" % String(GameData.SKILLS[player.class_key][i]["name"]) if i < GameData.SKILLS[player.class_key].size() else key
+	if key.begins_with("map:"):
+		return "Mapa %s" % String(GameData.MAPS[key.get_slice(":", 1)]["name"])
+	return String(GameData.FEATURE_NAMES.get(key, key))
+
+
+func _recalc_unlocks(announce: bool) -> void:
+	var old := unlocks
+	unlocks = GameData.story_unlocks(quest_index)
+	var n := 1
+	for i in GameData.MAX_SKILLS:
+		if feature_on("skill:%d" % (i + 1)):
+			n = i + 1
+	if player != null:
+		player.story_skills = GameData.MAX_SKILLS if feature_on("all") else n
+		player.set_meta("mounts_on", feature_on("mounts"))
+		if not feature_on("mounts") and player.riding:
+			player.set_riding(false)
+	if announce and hud != null:
+		var names: Array = []
+		for k in unlocks:
+			if not old.has(k) and k != "all":
+				names.append(_unlock_name(String(k)))
+		if not names.is_empty():
+			Fx.later(self, 3.2).connect(func() -> void:
+				hud.banner("Liberado!", ", ".join(names), 4.5)
+				Sfx.play("legendary", -4.0))
+
 
 func current_quest() -> Dictionary:
 	if quest_index < GameData.QUESTS.size():
@@ -1110,13 +1304,16 @@ func _story_goal() -> Dictionary:
 	var q := current_quest()
 	if q.is_empty():
 		return {}
+	var t := String(q["type"])
+	if quest_state == "active" and t == "dungeon":   # masmorra: entra pelo portal e luta lá dentro
+		return _mission_goal("farm")
 	var qmap := GameData.quest_map(q)
 	if qmap != map_id:
 		return _portal_goal(qmap)
-	match quest_state:
-		"none", "done":
-			return {"pos": npc.global_position, "kind": "npc", "near": 2.6}
-		"kill":
+	if quest_state != "active":
+		return {"pos": npc.global_position, "kind": "npc", "near": 2.6}
+	match t:
+		"kill", "collect":
 			return _hunt_goal(String(q["zone"]), GameData.quest_kill(q))
 		"boss":
 			var z2: Zone = zones.get(String(q["zone"]))
@@ -1126,6 +1323,8 @@ func _story_goal() -> Dictionary:
 			var zb: Enemy = z2.find_boss()
 			if zb != null:
 				bp = zb.global_position
+			elif Time.get_ticks_msec() / 1000.0 - _boss_req_t > 6.0:   # chefe sumiu (mapa trocado): chama de novo
+				_spawn_quest_boss(q)
 			return {"pos": bp, "kind": "boss", "near": 4.0}
 	return {}
 
@@ -1142,10 +1341,10 @@ func _mission_goal(kind: String) -> Dictionary:
 			if best != null:
 				return {"pos": best.global_position, "kind": "hunt", "near": 3.0}
 			return {"pos": GameData.ZONES[String(GameData.MAPS[map_id]["zones"][0])]["center"], "kind": "zone", "near": 4.0}
-		if dungeon != null and dungeon.state == "" and dungeon.runs_today() < int(GameData.DUNGEON["per_day"]) and not _traveling:
+		if feature_on("dungeon") and dungeon != null and dungeon.state == "" and dungeon.runs_today() < int(GameData.DUNGEON["per_day"]) and not _traveling:
 			dungeon.enter()
 			return {}
-		var bm := GameData.best_map(player.level)   # caça no mapa mais alto que já alcança
+		var bm := best_open_map()   # caça no mapa mais alto que já alcança (e que a campanha liberou)
 		if bm != map_id and not bool(GameData.MAPS[map_id].get("event", false)):
 			return _portal_goal(bm)
 		var zid := missions.pick_zone(player.level, map_id)
@@ -1166,6 +1365,8 @@ func auto_arrived(kind: String) -> void:
 			turn_in()
 		elif quest_state == "none" and not q.is_empty() and player.level >= int(q["min_level"]) and GameData.quest_map(q) == map_id:
 			accept_quest(false)
+			if String(q["type"]) in ["forge", "refine"]:
+				_auto_manual(q)
 		_auto_next()
 	elif kind == "portal":
 		var g := quest_goal()
@@ -1185,8 +1386,6 @@ func talk() -> void:
 		dialog.open(nm, "Sua próxima missão, [color=#e8b75a]%s[/color], está em %s. Use o Portal de Viagem do acampamento." % [String(q["title"]), mn],
 			[["Ir automático", _go_auto], ["Mostrar caminho", _go_walking], ["Fechar", dialog.close]])
 		return
-	var enemy_name := String(GameData.enemy(GameData.quest_kill(q))["name"])
-	var boss_name := String(GameData.enemy(GameData.quest_boss(q))["name"])
 	match quest_state:
 		"none":
 			if player.level < int(q["min_level"]):
@@ -1194,13 +1393,17 @@ func talk() -> void:
 					dialog.close()
 					board_panel.toggle()], ["Fechar", dialog.close]])
 			else:
-				var zone_name := String(GameData.ZONES[q["zone"]]["name"])
 				var xp_now := GameData.quest_xp(q)
-				var txt := "[b][color=#e8b75a]%s[/color][/b]\n%s\n\n[color=#e8b75a]Objetivo:[/color] derrotar %d × %s e o chefe %s (%s).\n[color=#e8b75a]Recompensa:[/color] %d XP e %d de ouro." % [String(q["title"]), String(q["text"]), int(q["count"]), enemy_name, boss_name, zone_name, xp_now, int(q["gold"])]
+				var unl := ""
+				for u in q["unlock"]:
+					unl += ("" if unl == "" else ", ") + _unlock_name(String(u))
+				var txt := "[b][color=#e8b75a]%s[/color][/b]\n%s\n\n[color=#e8b75a]Objetivo:[/color] %s\n[color=#e8b75a]Recompensa:[/color] %d XP e %d de ouro%s" % [String(q["title"]), String(q["text"]), quest_objective(q, false), xp_now, int(q["gold"]), ("\n[color=#7fe0ff]Libera:[/color] " + unl) if unl != "" else ""]
 				dialog.open(nm, txt, [["Aceitar missão", accept_quest], ["Agora não", dialog.close]])
-		"kill", "boss":
-			var left := "Faltam %d × %s." % [int(q["count"]) - quest_kills, enemy_name] if quest_state == "kill" else "Derrote o chefe %s!" % boss_name
-			dialog.open(nm, "%s\nQuer ajuda para chegar lá?" % left, _travel_options())
+		"active":
+			if String(q["type"]) in ["forge", "refine"]:
+				dialog.open(nm, quest_objective(q, true), [["Fechar", dialog.close]])
+			else:
+				dialog.open(nm, "%s\nQuer ajuda para chegar lá?" % quest_objective(q, true), _travel_options())
 		"done":
 			dialog.open(nm, "Incrível, viajante! Aqui está a sua recompensa.", [["Receber recompensa", turn_in]])
 
@@ -1227,12 +1430,22 @@ func _go_auto() -> void:
 
 func accept_quest(show_dialog: bool = true) -> void:
 	var q := current_quest()
-	quest_state = "kill"
+	quest_state = "active"
 	quest_kills = 0
 	focus = "story"
 	Sfx.play("quest", -2.0)
 	hud.banner("Missão aceita", String(q["title"]))
-	var zone_name := String(GameData.ZONES[q["zone"]]["name"])
+	var t := String(q["type"])
+	if t == "boss":
+		_spawn_quest_boss(q)
+	elif t == "refine":   # já tem um item aprimorado? conta na hora
+		var best := 0
+		for it in player.inventory:
+			best = maxi(best, int(it.get("refine", 0)))
+		quest_event("refine", best)
+	if quest_state == "done" or t in ["forge", "refine"]:
+		show_dialog = false
+	var zone_name := String(GameData.ZONES[q["zone"]]["name"]) if String(q["zone"]) != "" else String(GameData.MAPS[GameData.quest_map(q)]["hub"])
 	if not show_dialog:
 		refresh_quest_ui()
 		save_now()
@@ -1259,6 +1472,7 @@ func turn_in() -> void:
 	quest_index += 1
 	quest_state = "none"
 	quest_kills = 0
+	_recalc_unlocks(true)
 	if not autopilot.questing:
 		show_path = false
 	refresh_quest_ui()
@@ -1352,25 +1566,17 @@ func _on_killed(e: Enemy) -> void:
 	elif randf() < float(GameData.DROP_CHANCE[table]) * GameData.DROP_MULT:
 		_drop_item(GameData.roll_rarity(table), e.global_position + Vector3(1, 0, 0))
 	var q := current_quest()
-	if not q.is_empty() and e.zone_id == String(q["zone"]):
-		if quest_state == "kill" and e.type_id == GameData.quest_kill(q):
-			quest_kills += 1
-			if quest_kills >= int(q["count"]):
-				quest_state = "boss"
-				if get_node("/root/Net").online and not bool(GameData.MAPS[map_id].get("event", false)):
-					get_node("/root/Net").request_boss.rpc_id(1, String(q["zone"]), GameData.quest_boss(q))
-				else:
-					var z: Zone = zones[q["zone"]]
-					z.spawn_boss(GameData.quest_boss(q))
-				Sfx.play("boss", -1.0)
-				hud.banner(String(GameData.enemy(GameData.quest_boss(q))["name"]), "O chefe apareceu!", 3.0)
-				_route_t = 0.0
-		elif quest_state == "boss" and e.type_id == GameData.quest_boss(q):
-			quest_state = "done"
-			Sfx.play("quest", 0.0)
-			hud.banner("Missão concluída!", "Volte ao %s para receber a recompensa" % npc.npc_name, 3.5)
-			_route_t = 0.0
-			save_now()
+	if not q.is_empty() and quest_state == "active":
+		var t := String(q["type"])
+		if t in ["kill", "collect"] and e.zone_id == String(q["zone"]) and e.type_id == GameData.quest_kill(q):
+			if t == "kill" or randf() < GameData.QUEST_DROP:
+				quest_kills += 1
+				if t == "collect":
+					toast("+1 %s  (%d / %d)" % [String(q["item"]), quest_kills, int(q["count"])], 1.6)
+				if quest_kills >= int(q["count"]):
+					_quest_complete()
+		elif t == "boss" and e.type_id == GameData.quest_boss(q):
+			_quest_complete()
 	for kind in missions.on_kill(e.type_id, e.zone_id):
 		_mission_done(kind)
 	refresh_quest_ui()
@@ -1449,16 +1655,13 @@ func refresh_quest_ui() -> void:
 			"none":
 				if player.level < int(q["min_level"]):
 					title = "Próxima missão no nível %d" % int(q["min_level"])
-					obj = "Faça missões do quadro (J) para ganhar XP."
+					obj = "Faça missões do quadro (J) para ganhar XP." if feature_on("board") else "Cace monstros para ganhar XP."
 				else:
 					title = "Nova missão disponível"
 					obj = "Fale com %s (!)" % String(GameData.MAPS[qmap]["npc"])
-			"kill":
+			"active":
 				title = String(q["title"])
-				obj = "Derrote %s: %d / %d\nLocal: %s" % [String(GameData.enemy(GameData.quest_kill(q))["name"]), quest_kills, int(q["count"]), String(GameData.ZONES[q["zone"]]["name"])]
-			"boss":
-				title = String(q["title"])
-				obj = "Derrote o chefe: %s" % String(GameData.enemy(GameData.quest_boss(q))["name"])
+				obj = quest_objective(q, true)
 			"done":
 				title = String(q["title"])
 				obj = "Concluída! Volte ao %s para entregar." % String(GameData.MAPS[qmap]["npc"])
@@ -1496,6 +1699,11 @@ func _on_level_up(l: int) -> void:
 	hud.banner("Nível %d!" % l, sub, 3.0)
 	if autopilot.questing or autopilot.auto_combat:
 		player.auto_learn()
+	var mq := current_quest()
+	if autopilot.questing and quest_state == "active" and not mq.is_empty() and String(mq["type"]) in ["forge", "refine"]:
+		_auto_manual(mq)   # tenta de novo a cada nível (mais ouro para o refino)
+		if quest_state == "done":
+			_auto_next()
 	if autopilot.questing and focus != "story":
 		var q := current_quest()
 		if not q.is_empty() and quest_state == "none" and l >= int(q["min_level"]) and (focus == "farm" or (missions.active[focus] as Dictionary).is_empty()):
