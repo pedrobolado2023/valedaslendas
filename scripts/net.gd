@@ -12,6 +12,12 @@ signal boss_hp(hp: int, max_hp: int)
 signal boss_rank(top: Array)            # [[nome, dano], ...] top 6
 signal boss_reward(rank: int, last_hit: bool, item: String)
 signal boss_scheduled(delay: float, minutes: int)
+signal chat_msg(channel: String, from: String, text: String)
+signal party_changed(members: Array)
+signal party_invited(from: String)
+signal online_names(names: Array)
+signal item_received(item: Dictionary, from: String)
+signal gift_done(uid: int, ok: bool, msg: String)
 # monstros do servidor (cliente)
 signal enemies(map: String, snap: Dictionary)
 signal enemy_attack(id: int, slam: bool, center: Vector3, r: float, wind: float)
@@ -112,6 +118,7 @@ func _broadcast() -> void:
 
 func _on_left(id: int) -> void:
 	if _players.has(id):
+		_party_remove(id)
 		_store(id)
 		print("[servidor] saiu: ", _players[id]["name"])
 		_players.erase(id)
@@ -222,6 +229,198 @@ func push_save(data: Dictionary, slot: int = 0) -> void:
 	p["credit_gems"] = 0
 	p["credit_gold"] = 0
 	p["credit_items"] = 0
+
+
+## Chat: geral (todos), mapa (mesmo mapa), privado (pelo nome do herói), grupo. 1 mensagem a cada 0,7 s.
+@rpc("any_peer", "reliable")
+func chat(ch: String, text: String, to: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var p: Dictionary = _players[id]
+	var now := Time.get_ticks_msec()
+	if now - int(p.get("chat_t", 0)) < 700:
+		return
+	p["chat_t"] = now
+	text = text.strip_edges().substr(0, 140)
+	if text == "":
+		return
+	var from := String(p["name"])
+	match ch:
+		"mapa":
+			for pid in _players:
+				if String(_players[pid].get("map", "")) == String(p.get("map", "")):
+					_chat_to.rpc_id(int(pid), "mapa", from, text)
+		"privado":
+			var found := false
+			for pid in _players:
+				if String(_players[pid]["name"]).to_lower() == to.to_lower():
+					_chat_to.rpc_id(int(pid), "privado", from, text)
+					found = true
+			_chat_to.rpc_id(id, "privado" if found else "sistema", "para " + to if found else "", text if found else "%s não está online." % to)
+		"grupo":
+			for pid in party_of(id):
+				_chat_to.rpc_id(int(pid), "grupo", from, text)
+		_:
+			for pid in _players:
+				_chat_to.rpc_id(int(pid), "geral", from, text)
+
+
+@rpc("authority", "reliable")
+func _chat_to(ch: String, from: String, text: String) -> void:
+	chat_msg.emit(ch, from, text)
+
+
+## ---------- grupo (até 5)
+var _next_party := 1
+
+
+func _find(nm: String) -> int:
+	for pid in _players:
+		if String(_players[pid]["name"]).to_lower() == nm.to_lower():
+			return int(pid)
+	return 0
+
+
+@rpc("any_peer", "reliable")
+func party_invite(nm: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	var to := _find(nm)
+	if not is_server or not _players.has(id):
+		return
+	if to == 0 or to == id:
+		_chat_to.rpc_id(id, "sistema", "", "%s não está online." % nm)
+		return
+	if party_of(id).size() >= 5:
+		_chat_to.rpc_id(id, "sistema", "", "Seu grupo está cheio (5).")
+		return
+	_players[to]["invite_from"] = id
+	_party_invite_to.rpc_id(to, String(_players[id]["name"]))
+	_chat_to.rpc_id(id, "sistema", "", "Convite enviado para %s." % nm)
+
+
+@rpc("any_peer", "reliable")
+func party_accept() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var from := int(_players[id].get("invite_from", 0))
+	if not _players.has(from):
+		return
+	_party_remove(id)
+	if _players[from].get("party", null) == null:
+		_players[from]["party"] = _next_party
+		_next_party += 1
+	_players[id]["party"] = _players[from]["party"]
+	_party_sync(id)
+
+
+@rpc("any_peer", "reliable")
+func party_leave() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(id):
+		_party_remove(id)
+		_party_list.rpc_id(id, [])
+
+
+func _party_remove(id: int) -> void:
+	var mates := party_of(id)
+	_players[id]["party"] = null
+	mates.erase(id)
+	if mates.size() == 1:
+		_players[mates[0]]["party"] = null
+		_party_list.rpc_id(int(mates[0]), [])
+	elif not mates.is_empty():
+		_party_sync(int(mates[0]))
+
+
+func _party_sync(id: int) -> void:
+	var names: Array = []
+	for pid in party_of(id):
+		names.append(String(_players[pid]["name"]))
+	for pid in party_of(id):
+		_party_list.rpc_id(int(pid), names)
+
+
+@rpc("authority", "reliable")
+func _party_invite_to(from: String) -> void:
+	party_invited.emit(from)
+
+
+@rpc("authority", "reliable")
+func _party_list(names: Array) -> void:
+	party_changed.emit(names)
+
+
+## ---------- amigos: quem está online agora
+@rpc("any_peer", "reliable")
+func who_online() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(id):
+		var names: Array = []
+		for pid in _players:
+			names.append(String(_players[pid]["name"]))
+		_online_list.rpc_id(id, names)
+
+
+@rpc("authority", "reliable")
+func _online_list(names: Array) -> void:
+	online_names.emit(names)
+
+
+## ---------- enviar item para outro jogador online (o servidor confere se o item é mesmo de quem envia)
+@rpc("any_peer", "reliable")
+func send_item(to_name: String, uid: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var to := _find(to_name)
+	if to == 0 or to == id:
+		_gift_result.rpc_id(id, uid, false, "%s não está online." % to_name)
+		return
+	var acc: Dictionary = _players[id]["save"]
+	var cur := int(acc.get("cur", 0))
+	var ch: Array = acc.get("chars", [])
+	if cur >= ch.size():
+		return
+	var inv: Array = ch[cur].get("inventory", [])
+	var gear: Dictionary = ch[cur].get("gear", {})
+	for k in gear:
+		if int(gear[k]) == uid:
+			_gift_result.rpc_id(id, uid, false, "Tire o item do corpo antes de enviar.")
+			return
+	for i in inv.size():
+		if int(inv[i].get("uid", -1)) == uid:
+			var item: Dictionary = inv[i]
+			inv.remove_at(i)
+			_players[to]["credit_items"] = int(_players[to].get("credit_items", 0)) + 1
+			_gift_in.rpc_id(to, item, String(_players[id]["name"]))
+			_gift_result.rpc_id(id, uid, true, "Item enviado para %s." % to_name)
+			print("[servidor] item ", uid, " de ", _players[id]["name"], " para ", to_name)
+			return
+	_gift_result.rpc_id(id, uid, false, "Salve o jogo e tente de novo (o servidor ainda não viu esse item).")
+
+
+@rpc("authority", "reliable")
+func _gift_in(item: Dictionary, from: String) -> void:
+	item_received.emit(item, from)
+
+
+@rpc("authority", "reliable")
+func _gift_result(uid: int, ok: bool, msg: String) -> void:
+	gift_done.emit(uid, ok, msg)
+
+
+## Grupo do jogador (lista de ids, inclui ele mesmo).
+func party_of(id: int) -> Array:
+	var pid: Variant = _players.get(id, {}).get("party", null)
+	if pid == null:
+		return [id]
+	var out: Array = []
+	for o in _players:
+		if _players[o].get("party", null) == pid:
+			out.append(o)
+	return out
 
 
 ## Apagar um herói da conta.

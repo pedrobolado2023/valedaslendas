@@ -32,6 +32,7 @@ var pet_levels: Dictionary = {}  # id -> [nível, xp] de cada pet
 var _pet_node: Pet
 # montaria (loja): R monta/desmonta; atacar desmonta; fora de combate, andando, monta sozinho
 var hero_name := ""   # nome escolhido pelo jogador na criação
+var friends: Array = []   # nomes dos amigos (painel Social, G)
 var mount := ""
 # recompensas: contadores (kills, bosses, global, quests, logins), login diário e conquistas resgatadas
 var stats: Dictionary = {}
@@ -333,7 +334,12 @@ func preferred_range() -> float:
 
 # ------------------------------------------------------------------ movimento
 
+static var typing := false   # chat aberto: teclas não movem o herói
+
+
 func move_dir() -> Vector3:
+	if typing:
+		return Vector3.ZERO
 	var ix := float(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)) - float(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT))
 	var iy := float(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP)) - float(Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN))
 	var v := cam_right * ix + cam_fwd * iy
@@ -445,7 +451,7 @@ func _physics_process(delta: float) -> void:
 		else:
 			_kit.play("idle")
 	# ataque básico segurando o clique ou a barra de espaço
-	if basic_ready() and (mouse_held or Input.is_key_pressed(KEY_SPACE)):
+	if basic_ready() and not typing and (mouse_held or Input.is_key_pressed(KEY_SPACE)):
 		var target := aim_point if mouse_held else _nearest_enemy_point(10.0)
 		basic_attack(target)
 

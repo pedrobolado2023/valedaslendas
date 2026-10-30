@@ -28,6 +28,8 @@ var shop_panel: ShopPanel
 var pet_panel: PetPanel
 var rewards_panel: RewardsPanel
 var portal_panel: PortalPanel
+var chat: ChatBox
+var social_panel: SocialPanel
 var dungeon: Dungeon
 var _new_name := ""   # nome digitado no menu (jogo novo)
 var cloud: CloudSync
@@ -534,6 +536,7 @@ func _apply_save(d: Dictionary) -> void:
 	player.pet = String(d.get("pet", ""))
 	player.mount = String(d.get("mount", ""))
 	player.hero_name = String(d.get("name", ""))
+	player.friends = d.get("friends", [])
 	player.stats = d.get("stats", {})
 	player.login = d.get("login", {})
 	player.achieved = d.get("achieved", [])
@@ -584,7 +587,7 @@ func save_now() -> void:
 	var data := {
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
-		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "name": player.hero_name, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
+		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "name": player.hero_name, "friends": player.friends, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
@@ -636,6 +639,12 @@ func _build_ui() -> void:
 	portal_panel = PortalPanel.new()
 	add_child(portal_panel)
 	portal_panel.setup(self)
+	social_panel = SocialPanel.new()
+	add_child(social_panel)
+	social_panel.setup(self)
+	chat = ChatBox.new()
+	chat.game = self
+	add_child(chat)
 	settings_panel = SettingsPanel.new()
 	add_child(settings_panel)
 	settings_panel.setup(self)
@@ -649,6 +658,7 @@ func _build_ui() -> void:
 	hud.pets_pressed.connect(func() -> void: pet_panel.toggle())
 	hud.rewards_pressed.connect(func() -> void: rewards_panel.toggle())
 	hud.settings_pressed.connect(func() -> void: settings_panel.toggle())
+	hud.social_pressed.connect(func() -> void: social_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
 	admin_panel.setup(self)
@@ -828,6 +838,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
 	if k == null or not k.pressed or k.echo:
 		return
+	if (k.keycode == KEY_ENTER or k.keycode == KEY_KP_ENTER) and chat != null:
+		chat.open()
+		get_viewport().set_input_as_handled()
+		return
 	if k.keycode >= KEY_1 and k.keycode <= KEY_9:
 		player.cast_skill(k.keycode - KEY_1, player.aim_point)
 	elif k.keycode == KEY_0:
@@ -841,6 +855,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			gear_panel.toggle()
 		KEY_R:
 			player.toggle_ride()
+		KEY_G:
+			social_panel.toggle()
 		KEY_O:
 			rewards_panel.toggle()
 		KEY_P:
@@ -859,7 +875,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
@@ -868,6 +884,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			pet_panel.visible = false
 			rewards_panel.visible = false
 			portal_panel.visible = false
+			social_panel.visible = false
 			admin_panel.visible = false
 			if not any_open:
 				settings_panel.toggle()

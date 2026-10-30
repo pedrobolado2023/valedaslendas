@@ -222,6 +222,10 @@ func _kill(m: String, e: Dictionary) -> void:
 	for pid in net._players:
 		if String(net._players[pid].get("map", "")) == m:
 			var credit: bool = e["hits"].has(pid)
+			if not credit:   # grupo: quem está no mesmo mapa ganha junto se alguém do grupo bateu
+				for mate in net.party_of(int(pid)):
+					if e["hits"].has(mate):
+						credit = true
 			net._enemy_dead.rpc_id(int(pid), int(e["id"]), credit, drop if int(pid) == top else "")
 	if not e["boss"]:
 		maps[m]["respawn"].append([7.0, e["zone"]])

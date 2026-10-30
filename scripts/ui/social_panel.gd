@@ -1,0 +1,207 @@
+class_name SocialPanel
+extends CanvasLayer
+## Social (tecla G): grupo (convidar pelo nome, aceitar, sair), amigos (online/offline, adicionar, remover) e enviar
+## item para outro jogador online. Tudo passa pelo servidor (Net); amigos ficam no save (player.friends).
+
+var game: Node
+var _party: VBoxContainer
+var _friends: VBoxContainer
+var _invite_box: HBoxContainer
+var _name: LineEdit
+var _items: OptionButton
+var _msg: Label
+var _members: Array = []
+var _online: Array = []
+var _invite_from := ""
+
+
+func setup(g: Node) -> void:
+	game = g
+	layer = 14
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.theme = UiTheme.get_theme()
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(root)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+	panel.offset_left = -430
+	panel.offset_right = 430
+	panel.offset_top = -290
+	panel.offset_bottom = 290
+	panel.add_theme_stylebox_override("panel", Toon.ui_box(Color(0.05, 0.04, 0.06, 0.97), UiTheme.GOLD, 18, 10, 3))
+	root.add_child(panel)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	panel.add_child(v)
+	var head := HBoxContainer.new()
+	v.add_child(head)
+	var t := UiTheme.title("Social", 28)
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(t)
+	head.add_child(_b("Fechar (G)", func() -> void: visible = false))
+	var nr := HBoxContainer.new()
+	nr.add_theme_constant_override("separation", 6)
+	v.add_child(nr)
+	_name = LineEdit.new()
+	_name.placeholder_text = "Nome do herói"
+	_name.custom_minimum_size = Vector2(260, 0)
+	nr.add_child(_name)
+	nr.add_child(_b("Convidar para o grupo", func() -> void: _net_call("party_invite", _name.text.strip_edges())))
+	nr.add_child(_b("Adicionar amigo", _add_friend))
+	_invite_box = HBoxContainer.new()
+	_invite_box.visible = false
+	v.add_child(_invite_box)
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 24)
+	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(cols)
+	var left := VBoxContainer.new()
+	left.custom_minimum_size = Vector2(380, 0)
+	cols.add_child(left)
+	left.add_child(UiTheme.title("Grupo (XP e ouro divididos no mesmo mapa)", 16))
+	_party = VBoxContainer.new()
+	left.add_child(_party)
+	left.add_child(_b("Sair do grupo", func() -> void: _net_call("party_leave")))
+	var right := VBoxContainer.new()
+	right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cols.add_child(right)
+	right.add_child(UiTheme.title("Amigos", 16))
+	_friends = VBoxContainer.new()
+	right.add_child(_friends)
+	v.add_child(UiTheme.title("Enviar item para o nome acima", 16))
+	var ir := HBoxContainer.new()
+	v.add_child(ir)
+	_items = OptionButton.new()
+	_items.custom_minimum_size = Vector2(520, 0)
+	ir.add_child(_items)
+	ir.add_child(_b("Enviar", _gift))
+	_msg = UiTheme.label("", 14, Color(1.0, 0.8, 0.5))
+	v.add_child(_msg)
+	var net := get_node("/root/Net")
+	net.party_changed.connect(func(m: Array) -> void:
+		_members = m
+		_refresh_lists())
+	net.online_names.connect(func(n: Array) -> void:
+		_online = n
+		_refresh_lists())
+	net.party_invited.connect(func(from: String) -> void:
+		_invite_from = from
+		game.call("toast", "%s te convidou para o grupo — aperte G" % from, 3.0)
+		_refresh_lists())
+	net.item_received.connect(func(item: Dictionary, from: String) -> void:
+		var p: Player = game.get("player")
+		var it := p.new_item(String(item["slot"]), String(item["rarity"]))
+		it["cls"] = item.get("cls", p.class_key)
+		it["refine"] = int(item.get("refine", 0))
+		p.add_item(it)
+		game.call("toast", "%s te enviou: %s" % [from, GameData.item_name(it)], 3.0)
+		game.call("save_now"))
+	net.gift_done.connect(func(uid: int, ok: bool, msg: String) -> void:
+		_msg.text = msg
+		if ok:
+			var p: Player = game.get("player")
+			for it in p.inventory.duplicate():
+				if int(it["uid"]) == uid:
+					p.inventory.erase(it)
+			game.call("save_now")
+		refresh())
+	visible = false
+
+
+func _b(text: String, f: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(f)
+	return b
+
+
+func _net_call(m: String, arg: Variant = null) -> void:
+	var net := get_node("/root/Net")
+	if not net.online:
+		_msg.text = "Precisa estar online."
+		return
+	if arg == null:
+		net.rpc_id(1, m)
+	else:
+		net.rpc_id(1, m, arg)
+
+
+func _add_friend() -> void:
+	var p: Player = game.get("player")
+	var nm := GameData.clean_name(_name.text)
+	if nm.length() >= 2 and not p.friends.has(nm):
+		p.friends.append(nm)
+		game.call("save_now")
+	refresh()
+
+
+func _gift() -> void:
+	if _items.selected < 0 or _name.text.strip_edges() == "":
+		_msg.text = "Escolha o item e digite o nome de quem vai receber."
+		return
+	game.call("save_now")   # o servidor confere o item pelo save
+	var uid := _items.get_item_id(_items.selected)
+	await get_tree().create_timer(0.6).timeout
+	var net := get_node("/root/Net")
+	if net.online:
+		net.send_item.rpc_id(1, _name.text.strip_edges(), uid)
+		_msg.text = "Enviando..."
+
+
+func toggle() -> void:
+	visible = not visible
+	if visible:
+		refresh()
+
+
+func refresh() -> void:
+	var net := get_node("/root/Net")
+	if net.online:
+		net.who_online.rpc_id(1)
+	var p: Player = game.get("player")
+	_items.clear()
+	for it in p.inventory:
+		if not p.is_equipped(it):
+			_items.add_item("%s (%s)" % [GameData.item_name(it), String(GameData.RARITY[it["rarity"]]["name"])], int(it["uid"]))
+	_refresh_lists()
+
+
+func _refresh_lists() -> void:
+	for c in _party.get_children():
+		c.queue_free()
+	for c in _friends.get_children():
+		c.queue_free()
+	for c in _invite_box.get_children():
+		c.queue_free()
+	_invite_box.visible = _invite_from != ""
+	if _invite_from != "":
+		_invite_box.add_child(UiTheme.label("%s te convidou para o grupo  " % _invite_from, 15, Color(0.55, 1.0, 0.6)))
+		_invite_box.add_child(_b("Aceitar", func() -> void:
+			_net_call("party_accept")
+			_invite_from = ""
+			_refresh_lists()))
+		_invite_box.add_child(_b("Recusar", func() -> void:
+			_invite_from = ""
+			_refresh_lists()))
+	if _members.is_empty():
+		_party.add_child(UiTheme.label("Sem grupo. Convide alguém pelo nome.", 14, Color(0.7, 0.7, 0.7)))
+	for m in _members:
+		_party.add_child(UiTheme.label("• " + String(m), 15, Color(0.55, 1.0, 0.6)))
+	var p: Player = game.get("player")
+	if p.friends.is_empty():
+		_friends.add_child(UiTheme.label("Nenhum amigo ainda.", 14, Color(0.7, 0.7, 0.7)))
+	for f in p.friends.duplicate():
+		var row := HBoxContainer.new()
+		var on := _online.has(f)
+		row.add_child(UiTheme.label(("● " if on else "○ ") + String(f) + ("  (online)" if on else ""), 15, Color(0.55, 1.0, 0.6) if on else Color(0.7, 0.7, 0.7)))
+		var nm := String(f)
+		row.add_child(_b("Convidar", func() -> void: _net_call("party_invite", nm)))
+		row.add_child(_b("Remover", func() -> void:
+			p.friends.erase(nm)
+			game.call("save_now")
+			_refresh_lists()))
+		_friends.add_child(row)
