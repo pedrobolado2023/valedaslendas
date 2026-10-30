@@ -266,7 +266,13 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   comprar e usar (`skin_why_not`, `Shop.skin_why`). `player.skin` troca as peças em `visual_rarities` (arquivo
   `hero_<cls>_<id>_<encaixe>.glb`, vai online junto). Modelos em `blender/make_skins.py` (uma função por skin; o modelo
   inteiro só serve para a foto `textures/skins/<id>.png` e é apagado). Só aparece na loja quem tem modelo (`skin_ready`).
-  Feita: sk_eloreth (Guardiã de Eloreth). O dono valida uma por uma antes da próxima.
+  Feitas: sk_eloreth (Guardiã de Eloreth), sk_cinzas (Xamã das Cinzas; chifres curvos com `horn`). O dono valida uma por uma antes da próxima.
+- **Cabelo e sobrancelha de verdade (MakeHuman CC0):** pacote em `C:\Users\pedro\vale-tools\mh_assets`, extraído em
+  `MH_DATA/hair` (afro01, bob01/02, braid01, long01, ponytail01, short01-04) e `MH_DATA/eyebrows` (001-012).
+  `K.EXTRA` (lista de mhclo) carrega com o corpo; `K.card_asset(c, obj, nome, cor)` pinta a textura na cor, exporta com
+  alpha MASK e marca `cards` (fora do Decimate e das texturas de roupa). No Godot o ModelKit usa
+  `shaders/toon_hair.gdshader` (recorte de transparência, sem contorno, verso iluminado). Serve para heróis e NPCs.
+  Foto de perto no Godot: `t_look.gd` (CLS, RAR, PERTO, SHOT) no scratchpad.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

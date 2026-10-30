@@ -21,6 +21,40 @@ TORSO, UPPER, LOWER, LEGS, FEET = D.TORSO, D.UPPER, D.LOWER, D.LEGS, D.FEET
 piece, rigid, prim, leaf, belt = D.piece, D.rigid, D.prim, D.leaf, D.belt
 
 
+def horn(name, mat, base, p1, p2, r0, rings=12, seg=10):
+    """Chifre curvo: tubo que afina ao longo de uma curva de Bézier (base → p1 → ponta p2)."""
+    import bpy
+    verts, faces = [], []
+    for i in range(rings + 1):
+        t = i / rings
+        a = base.lerp(p1, t)
+        b = p1.lerp(p2, t)
+        pt = a.lerp(b, t)
+        d = ((p1 - base).lerp(p2 - p1, t)).normalized()
+        side = d.cross(Vector((0, 0, 1)))
+        if side.length < 1e-4:
+            side = Vector((1, 0, 0))
+        side.normalize()
+        up = side.cross(d).normalized()
+        r = r0 * (1.0 - t) ** 0.8 + 0.002
+        for j in range(seg):
+            ang = j / seg * math.tau
+            verts.append(pt + side * math.cos(ang) * r + up * math.sin(ang) * r)
+    for i in range(rings):
+        for j in range(seg):
+            a, b = i * seg + j, i * seg + (j + 1) % seg
+            faces.append((a, b, b + seg, a + seg))
+    faces.append(tuple(range(seg))[::-1])
+    me = bpy.data.meshes.new(name)
+    me.from_pydata([tuple(v) for v in verts], [], faces)
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    for f in o.data.polygons:
+        f.use_smooth = True
+    o.data.materials.append(mat)
+    return o
+
+
 # =================================================================== Druida
 
 def sk_eloreth(c):
@@ -84,9 +118,64 @@ def sk_eloreth(c):
     D.cape(c, K.color_mat("ske_capa", (0.92, 0.94, 0.97), rough=0.6), 1.15, 0.46, dress)
 
 
-SKINS = {"sk_eloreth": ("druida", D, sk_eloreth)}
+def sk_cinzas(c):
+    """Xamã das Cinzas (Drakaris): couraça de escamas vermelho-escuras, chifres de obsidiana, brasas nos pulsos,
+    colar de dentes de dragão, capa cor de cinza com barra em brasa e trança vermelho-escura."""
+    leather = K.color_mat("skc_couro", (0.16, 0.09, 0.07), rough=0.6)
+    scale = K.color_mat("skc_escama", (0.5, 0.12, 0.08), metal=0.35, rough=0.35)
+    obsid = K.color_mat("skc_obsidiana", (0.07, 0.06, 0.08), metal=0.6, rough=0.18)
+    bone = K.color_mat("skc_osso", (0.88, 0.82, 0.7), rough=0.5)
+    ember = K.color_mat("skc_brasa", (1.0, 0.45, 0.12), glow=1.6)
+    ash = K.color_mat("skc_cinza", (0.24, 0.22, 0.22), rough=0.85)
+    hornm = K.color_mat("skc_chifre", (0.3, 0.12, 0.09), metal=0.4, rough=0.3)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, leather, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, scale, offset=0.013, zmin=c.hip_z - 0.04)
+    piece(c, c.skirt, "TunicaSaia", ["pelvis", "thigh_l", "thigh_r"], leather, offset=0.016, thresh=0.05, zmin=c.knee_z + 0.02)
+    piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, obsid, offset=0.016, thresh=0.3, zmax=c.knee_z - 0.04)
+    D.gloves(c, leather)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.62, 0.16, 0.09), 1.9)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.25, 0.08, 0.06), 1.0)
+    h, s = c.head, (c.head_top - c.head).length
+    for side in (-1, 1):   # chifres de obsidiana: saem das têmporas, sobem e curvam para trás
+        base_p = Vector((side * s * 0.4, h.y - s * 0.15, c.eye_z + s * 0.5))   # nasce na testa, junto ao cabelo
+        hr = horn("ChifreDragao", hornm, base_p, base_p + Vector((side * 0.06, 0.04, 0.15)), base_p + Vector((side * 0.1, 0.3, 0.12)), 0.06)
+        rigid(c, hr, "head")
+    # escamas sobre os ombros (três placas sobrepostas)
+    for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):
+        sh = K.bone_head(c.arm, bone_n)
+        for k in range(3):
+            pl = leaf("Ombreira", obsid if k % 2 == 0 else scale, sh + Vector((side * (0.04 + k * 0.022), 0.0, 0.045 - k * 0.03)), 0.12, 0.09,
+                      (0.0, side * (1.35 + k * 0.1), 0.0))
+            rigid(c, pl, bone_n)
+    # colar de dentes de dragão
+    neck = K.bone_head(c.arm, "neck_01")
+    cy, rx, ry = Mc.torso_size(c, neck.z - 0.05)
+    for k in range(9):
+        a = (k - 4) * 0.28
+        p = Vector((math.sin(a) * (rx + 0.01), cy - math.cos(a) * (ry + 0.012), neck.z - 0.05 - (4 - abs(k - 4)) * 0.012))
+        th = prim("cone", "Espinho", bone, p + Vector((0, -0.006, -0.03)), (0.026, 0.02, 0.07), rot=(math.pi + 0.15, 0, 0), seg=8)
+        rigid(c, th, "spine_03")
+    # brasas acesas nos pulsos
+    for side in ("l", "r"):
+        wr = K.bone_head(c.arm, "hand_" + side)
+        cuff = prim("torus", "Bracadeira", obsid, wr + Vector((0, 0, 0.015)), (0.075, 0.075, 0.5), minor=0.12)
+        rigid(c, cuff, "lowerarm_" + side)
+        for k in range(3):
+            em = prim("sphere", "Faixas", ember, wr + Vector(((k - 1) * 0.024, -0.038, 0.025 + 0.008 * k)), (0.026, 0.026, 0.034))
+            rigid(c, em, "lowerarm_" + side)
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", obsid, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.4), minor=0.05)
+    rigid(c, band, "spine_01")
+    gem = prim("sphere", "CintoFivela", ember, Vector((0, cy - ry - 0.012, zb)), (0.032, 0.012, 0.032))
+    rigid(c, gem, "spine_01")
+    D.cape(c, ash, 1.1, 0.46, ember)
+
+
+SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
-EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")]}
+EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
+          "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")]}
 
 
 def main():
