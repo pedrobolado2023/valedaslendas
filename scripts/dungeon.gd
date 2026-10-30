@@ -15,6 +15,8 @@ var _map := "masmorra"
 var _zone := "sala_masmorra"
 var diff := "normal"
 var guild := false        # boss semanal da guilda
+var online_run := false   # online: o servidor cuida das ondas, do chefe e dos prêmios
+var _total := 0
 var _label: Label
 
 
@@ -28,6 +30,14 @@ func _ready() -> void:
 	_label.offset_top = 70
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cl.add_child(_label)
+	var net := get_node_or_null("/root/Net")
+	if net != null:
+		net.dungeon_event.connect(_on_net)
+
+
+func _net() -> Node:
+	var net := get_node_or_null("/root/Net")
+	return net if net != null and bool(net.get("online")) else null
 
 
 func runs_today() -> int:
@@ -77,6 +87,10 @@ func enter(difficulty: String = "normal", guild_boss: bool = false) -> void:
 		game.toast("Você já fez as %d masmorras de hoje. Volte amanhã!" % int(cfg["per_day"]), 2.5)
 		return
 	var p: Player = game.player
+	if _net() != null:   # online: o servidor abre a instância (o grupo no mesmo mapa vai junto)
+		_net().dungeon_enter.rpc_id(1, diff, guild)
+		game.toast("Abrindo a masmorra...", 2.0)
+		return
 	if not guild:
 		p.stats["dg_day"] = Rewards.today()
 		p.stats["dg_count"] = runs_today() + 1
@@ -103,6 +117,13 @@ func _process(delta: float) -> void:
 		_label.text = hud_text()
 	if state == "" or game.player == null:
 		return
+	if online_run:
+		if String(game.map_id) != _map and state != "wait":
+			online_run = false
+			state = ""
+		elif state in ["fight", "boss"]:
+			time_left -= delta
+		return
 	if String(game.map_id) != _map:
 		if state != "wait":
 			state = ""
@@ -127,6 +148,8 @@ func _process(delta: float) -> void:
 
 
 func hud_text() -> String:
+	if online_run and state == "fight":
+		return "Masmorra · onda %d/%d · %d inimigos · %d:%02d" % [wave, _total, get_tree().get_nodes_in_group("enemy").size(), maxi(0, int(time_left)) / 60, maxi(0, int(time_left)) % 60]
 	if guild and state == "boss":
 		return "Boss da Guilda · %d:%02d" % [int(time_left) / 60, int(time_left) % 60]
 	if state in ["fight", "boss"]:
@@ -204,13 +227,65 @@ func _win_guild() -> void:
 		p.mats[k] = int(p.mats.get(k, 0)) + int(ceil(float(GameData.MAT_DROP["boss"][k]) * float(g["mat_mult"])))
 	for i in int(g["items"]):
 		game._drop_item(GameData.roll_rarity(String(g["table"])), p.global_position + Vector3(2.0 * (i - 1), 0, 2))
-	var net := get_node_or_null("/root/Net")
-	if net != null and bool(net.get("online")):
-		net.guild_boss_done.rpc_id(1)
 	game.hud.banner("Boss da Guilda derrotado!", "+%d XP   +%d gemas   +%d pontos para a guilda   ·   saindo em 8 s" % [xp, int(g["gems"]), int(g["guild_points"])], 5.0)
 	Sfx.play("legendary", -2.0)
 	game.call("save_now")
 	_leave(8.0)
+
+
+## Mensagens do servidor (online).
+func _on_net(kind: String, d: Dictionary) -> void:
+	var p: Player = game.player
+	if p == null:
+		return
+	match kind:
+		"refused":
+			game.toast(String(d["why"]), 3.0)
+		"go":
+			online_run = true
+			diff = String(d["diff"])
+			guild = bool(d["guild"])
+			_map = String(d["map"])
+			state = "wait"
+			wave = 0
+			time_left = float(d["time"])
+			if guild:
+				p.stats["gb_week"] = week_key()
+			else:
+				p.stats["dg_day"] = Rewards.today()
+				p.stats["dg_count"] = runs_today() + 1
+			game.travel(_map, true)
+			if int(d["members"]) > 1:
+				game.toast("Masmorra em grupo: %d heróis" % int(d["members"]), 3.0)
+		"wave":
+			state = "fight"
+			wave = int(d["n"])
+			_total = int(d["total"])
+			time_left = float(d["time"])
+			game.hud.banner("Onda %d de %d" % [wave, _total], "Derrote todos os monstros", 2.0)
+		"boss":
+			state = "boss"
+			time_left = float(d["time"])
+			game.hud.banner("Boss da Guilda" if guild else "Chefe da Masmorra", String(d["name"]), 2.5)
+		"win":
+			state = "done"
+			var xp := int(GameData.xp_need(p.level) * float(d["xp_levels"]))
+			p.gain_xp(xp)
+			Shop.credit_gems(p, int(d["gems"]), "boss_guilda" if guild else "masmorra")
+			if not guild:
+				p.stat_add("dungeons")
+			for k in GameData.MAT_DROP["boss"]:
+				p.mats[k] = int(p.mats.get(k, 0)) + int(ceil(float(GameData.MAT_DROP["boss"][k]) * float(d["mat_mult"])))
+			var rs: Array = d["rarities"]
+			for i in rs.size():
+				game._drop_item(String(rs[i]), p.global_position + Vector3(2.0 * (i - 0.5), 0, 2))
+			var title := "Boss da Guilda derrotado!" if guild else "Masmorra %s concluída!" % String(GameData.DUNGEON_DIFF[diff]["name"])
+			game.hud.banner(title, "+%d XP   +%d gemas%s   ·   itens no chão   ·   saindo em 8 s" % [xp, int(d["gems"]), "   +%d pontos da guilda" % int(d["points"]) if guild else ""], 5.0)
+			Sfx.play("legendary", -2.0)
+			game.call("save_now")
+			_leave(8.0)
+		"fail":
+			_fail(String(d["why"]))
 
 
 func _fail(why: String) -> void:
@@ -227,5 +302,6 @@ func _leave(secs: float) -> void:
 	await get_tree().create_timer(secs).timeout
 	state = ""
 	guild = false
+	online_run = false
 	if GameData.is_dungeon(String(game.map_id)):
 		game.travel(String(game.return_map), true)

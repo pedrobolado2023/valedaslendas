@@ -356,8 +356,11 @@ func knockback(from: Vector3, dist: float) -> void:
 	away.y = 0.0
 	if away.length() < 0.01:
 		return
+	var to := global_position + away.normalized() * dist
+	if net_id > 0:
+		get_node("/root/Net").enemy_move.rpc_id(1, net_id, to)
 	var tw := create_tween()
-	tw.tween_property(self, "global_position", global_position + away.normalized() * dist, 0.2).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "global_position", to, 0.2).set_ease(Tween.EASE_OUT)
 
 
 func lift(t: float) -> void:
@@ -504,6 +507,8 @@ func apply_slow(amount: float, t: float) -> void:
 func pull_to(target: Vector3, time: float) -> void:
 	if boss or not alive:
 		return
+	if net_id > 0:
+		get_node("/root/Net").enemy_move.rpc_id(1, net_id, target)
 	var tw := create_tween()
 	tw.tween_property(self, "global_position", Vector3(target.x, global_position.y, target.z), time).set_ease(Tween.EASE_OUT)
 

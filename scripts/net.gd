@@ -34,6 +34,7 @@ signal enemies(map: String, snap: Dictionary)
 signal enemy_attack(id: int, slam: bool, center: Vector3, r: float, wind: float)
 signal enemy_dead(id: int, credit: bool, drop: String)
 signal hurt(dmg: int, id: int)
+signal dungeon_event(kind: String, data: Dictionary)
 
 const SNAP_HZ := 10.0
 
@@ -144,13 +145,13 @@ func _broadcast() -> void:
 		var p: Dictionary = _players[id]
 		if not p.has("map"):
 			continue
-		if not by_map.has(p["map"]):
-			by_map[p["map"]] = {}
-		by_map[p["map"]][id] = [p["name"], p["cls"], p["gear"], p["pos"], p["rot"], p["moving"], p.get("mount", ""), String(p.get("guild", ""))]
+		var mk := map_key(int(id))
+		if not by_map.has(mk):
+			by_map[mk] = {}
+		by_map[mk][id] = [p["name"], p["cls"], p["gear"], p["pos"], p["rot"], p["moving"], p.get("mount", ""), String(p.get("guild", ""))]
 	for id in _players:
-		var m: Variant = _players[id].get("map", null)
-		if m != null:
-			_snapshot.rpc_id(int(id), by_map.get(m, {}))
+		if _players[id].has("map"):
+			_snapshot.rpc_id(int(id), by_map.get(map_key(int(id)), {}))
 
 
 func _on_left(id: int) -> void:
@@ -220,6 +221,11 @@ func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gea
 		return
 	var p: Dictionary = _players[id]
 	p["map"] = map
+	if String(p.get("inst", "")) != "":   # instância: chegou, saiu ou desistiu de ir
+		if map == String(p["inst_map"]):
+			p["inst_ok"] = true
+		elif bool(p.get("inst_ok", false)) or Time.get_unix_time_from_system() - float(p["inst_t"]) > 40.0:
+			p["inst"] = ""
 	p["pos"] = pos
 	p["rot"] = rot
 	p["moving"] = moving
@@ -238,7 +244,7 @@ func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gea
 func enemy_hit(id: int, dmg: int) -> void:
 	var pid := multiplayer.get_remote_sender_id()
 	if is_server and _players.has(pid) and world != null:
-		world.hit(pid, String(_players[pid].get("map", "")), id, dmg)
+		world.hit(pid, map_key(pid), id, dmg)
 
 
 ## Skill aplicou lentidão/atordoamento num monstro do servidor.
@@ -246,7 +252,77 @@ func enemy_hit(id: int, dmg: int) -> void:
 func enemy_effect(id: int, kind: String, amount: float, t: float) -> void:
 	var pid := multiplayer.get_remote_sender_id()
 	if is_server and _players.has(pid) and world != null:
-		world.effect(String(_players[pid].get("map", "")), id, kind, clampf(amount, 0.0, 0.9), clampf(t, 0.0, 6.0))
+		world.effect(map_key(pid), id, kind, clampf(amount, 0.0, 0.9), clampf(t, 0.0, 6.0))
+
+
+## Skill empurrou/puxou um monstro do servidor.
+@rpc("any_peer", "reliable")
+func enemy_move(id: int, to: Vector3) -> void:
+	var pid := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(pid) and world != null:
+		world.move(map_key(pid), id, to)
+
+
+## Mapa "de verdade" do jogador no servidor: o mapa, ou "mapa#instância" na masmorra/boss da guilda.
+func map_key(id: int) -> String:
+	var p: Dictionary = _players.get(id, {})
+	if String(p.get("inst", "")) != "":
+		return String(p["inst_map"]) + "#" + String(p["inst"])
+	return String(p.get("map", ""))
+
+
+var _dg_limits := {}   # "uid|herói" -> {"day", "count", "week"} (masmorras por dia, boss da guilda por semana)
+
+
+## Entrar na masmorra (ou boss da guilda): o grupo que está no mesmo mapa vai junto; o servidor confere os limites.
+@rpc("any_peer", "reliable")
+func dungeon_enter(diff: String, guild: bool) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id) or world == null or String(_players[id].get("inst", "")) != "":
+		return
+	if not GameData.DUNGEON_DIFF.has(diff):
+		diff = "normal"
+	var lead: Dictionary = _players[id]
+	var gk := String(lead.get("guild", "")).to_lower()
+	if guild and gk == "":
+		_dungeon_ev.rpc_id(id, "refused", {"why": "Entre em uma guilda para enfrentar o boss da guilda."})
+		return
+	var members: Array = []
+	var wk := Dungeon.week_key()
+	var today := Rewards.today()
+	for mid in party_of(id):
+		var q: Dictionary = _players[mid]
+		if mid != id and (String(q.get("map", "")) != String(lead.get("map", "")) or String(q.get("inst", "")) != ""):
+			continue
+		var lk := "%s|%d" % [q["uid"], int(q["save"].get("cur", 0))]
+		var lim: Dictionary = _dg_limits.get(lk, {})
+		var why := ""
+		if guild:
+			if String(q.get("guild", "")).to_lower() != gk:
+				why = "não é da guilda"
+			elif int(lim.get("week", -1)) == wk:
+				why = "já derrotou o boss da guilda esta semana"
+		elif String(lim.get("day", "")) == today and int(lim.get("count", 0)) >= int(GameData.DUNGEON["per_day"]):
+			why = "já fez as %d masmorras de hoje" % int(GameData.DUNGEON["per_day"])
+		if why != "":
+			if mid == id:
+				_dungeon_ev.rpc_id(id, "refused", {"why": "Você " + why + "."})
+				return
+			_dungeon_ev.rpc_id(int(mid), "refused", {"why": "Seu grupo entrou na masmorra, mas você " + why + "."})
+			continue
+		if guild:
+			lim["week"] = wk
+		else:
+			lim["count"] = (int(lim.get("count", 0)) if String(lim.get("day", "")) == today else 0) + 1
+			lim["day"] = today
+		_dg_limits[lk] = lim
+		members.append(mid)
+	world.start_dungeon(members, diff, guild, int(_cur_char(id).get("level", 1)))
+
+
+@rpc("authority", "reliable")
+func _dungeon_ev(kind: String, data: Dictionary) -> void:
+	dungeon_event.emit(kind, data)
 
 
 ## Missão pediu o chefe da zona.
@@ -254,7 +330,7 @@ func enemy_effect(id: int, kind: String, amount: float, t: float) -> void:
 func request_boss(zid: String, type_id: String) -> void:
 	var pid := multiplayer.get_remote_sender_id()
 	if is_server and _players.has(pid) and world != null:
-		world.spawn_boss(String(_players[pid].get("map", "")), zid, type_id)
+		world.spawn_boss(map_key(pid), zid, type_id)
 
 
 ## Save do jogador: o servidor guarda e grava no Supabase (o navegador não escreve direto no banco).
@@ -626,25 +702,6 @@ func guild_points(id: int, n: int) -> void:
 	if _guilds.has(k) and n > 0:
 		_guilds[k]["points"] = int(_guilds[k]["points"]) + n
 		_guilds[k]["dirty"] = true
-
-
-## Boss semanal da guilda derrotado: pontos para a guilda (1 vez por semana por herói).
-@rpc("any_peer", "reliable")
-func guild_boss_done() -> void:
-	var id := multiplayer.get_remote_sender_id()
-	if not is_server or not _players.has(id):
-		return
-	var wk := Dungeon.week_key()
-	var c := _cur_char(id)
-	var st: Dictionary = c.get("stats", {})
-	if int(st.get("gb_week_srv", -1)) == wk:
-		return
-	st["gb_week_srv"] = wk
-	c["stats"] = st
-	guild_points(id, int(GameData.GUILD_BOSS["guild_points"]))
-	var k := String(_players[id].get("guild", "")).to_lower()
-	if _guilds.has(k):
-		_guild_refresh(k)
 
 
 @rpc("any_peer", "reliable")
