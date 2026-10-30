@@ -120,6 +120,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   e `scripts/world_boss.gd` (fases 100/60/30%: sopro em cone, meteoros, voo e queda, dragonetes, anel de fogo;
   mira em todos do grupo "player" — pronto para o multiplayer). Admin F1: "Boss global: começar agora".
   O save nunca guarda o covil: volta para `return_map`. Inimigos podem ter `leash`/`aggro_r` nos dados.
+- **Boss global — aviso e janela:** `WorldEvents.schedule(delay, min)` (admin F1 "Invocar boss global" = começa em
+  5 min; online vai pelo servidor `Net.admin_boss`, só conta admin, e todos recebem `_boss_call`, inclusive quem entra
+  depois). 5 min antes e no começo abre `ui/boss_call.gd` (contagem + "Ir para o Boss agora").
+- **Portal (`ui/portal_panel.gd`):** todos os mapas em grade de 4 colunas com rolagem + boss global e masmorra no topo.
 - **Dragão de Lava (boss global, modelo do Gemini `dragon_boss.html`):** malha extraída com Node
   (`tools/dragon_extract/gen.mjs`, precisa `npm i three@0.160.0`) → `blender/make_lava_dragon.py` (reduz, posição de
   repouso nos UVs, esqueleto pela forma do corpo, idle/walk/attack) → `models/dragon_lava.glb`. Materiais `lava_*` viram

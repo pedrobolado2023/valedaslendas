@@ -9,6 +9,7 @@ extends Node
 signal connected
 signal loaded(save: Dictionary)
 signal boss_hp(hp: int, max_hp: int)
+signal boss_scheduled(delay: float, minutes: int)
 # monstros do servidor (cliente)
 signal enemies(map: String, snap: Dictionary)
 signal enemy_attack(id: int, slam: bool, center: Vector3, r: float, wind: float)
@@ -29,6 +30,7 @@ var others: Dictionary = {}     # cliente: id -> {name, cls, gear, map, pos, rot
 # servidor
 var _players: Dictionary = {}   # peer -> {uid, name, cls, gear, map, pos, rot, moving, save}
 var _boss := {"key": "", "hp": 0, "max": 0}
+var _boss_at := 0.0   # boss invocado pelo admin: começa neste horário Unix do servidor
 var _t := 0.0
 var _save_t := 0.0
 var world: ServerWorld
@@ -113,7 +115,7 @@ func hello(token: String) -> void:
 		return
 	var id := multiplayer.get_remote_sender_id()
 	if OS.get_environment("VALE_DEV") != "":   # teste local sem Supabase: qualquer token entra
-		_players[id] = {"uid": "dev-%d" % id, "name": token, "cls": "", "gear": {}, "save": {}}
+		_players[id] = {"uid": "dev-%d" % id, "name": token, "cls": "", "gear": {}, "save": {}, "admin": token.begins_with("admin")}
 		_welcome.rpc_id(id, true, {})
 		return
 	var user := await _sb("/auth/v1/user", HTTPClient.METHOD_GET, null, token)
@@ -127,10 +129,15 @@ func hello(token: String) -> void:
 	var save: Dictionary = {}
 	if int(row["code"]) == 200 and row["json"] is Array and not (row["json"] as Array).is_empty():
 		save = row["json"][0]["data"]
-	_players[id] = {"uid": uid, "name": mail.get_slice("@", 0), "cls": "", "gear": {}, "save": save}
+	var meta: Variant = user["json"].get("app_metadata", {})
+	_players[id] = {"uid": uid, "name": mail.get_slice("@", 0), "cls": "", "gear": {}, "save": save,
+		"admin": meta is Dictionary and bool(meta.get("admin", false))}
 	print("[servidor] entrou: ", mail, " (", _players.size(), " online)")
 	_welcome.rpc_id(id, true, save)
 	_boss_send(id)
+	var left := _boss_at - Time.get_unix_time_from_system()
+	if left > -float(GameData.GLOBAL_BOSS["minutes"]) * 60.0 and _boss_at > 0.0:   # entrou durante o aviso/evento
+		_boss_call.rpc_id(id, left, int(GameData.GLOBAL_BOSS["minutes"]))
 
 
 ## Estado do herói (10x por segundo, sem garantia de entrega).
@@ -191,6 +198,25 @@ func _store(id: int) -> void:
 	var r := await _sb("/rest/v1/saves?on_conflict=user_id", HTTPClient.METHOD_POST, row, "", ["Prefer: resolution=merge-duplicates,return=minimal"])
 	if int(r["code"]) >= 300:
 		print("[servidor] erro ao gravar save de ", p["name"], ": ", r["code"])
+
+
+## Admin invocou o boss: avisa todos os jogadores (começa em `delay` segundos).
+@rpc("any_peer", "reliable")
+func admin_boss(delay: float) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id) or not bool(_players[id].get("admin", false)):
+		return
+	delay = clampf(delay, 0.0, 3600.0)
+	_boss_at = Time.get_unix_time_from_system() + delay
+	_boss = {"key": "", "hp": 0, "max": 0}
+	print("[servidor] boss global invocado por ", _players[id]["name"], " para daqui a ", int(delay), " s")
+	for pid in _players:
+		_boss_call.rpc_id(int(pid), delay, int(GameData.GLOBAL_BOSS["minutes"]))
+
+
+@rpc("authority", "reliable")
+func _boss_call(delay: float, minutes: int) -> void:
+	boss_scheduled.emit(delay, minutes)
 
 
 ## Boss global: todos batem na mesma vida, que fica no servidor.

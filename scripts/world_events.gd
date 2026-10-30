@@ -8,7 +8,8 @@ var game: Node
 var cfg: Dictionary = GameData.GLOBAL_BOSS
 var boss: WorldBoss
 var defeated_key := ""        # janela (dia+hora) em que o dragão já foi derrotado
-var _forced_until := 0.0      # evento forçado pelo admin (horário Unix)
+var _forced_from := 0.0       # evento invocado pelo admin: começa em (horário Unix)
+var _forced_until := 0.0      # ... e termina em
 var _forced_key := ""
 var _warned := ""
 var _started := ""
@@ -23,17 +24,19 @@ func _process(delta: float) -> void:
 	if game == null or game.get("player") == null:
 		return
 	var key := window_key()
-	# aviso alguns minutos antes
+	# aviso 5 minutos antes (com a janela "Ir para o Boss")
 	var nk := _next_key_soon()
 	if nk != "" and nk != _warned:
 		_warned = nk
-		game.hud.banner("Boss global em %d min" % _minutes_to_next(), "O Dragão de Lava vai despertar no Covil do Dragão", 4.0)
+		game.hud.banner("Boss global em %d min" % (seconds_to_next() / 60 + 1), "O Dragão de Lava vai despertar no Covil do Dragão", 4.0)
 		Sfx.play("boss", -8.0, 1.2)
+		_popup()
 	if key != "" and key != _started:
 		_started = key
 		if key != defeated_key:
-			game.hud.banner("O Dragão de Lava despertou!", "Use o Portal de Viagem: Covil do Dragão  ·  %d min" % minutes_left(), 5.0)
+			game.hud.banner("O Dragão de Lava despertou!", "Vá para o Covil do Dragão  ·  %d min" % minutes_left(), 5.0)
 			Sfx.play("boss", -4.0)
+			_popup()
 	if key != "" and key != defeated_key and game.map_id == String(cfg["map"]) and (boss == null or not is_instance_valid(boss)):
 		_spawn()
 	if key == "" and boss != null and is_instance_valid(boss) and boss.alive:
@@ -43,8 +46,11 @@ func _process(delta: float) -> void:
 
 ## Chave da janela ativa ("2026-10-29-16") ou "" se não houver evento agora.
 func window_key() -> String:
-	if Time.get_unix_time_from_system() < _forced_until:
+	var now := Time.get_unix_time_from_system()
+	if now >= _forced_from and now < _forced_until:
 		return _forced_key
+	if now < _forced_from:
+		return ""
 	var d := Time.get_datetime_dict_from_system()
 	if int(d["hour"]) in cfg["hours"] and int(d["minute"]) < int(cfg["minutes"]):
 		return "%04d-%02d-%02d-%02d" % [d["year"], d["month"], d["day"], d["hour"]]
@@ -73,6 +79,9 @@ func next_text() -> String:
 
 
 func _next_key_soon() -> String:
+	var now := Time.get_unix_time_from_system()
+	if now < _forced_from and _forced_from - now <= float(cfg["warn_minutes"]) * 60.0 + 1.0:
+		return _forced_key
 	var d := Time.get_datetime_dict_from_system()
 	var nh := (int(d["hour"]) + 1) % 24
 	if nh in cfg["hours"] and int(d["minute"]) >= 60 - int(cfg["warn_minutes"]):
@@ -80,15 +89,40 @@ func _next_key_soon() -> String:
 	return ""
 
 
-func _minutes_to_next() -> int:
-	return 60 - int(Time.get_datetime_dict_from_system()["minute"])
+## Segundos até o próximo boss começar (invocado ou do horário fixo).
+func seconds_to_next() -> int:
+	var now := Time.get_unix_time_from_system()
+	if now < _forced_from:
+		return int(_forced_from - now)
+	var d := Time.get_datetime_dict_from_system()
+	return (59 - int(d["minute"])) * 60 + (60 - int(d["second"]))
+
+
+## Boss começa daqui a `delay` segundos e dura `minutes` (admin ou servidor avisando todos).
+func schedule(delay: float, minutes: int) -> void:
+	_forced_from = Time.get_unix_time_from_system() + delay
+	_forced_until = _forced_from + minutes * 60.0
+	_forced_key = "invocado-%d" % int(_forced_from)
+	defeated_key = ""
+	_tick = 0.0
 
 
 ## Admin: começa um evento agora, durando `minutes` minutos.
 func force(minutes: int) -> void:
-	_forced_until = Time.get_unix_time_from_system() + minutes * 60.0
-	_forced_key = "teste-%d" % int(_forced_until)
-	_tick = 0.0
+	schedule(0.0, minutes)
+
+
+## Janela no meio da tela: contagem e botão para ir direto ao Covil.
+func _popup() -> void:
+	if game.map_id == String(cfg["map"]):
+		return
+	var old: Node = game.get_node_or_null("BossCall")
+	if old != null:
+		old.queue_free()
+	var pop := BossCall.new()
+	pop.name = "BossCall"
+	pop.events = self
+	game.add_child(pop)
 
 
 func _spawn() -> void:

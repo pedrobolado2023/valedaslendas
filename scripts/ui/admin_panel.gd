@@ -153,6 +153,13 @@ func _hero_col() -> Control:
 	_btn(v, "+1000 gemas (testar a loja)", func() -> void:
 		Shop.credit_gems(game.get("player"), 1000, "admin")
 		_done("+1000 gemas."))
+	_btn(v, "Invocar boss global (todos avisados, começa em 5 min)", func() -> void:
+		var net: Node = get_node("/root/Net")
+		if net.online:
+			net.admin_boss.rpc_id(1, float(GameData.GLOBAL_BOSS["warn_minutes"]) * 60.0)
+		else:
+			(game.get("events") as WorldEvents).schedule(float(GameData.GLOBAL_BOSS["warn_minutes"]) * 60.0, int(GameData.GLOBAL_BOSS["minutes"]))
+		_done("Boss global invocado: todos os jogadores foram avisados (começa em 5 min)."))
 	_btn(v, "Boss global: começar agora (15 min)", func() -> void:
 		var ev: WorldEvents = game.get("events")
 		ev.force(int(GameData.GLOBAL_BOSS["minutes"]))

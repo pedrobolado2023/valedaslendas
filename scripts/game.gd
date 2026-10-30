@@ -27,6 +27,7 @@ var events: WorldEvents          # boss global (horários, covil, recompensas)
 var shop_panel: ShopPanel
 var pet_panel: PetPanel
 var rewards_panel: RewardsPanel
+var portal_panel: PortalPanel
 var dungeon: Dungeon
 var cloud: CloudSync
 var remote: RemotePlayers
@@ -460,6 +461,9 @@ func start_game(key: String, save: Dictionary) -> void:
 	events.game = self
 	events.defeated_key = String(save.get("boss_done", ""))
 	add_child(events)
+	get_node("/root/Net").boss_scheduled.connect(func(delay: float, minutes: int) -> void:
+		if events != null:
+			events.schedule(delay, minutes))
 	dungeon = Dungeon.new()
 	dungeon.game = self
 	add_child(dungeon)
@@ -594,6 +598,9 @@ func _build_ui() -> void:
 	rewards_panel = RewardsPanel.new()
 	add_child(rewards_panel)
 	rewards_panel.setup(player)
+	portal_panel = PortalPanel.new()
+	add_child(portal_panel)
+	portal_panel.setup(self)
 	settings_panel = SettingsPanel.new()
 	add_child(settings_panel)
 	settings_panel.setup(self)
@@ -814,7 +821,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
@@ -822,6 +829,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			shop_panel.visible = false
 			pet_panel.visible = false
 			rewards_panel.visible = false
+			portal_panel.visible = false
 			admin_panel.visible = false
 			if not any_open:
 				settings_panel.toggle()
@@ -856,38 +864,9 @@ func _interact(what: String, from_click: bool) -> void:
 			open_portal()
 
 
-func open_portal(page: int = -1) -> void:
-	var opts: Array = []
-	# páginas de 6 mapas; abre na página do mapa mais alto que o herói já alcança
-	var per := 6
-	var order: Array = GameData.MAP_ORDER
-	var pages := int(ceil(float(order.size()) / per))
-	if page < 0:
-		page = order.find(GameData.best_map(player.level)) / per
-	page = clampi(page, 0, pages - 1)
-	if events != null and map_id != String(GameData.GLOBAL_BOSS["map"]):
-		if events.active():
-			opts.append(["BOSS GLOBAL: Covil do Dragão (termina em %d min)" % events.minutes_left(), func() -> void: travel(String(GameData.GLOBAL_BOSS["map"]), true)])
-		else:
-			opts.append(["Boss global: próximo às %s" % events.next_text(), func() -> void:
-				toast("O Covil do Dragão abre às 10h, 16h e 22h (15 min cada)", 2.5)])
-	if dungeon != null and map_id != "masmorra":
-		opts.append(["Masmorra Sombria  ·  %d/%d hoje" % [dungeon.runs_today(), int(GameData.DUNGEON["per_day"])], func() -> void: dungeon.enter()])
-	for k in range(page * per, mini((page + 1) * per, order.size())):
-		var id := String(order[k])
-		if id == map_id:
-			continue
-		var md: Dictionary = GameData.MAPS[id]
-		var lock := "  (bloqueado)" if player.level < int(md["min_level"]) else ""
-		var label := "%s  ·  %s%s" % [String(md["name"]), String(md["levels"]), lock]
-		opts.append([label, func() -> void: travel(id)])
-	if page > 0:
-		opts.append(["« Mapas anteriores", func() -> void: open_portal(page - 1)])
-	if page < pages - 1:
-		opts.append(["Próximos mapas »", func() -> void: open_portal(page + 1)])
-	opts.append(["Fechar", dialog.close])
-	dialog.open("Portal de Viagem", "Para onde você quer ir?  Você está em [color=#e8b75a]%s[/color] (%s).  Página %d de %d." % [
-			String(GameData.MAPS[map_id]["name"]), String(GameData.MAPS[map_id]["levels"]), page + 1, pages], opts)
+func open_portal(_page: int = -1) -> void:
+	dialog.close()
+	portal_panel.open()
 
 
 func toggle_map() -> void:
