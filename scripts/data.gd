@@ -455,8 +455,8 @@ static func _gen_maps() -> void:
 			for key in ["hp", "dmg", "xp", "gold"]:
 				tb.erase(key)
 			GEN_ENEMIES[boss_id] = tb
-			var zone_names := ["Entrada", "Coração", "Profundezas"]
-			ZONES[zid] = {"map": id, "name": "%s: %s" % [zone_names[k], String(b["names"][round_n % 8])], "levels": "Nv %d-%d" % [zl, zl + 4],
+			var zone_names := ["Arredores", "Coração", "Profundezas"]
+			ZONES[zid] = {"map": id, "name": "%s · %s" % [_city(_kingdom_by_biome(String(b["key"])), round_n), zone_names[k]], "levels": "Nv %d-%d" % [zl, zl + 4],
 					"lvl": Vector2i(zl, zl + 4), "center": c, "radius": 17.0, "enemy": mob_id, "boss": boss_id, "count": 11,
 					"boss_pos": c + c.normalized() * 14.0, "color": col}
 			zone_ids.append(zid)
@@ -478,8 +478,9 @@ static func _gen_maps() -> void:
 			theme[key] = Color.from_hsv(fposmod(tc.h + shift, 1.0), tc.s, tc.v)
 		var c0: Vector3 = centers[0]
 		var c2: Vector3 = centers[2]
-		MAPS[id] = {"name": String(b["names"][round_n % 8]), "levels": "Nv %d-%d" % [lo, hi], "min_level": lo - 1,
-				"hub": String(b["hubs"][round_n % 8]), "hub_style": String(b["hub_style"]), "npc": "Guardião %s" % String(b["hubs"][round_n % 8]).split(" ")[-1],
+		var kg := _kingdom_by_biome(String(b["key"]))
+		MAPS[id] = {"name": _city(kg, round_n), "levels": "Nv %d-%d" % [lo, hi], "min_level": lo - 1, "kingdom": kg,
+				"hub": String(b["hubs"][round_n % 8]), "hub_style": String(b["hub_style"]), "npc": "Emissário de %s" % String(KINGDOMS[kg]["name"]),
 				"npc_model": String(b["npc_model"]), "music": String(b["music"]), "zones": zone_ids, "biome": String(b["key"]),
 				"lake": {"c": lake_c, "r": Vector2(rng.randf_range(10, 15), rng.randf_range(7, 10)), "type": String(b["lake"])},
 				"regions": [{"type": "forest", "c": Vector2(c0.x, c0.z), "r": 32.0}, {"type": "stone", "c": Vector2(c2.x, c2.z), "r": 18.0}],
@@ -687,6 +688,138 @@ const BASE_ZONES := {
 		"enemy": "dragon_whelp", "boss": "dragon_ancient", "count": 8, "boss_pos": Vector3(-36, 0, 82), "color": Color(0.9, 0.3, 0.2)},
 }
 
+## Os Sete Reinos (+ Aetherion, o reino esquecido). Cada mapa é uma cidade de um reino: os 4 mapas base pelo
+## `BASE_KINGDOM` e os gerados pelo bioma (`biome`). Cidades dos mapas gerados: `cities[volta]`.
+const KINGDOM_ORDER := ["eloreth", "seryth", "valdrath", "drakaris", "thalyss", "vyndara", "sombras", "aetherion"]
+const KINGDOMS := {
+	"eloreth": {"name": "Eloreth", "motto": "A beleza é força", "ruler": "Lysara", "title": "Rainha de Eloreth", "biome": "encantada",
+		"color": Color(0.45, 0.9, 0.55), "about": "Florestas encantadas e natureza consciente. Cura e manipulação da natureza.",
+		"cities": ["Bosque de Lysara", "Clareira das Vozes", "Raízes Antigas", "Jardim de Prata", "Vale dos Salgueiros", "Coração Verde", "Trono de Folhas", "Árvore-Mãe"]},
+	"seryth": {"name": "Seryth", "motto": "O conhecimento liberta", "ruler": "Selene", "title": "Herdeira de Seryth", "biome": "cristal",
+		"color": Color(1.0, 0.8, 0.45), "about": "Desertos, cidades antigas e bibliotecas de conhecimento proibido.",
+		"cities": ["Biblioteca de Areia", "Oásis das Profecias", "Arquivo Proibido", "Torre dos Registros", "Dunas de Cristal", "Cidade dos Escribas", "Observatório de Selene", "Cripta do Saber"]},
+	"valdrath": {"name": "Valdrath", "motto": "O poder é lei", "ruler": "Kaeldryn", "title": "Príncipe de Valdrath", "biome": "tundra",
+		"color": Color(0.6, 0.85, 1.0), "about": "Gelo, montanhas e fortalezas. Estratégia, defesa e resistência.",
+		"cities": ["Fortaleza de Gelo", "Passo Branco", "Cidadela Norte", "Muralha Eterna", "Forte Kaeldryn", "Bastião Congelado", "Torre do Inverno", "Trono de Gelo"]},
+	"drakaris": {"name": "Drakaris", "motto": "O fogo nos guia", "ruler": "Darius", "title": "Príncipe de Drakaris", "biome": "brasas",
+		"color": Color(1.0, 0.45, 0.25), "about": "Vulcões, cidades de pedra negra e linhagens ligadas aos dragões.",
+		"cities": ["Ninho Rubro", "Cidade de Pedra Negra", "Forja dos Dragões", "Picos de Cinza", "Rio de Magma", "Arena de Darius", "Covil Ancestral", "Coroa de Fogo"]},
+	"thalyss": {"name": "Thalyss", "motto": "A liberdade é vida", "ruler": "Emberlyn", "title": "General de Thalyss", "biome": "pantano",
+		"color": Color(0.4, 0.8, 0.95), "about": "Rios, cachoeiras e comunidades independentes. Magia elemental e mobilidade.",
+		"cities": ["Vila das Cachoeiras", "Margem Livre", "Delta Rebelde", "Ponte dos Barqueiros", "Lagoa das Brumas", "Acampamento de Emberlyn", "Queda d'Água Sagrada", "Foz da Liberdade"]},
+	"vyndara": {"name": "Vyndara", "motto": "A honra nos mantém", "ruler": "Rhaegar", "title": "Príncipe de Vyndara", "biome": "celeste",
+		"color": Color(0.92, 0.92, 1.0), "about": "Montanhas, muralhas e fortalezas quase impenetráveis. Cavalaria e guerreiros de elite.",
+		"cities": ["Muralha Alta", "Picos da Honra", "Fortaleza Celeste", "Quartel dos Cavaleiros", "Passo da Espada", "Cidadela de Mármore", "Salão de Rhaegar", "Pico Inalcançável"]},
+	"sombras": {"name": "Sombras", "motto": "O caos é eterno", "ruler": "Nyx", "title": "Senhor das Sombras", "biome": "sombrias",
+		"color": Color(0.7, 0.5, 1.0), "about": "Terras ocultas e cidades envoltas em mistério. Ilusão, espionagem e magia proibida.",
+		"cities": ["Fronteira Velada", "Cidade das Máscaras", "Bosque Sem Lua", "Labirinto de Nyx", "Mercado Oculto", "Torre dos Sussurros", "Vale do Esquecimento", "Trono Vazio"]},
+	"aetherion": {"name": "Aetherion", "motto": "O reino esquecido", "ruler": "???", "title": "Aquele que ainda vive lá", "biome": "estelar",
+		"color": Color(0.85, 0.75, 1.0), "about": "Não aparece em nenhum mapa. Foi escondido da realidade — e alguém ainda vive lá.",
+		"cities": ["Fenda de Aetherion", "Ruínas Sem Nome", "Céu Partido", "Ponte do Vazio", "Santuário Apagado", "Eco Estelar", "Portão Esquecido", "Coração de Aetherion"]},
+}
+const BASE_KINGDOM := {"vale": "eloreth", "deserto": "seryth", "gelo": "valdrath", "vulcao": "drakaris"}
+
+
+static func _kingdom_by_biome(biome: String) -> String:
+	for k in KINGDOMS:
+		if String(KINGDOMS[k]["biome"]) == biome:
+			return String(k)
+	return "eloreth"
+
+
+static func _city(kg: String, round_n: int) -> String:
+	return String(KINGDOMS[kg]["cities"][round_n % 8])
+
+
+static func kingdom_of(map_id: String) -> String:
+	var md: Dictionary = MAPS.get(map_id, {})
+	return String(md.get("kingdom", BASE_KINGDOM.get(map_id, "")))
+
+
+## A história: 5 atos pela faixa de nível (o último mapa base termina o Ato I).
+const ACTS := [
+	{"to": 60, "name": "Ato I — O Despertar"},
+	{"to": 300, "name": "Ato II — A Aliança dos Inimigos"},
+	{"to": 550, "name": "Ato III — Os Dragões e a Guerra das Coroas"},
+	{"to": 800, "name": "Ato IV — A Verdade dos Sete Fragmentos"},
+	{"to": 1000, "name": "Ato V — O Último Reino"},
+]
+
+
+static func act_of(level: int) -> int:
+	for i in ACTS.size():
+		if level <= int(ACTS[i]["to"]):
+			return i
+	return ACTS.size() - 1
+
+
+## Ato I (mapas base): falas de cada zona [caçada, coleta, chefe].
+const STORY_BASE := {
+	"campo": ["Viajante, algo terrível aconteceu esta noite: o fragmento de Valdrath desapareceu, e as florestas de Eloreth começaram a adoecer. Até os slimes do Campo das Flores enlouqueceram. Ajude a vila: derrote-os.",
+		"A Rainha Lysara pediu amostras da gosma: ela diz que a doença das árvores está nela. Recolha a gosma dos slimes.",
+		"A gosma vem de um só lugar: o Slime Rei cresceu com a magia que vaza do fragmento perdido. Acabe com ele."],
+	"floresta": ["Lysara ouve as árvores ancestrais, e elas gritam. Os lobos da Floresta Sombria atacam qualquer um. Abra caminho.",
+		"As presas dos lobos estão negras, como as raízes que apodrecem. Recolha-as para os sábios de Eloreth.",
+		"O Lobo Alfa carrega uma marca estranha no pescoço: um símbolo de sangue. Derrote-o e descubra de onde ele veio."],
+	"ruinas": ["As Ruínas Antigas eram um templo da primeira guerra. Os golens de pedra acordaram sozinhos. Derrube-os.",
+		"Os núcleos dos golens brilham com a mesma luz do fragmento perdido. Recolha-os: Selene, de Seryth, vai querer vê-los.",
+		"O Golem Guardião protege uma mensagem gravada: \"Quando o sétimo fragmento se apagar, aquilo que foi enterrado voltará a caminhar entre os vivos.\" Derrote-o e leve a mensagem a Seryth."],
+	"dunas": ["Bem-vindo a Seryth. Selene recebeu a sua mensagem e convocou os sete reinos para uma reunião. Mas os escorpiões cercam as dunas — limpe a estrada para os emissários.",
+		"Os ferrões dos escorpiões guardam um veneno que só existe nos registros da primeira guerra. Selene precisa deles.",
+		"A Rainha Escorpião foi enviada para impedir a reunião. Alguém não quer que os reinos se unam. Derrote-a."],
+	"cemiterio": ["No Cemitério de Areia descansam os soldados da primeira guerra — e eles se levantaram. Derrube os esqueletos.",
+		"Os ossos antigos têm runas de uma ordem secreta: a Ordem do Primeiro Sangue. Recolha-os para Selene decifrar.",
+		"O Rei Esqueleto foi um soberano da primeira guerra. Selene diz que ele sabe onde os fragmentos foram escondidos. Derrote-o."],
+	"templo": ["A reunião dos sete aconteceu, mas Kaeldryn e Darius brigaram pela liderança. Enquanto isso, o Templo Soterrado acordou. Destrua os golens de areia.",
+		"Os núcleos de areia guardam pedaços de um mapa antigo. Recolha-os: ele mostra o caminho até Valdrath.",
+		"O Colosso guarda a passagem para o norte. Derrote-o e siga para Valdrath, onde o primeiro fragmento sumiu."],
+	"tundra": ["Valdrath, o reino do gelo. Kaeldryn não confia em estranhos, mas precisa de ajuda: as matilhas de lobos de gelo cercam as fortalezas.",
+		"As presas dos lobos de gelo guardam rastros de magia: alguém passou por aqui com o fragmento. Recolha-as.",
+		"O Lobo Glacial segue o cheiro do ladrão. Derrote-o e Kaeldryn vai ouvir você."],
+	"cavernas": ["Kaeldryn acredita que Nyx, Senhor das Sombras, roubou o fragmento. Antes de acusá-lo, investigue as cavernas dos yetis.",
+		"O pelo dos yetis está coberto de cinza vulcânica — o ladrão veio do sul, de Drakaris, não das Sombras. Recolha as provas.",
+		"O Yeti Ancião guarda a entrada do glaciar. Derrote-o e convença Kaeldryn a não declarar guerra."],
+	"glaciar": ["No Glaciar de Cristal, os golens de gelo protegem o lugar onde o fragmento ficava. Destrua-os.",
+		"Os núcleos de gelo guardam o último eco do fragmento. Recolha-os: com eles, Selene pode rastreá-lo.",
+		"O Golem de Cristal tenta apagar o rastro. Derrote-o: o fragmento foi levado para Drakaris."],
+	"fendas": ["Drakaris, o reino do fogo. Darius jura que os dragões enlouqueceram. As fendas estão tomadas por diabretes — abra caminho.",
+		"Os chifres dos diabretes têm o símbolo da Ordem do Primeiro Sangue. A Ordem está aqui. Recolha as provas.",
+		"O Senhor dos Diabretes serve à Ordem. Derrote-o e descubra o que ela quer em Drakaris."],
+	"forja": ["A antiga forja de Drakaris foi tomada por golens de magma. A Ordem quer usar a forja para fundir os fragmentos. Impeça.",
+		"Os núcleos de magma guardam pedaços do fragmento de Valdrath, já derretido pela Ordem. Recupere-os.",
+		"O Titã de Magma protege a forja. Derrote-o e salve o que resta do fragmento."],
+	"ninho": ["Darius descobriu a verdade: os dragões não enlouqueceram — estão fugindo de algo. Os filhotes estão em pânico no Ninho. Acalme-os à força.",
+		"As escamas dos filhotes estão marcadas por algo muito mais antigo que eles. Recolha-as.",
+		"O Dragão Ancestral foi tomado pela mesma força. Derrote-o. O Ato I termina aqui: nas profundezas de Drakaris, algo mais antigo que os dragões está acordando."],
+}
+## Atos II a V nos mapas gerados: abertura da cidade (por reino) e falas por tipo de missão.
+const STORY_ACT := [
+	{},
+	{"intro": "Os sete formaram uma aliança frágil para caçar a Ordem do Primeiro Sangue. %s pede ajuda em %s: ",
+		"kill": "agentes da Ordem corromperam %s — derrote 12 × %s.",
+		"collect": "a Ordem esconde mensagens nas criaturas daqui: cada %s pode deixar cair %s. Recolha 8 e descubra quem são os traidores das famílias reais.",
+		"boss": "%s lidera a Ordem nesta região. Acabe com essa ameaça."},
+	{"intro": "A guerra das coroas começou: Valdrath marchou contra as Sombras, e a aliança está ruindo. %s defende %s: ",
+		"kill": "a guerra espalhou %s por toda parte — derrote 12 × %s.",
+		"collect": "cada %s pode deixar cair %s — provas de que o fragmento não foi roubado por Nyx. Recolha 8.",
+		"boss": "%s aproveita a guerra para tomar o território. Acabe com essa ameaça."},
+	{"intro": "Selene decifrou os registros: os fragmentos são pedaços de uma entidade, A Origem. %s protege %s: ",
+		"kill": "a energia d'A Origem transforma %s — derrote 12 × %s.",
+		"collect": "cada %s pode deixar cair um %s. Recolha 8 antes que A Origem os absorva.",
+		"boss": "%s foi tomado pela vontade d'A Origem. Liberte esta terra."},
+	{"intro": "O último reino se revelou: Aetherion. Os sete precisam decidir o destino dos fragmentos. %s luta em %s: ",
+		"kill": "as criaturas d'A Origem invadem %s — derrote 12 × %s.",
+		"collect": "cada %s pode deixar cair %s. Recolha 8: cada pedaço devolve um pouco de magia aos reinos.",
+		"boss": "%s é um dos generais d'A Origem. Acabe com essa ameaça."},
+]
+const STORY_SPECIAL := {
+	"forge": "Os ferreiros de Eloreth descobriram que a forja pode purificar o que a doença tocou. Abra a Forja (U) e funda 3 itens iguais ou desmonte um item que não usa.",
+	"refine": "Lysara quer você forte para o que vem. Na tela de Equipamentos (I), aprimore qualquer item até +3 — até o +3 o refino nunca quebra.",
+	"dungeon": "Sob as Ruínas existe uma masmorra da primeira guerra, selada com magia dos fragmentos. Entre pelo Portal de Viagem e vença as ondas e o chefe.",
+}
+const STORY_END := "Este é o último confronto. Derrote %s e a vontade d'A Origem será contida — por enquanto. Os sete reinos sobreviveram... mas a história ainda não acabou."
+
+
 ## Campanha principal (missões de história): em ordem, entregues pelo NPC de cada mapa. Cada missão tem um objetivo
 ## ("type") e pode liberar partes do jogo ("unlock"); sem ela a função ou o mapa fica travado, mesmo com o nível.
 ## Tipos: kill (N × monstro da zona), collect (N itens que caem desse monstro), boss (chefe da zona), forge (usar a
@@ -748,12 +881,12 @@ static func _quest(type: String, map: String, zone: String, lv: int, title: Stri
 
 static func _build_campaign() -> void:
 	QUESTS = []
+	var last_map := String(MAP_ORDER[-1])
 	for mid in MAP_ORDER:
 		var md: Dictionary = MAPS[mid]
 		var zs: Array = md["zones"]
-		var intro := ""
-		if md.has("biome"):
-			intro = String(STORY_TEXT.get(String(md["biome"]), [""])[0]).replace("{hub}", String(md["hub"])) + " "
+		var kg := kingdom_of(String(mid))
+		var kd: Dictionary = KINGDOMS.get(kg, KINGDOMS["eloreth"])
 		for zi in zs.size():
 			var zid := String(zs[zi])
 			var z: Dictionary = ZONES[zid]
@@ -762,6 +895,7 @@ static func _build_campaign() -> void:
 			var mob := String(enemy(String(z["enemy"]))["name"])
 			var chefe := String(enemy(String(z["boss"]))["name"])
 			var zn := String(z["name"])
+			var act := act_of(lo)
 			var unl: Array = CAMPAIGN_UNLOCKS.get(zid, [[], [], []])
 			var last_unlock: Array = (unl[2] as Array).duplicate()
 			if md.has("biome") and zi == zs.size() - 1:   # mapa gerado: o chefe final libera o próximo mapa
@@ -769,10 +903,24 @@ static func _build_campaign() -> void:
 				if i + 1 < MAP_ORDER.size():
 					last_unlock.append("map:" + String(MAP_ORDER[i + 1]))
 			var item := quest_item(String(z["enemy"]))
+			if act >= 3:   # Ato IV em diante: os itens de coleta são estilhaços dos fragmentos
+				item = "Estilhaço do Fragmento de %s" % String(kd["name"])
+			var texts: Array
+			if STORY_BASE.has(zid):
+				texts = STORY_BASE[zid]
+			else:
+				var st: Dictionary = STORY_ACT[act]
+				var intro := String(st["intro"]) % ["%s, %s," % [String(kd["ruler"]), String(kd["title"])] if String(kd["ruler"]) != "???" else "Uma voz sem rosto", String(md["name"])] if zi == 0 else ""
+				texts = [intro + String(st["kill"]) % [zn, mob], String(st["collect"]) % [mob, item], String(st["boss"]) % chefe]
+				if String(mid) == last_map and zi == zs.size() - 1:
+					texts[2] = STORY_END % chefe
+				for ti in texts.size():
+					texts[ti] = String(texts[ti]).left(1).to_upper() + String(texts[ti]).substr(1)
+			var head := "[i]%s · %s[/i]\n" % [String(ACTS[act]["name"]), String(kd["name"])]
 			var steps := [
-				_quest("kill", mid, zid, lo, "%s: Caçada" % zn, "%sDerrote 12 × %s em %s." % [intro if zi == 0 else "", mob, zn], 12, unl[0]),
-				_quest("collect", mid, zid, lo + span / 3, "%s: Coleta" % zn, "Os %s carregam %s. Recolha 8 deles." % [mob, item], 8, unl[1]),
-				_quest("boss", mid, zid, lo + span * 2 / 3, "%s: %s" % [zn, chefe], "O chefe %s domina %s. Derrote-o!" % [chefe, zn], 1, last_unlock),
+				_quest("kill", mid, zid, lo, "%s: Caçada" % zn, head + String(texts[0]), 12, unl[0]),
+				_quest("collect", mid, zid, lo + span / 3, "%s: Coleta" % zn, head + String(texts[1]), 8, unl[1]),
+				_quest("boss", mid, zid, lo + span * 2 / 3, "%s: %s" % [zn, chefe], head + String(texts[2]), 1, last_unlock),
 			]
 			steps[1]["item"] = item
 			for k in 3:
@@ -780,8 +928,8 @@ static func _build_campaign() -> void:
 				for ex in CAMPAIGN_EXTRA.get(zid, []):
 					if int(ex[0]) == k:
 						var e: Dictionary = ex[1]
-						QUESTS.append(_quest(String(e["type"]), mid, "", int(steps[k]["min_level"]), String(e["title"]), String(e["text"]),
-							int(e["count"]), e.get("unlock", [])))
+						QUESTS.append(_quest(String(e["type"]), mid, "", int(steps[k]["min_level"]), String(e["title"]),
+							head + String(STORY_SPECIAL.get(String(e["type"]), e["text"])), int(e["count"]), e.get("unlock", [])))
 
 
 ## Tudo o que as missões antes de `index` já liberaram (chave → true). Fim da campanha libera tudo.

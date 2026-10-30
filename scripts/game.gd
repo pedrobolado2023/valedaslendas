@@ -1118,7 +1118,7 @@ func quest_objective(q: Dictionary, progress: bool) -> String:
 		"kill":
 			return "Derrote %d × %s em %s.%s" % [n, String(GameData.enemy(GameData.quest_kill(q))["name"]), where, p]
 		"collect":
-			return "Recolha %d × %s (caem dos %s em %s).%s" % [n, String(q["item"]), String(GameData.enemy(GameData.quest_kill(q))["name"]), where, p]
+			return "Recolha %d × %s (caem de %s em %s).%s" % [n, String(q["item"]), String(GameData.enemy(GameData.quest_kill(q))["name"]), where, p]
 		"boss":
 			return "Derrote o chefe %s em %s." % [String(GameData.enemy(GameData.quest_boss(q))["name"]), where]
 		"forge":

@@ -1,10 +1,10 @@
 class_name PortalPanel
 extends CanvasLayer
-## Portal de Viagem: todos os mapas em grade de 4 colunas com rolagem (do mais baixo ao mais alto), com o boss
-## global e a masmorra no topo. Mapa bloqueado aparece apagado com o nível necessário; o mapa atual fica marcado.
+## Portal de Viagem: os mapas agrupados pelos Sete Reinos (+ Aetherion), cada reino com as suas cidades em grade de
+## 4 colunas (do nível mais baixo ao mais alto), com rolagem; boss global e masmorra no topo. Mapa bloqueado aparece apagado com o nível necessário; o mapa atual fica marcado.
 
 var game: Node
-var _grid: GridContainer
+var _list: VBoxContainer
 var _top: HBoxContainer
 var _scroll: ScrollContainer
 
@@ -50,12 +50,10 @@ func setup(g: Node) -> void:
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(_scroll)
-	_grid = GridContainer.new()
-	_grid.columns = 4
-	_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_grid.add_theme_constant_override("h_separation", 8)
-	_grid.add_theme_constant_override("v_separation", 8)
-	_scroll.add_child(_grid)
+	_list = VBoxContainer.new()
+	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_list.add_theme_constant_override("separation", 6)
+	_scroll.add_child(_list)
 	visible = false
 
 
@@ -67,7 +65,7 @@ func open() -> void:
 func refresh() -> void:
 	for c in _top.get_children():
 		c.queue_free()
-	for c in _grid.get_children():
+	for c in _list.get_children():
 		c.queue_free()
 	var p: Player = game.get("player")
 	var cur := String(game.get("map_id"))
@@ -88,22 +86,47 @@ func refresh() -> void:
 			dg.choose())
 		_top.add_child(b2)
 	var focus: Control = null
+	var by_kingdom := {}
 	for id in GameData.MAP_ORDER:
-		var md: Dictionary = GameData.MAPS[id]
-		var by_story: bool = not game.call("map_open", String(id))
-		var locked: bool = p.level < int(md["min_level"]) or by_story
-		var here := String(id) == cur
-		var label := "%s\n%s%s" % [String(md["name"]), String(md["levels"]), "  · você está aqui" if here else ("  · nível %d" % int(md["min_level"]) if p.level < int(md["min_level"]) else ("  · campanha" if by_story else ""))]
-		var col := Color(0.55, 0.9, 1.0) if here else (Color(0.5, 0.5, 0.5) if locked else Color(0.95, 0.9, 0.8))
-		var b := _btn(label, col, false)
-		b.disabled = locked or here
-		var mid := String(id)
-		b.pressed.connect(func() -> void: _go(mid, false))
-		_grid.add_child(b)
-		if String(id) == String(game.call("best_open_map")):
-			focus = b
+		var kg := GameData.kingdom_of(String(id))
+		if not by_kingdom.has(kg):
+			by_kingdom[kg] = []
+		by_kingdom[kg].append(id)
+	var cur_kg := GameData.kingdom_of(cur)
+	for kg in GameData.KINGDOM_ORDER:
+		if not by_kingdom.has(kg):
+			continue
+		var kd: Dictionary = GameData.KINGDOMS[kg]
+		var head := UiTheme.title("%s  ·  %s%s" % [String(kd["name"]), String(kd["motto"]), ("   —   %s, %s" % [String(kd["ruler"]), String(kd["title"])]) if String(kd["ruler"]) != "???" else ""], 18, kd["color"])
+		_list.add_child(head)
+		var about := UiTheme.label(String(kd["about"]) + ("   (você está aqui)" if kg == cur_kg else ""), 13, Color(0.75, 0.75, 0.8))
+		_list.add_child(about)
+		var grid := GridContainer.new()
+		grid.columns = 4
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 8)
+		_list.add_child(grid)
+		for id in by_kingdom[kg]:
+			var b := _map_btn(String(id), p, cur)
+			grid.add_child(b)
+			if String(id) == String(game.call("best_open_map")):
+				focus = b
 	if focus != null:
 		_scroll.ensure_control_visible.call_deferred(focus)
+
+
+func _map_btn(id: String, p: Player, cur: String) -> Button:
+	var md: Dictionary = GameData.MAPS[id]
+	var by_story: bool = not game.call("map_open", id)
+	var low := p.level < int(md["min_level"])
+	var here := id == cur
+	var tag := "  · você está aqui" if here else ("  · nível %d" % int(md["min_level"]) if low else ("  · campanha" if by_story else ""))
+	var col := Color(0.55, 0.9, 1.0) if here else (Color(0.5, 0.5, 0.5) if low or by_story else Color(0.95, 0.9, 0.8))
+	var b := _btn("%s\n%s%s" % [String(md["name"]), String(md["levels"]), tag], col, false)
+	b.disabled = low or by_story or here
+	b.pressed.connect(func() -> void: _go(id, false))
+	return b
 
 
 func _btn(text: String, col: Color, big: bool) -> Button:
