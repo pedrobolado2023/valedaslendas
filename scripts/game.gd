@@ -73,6 +73,7 @@ func _ready() -> void:
 	_build_map("vale", false)
 	_cam_target = Vector3(0, 0, 6)
 	_make_menu()
+	_web_test.call_deferred()
 	cloud = CloudSync.new()
 	add_child(cloud)
 	# save mais novo na nuvem (outro PC): refaz o menu com o "Continuar" certo
@@ -101,6 +102,136 @@ func _ready() -> void:
 		if pulled and player == null and _menu != null:
 			_menu.queue_free()
 			_make_menu())
+
+
+## Só na versão de teste (debug) do navegador: ?mapa=m5&nivel=120 começa direto naquele mapa (para testar mapas).
+func _web_test() -> void:
+	if not OS.has_feature("web") or not OS.is_debug_build():
+		return
+	var q := String(JavaScriptBridge.eval("location.search", true))
+	if not q.contains("mapa="):
+		return
+	var args := {}
+	for part in q.trim_prefix("?").split("&"):
+		var kv := part.split("=")
+		if kv.size() == 2:
+			args[kv[0]] = kv[1]
+	start_game(String(args.get("classe", "druida")), {})
+	tutorial.visible = false
+	player.level = int(args.get("nivel", "120"))
+	player.recalc()
+	if args.has("semparte"):
+		ModelKit.debug_drop = String(args["semparte"]).split(",")
+	if args.has("trocar"):   # trocar=dragon_whelp: monstros com esse modelo usam o modelo do imp
+		var alvo := String(args["trocar"])
+		for z in GameData.ZONES.values():
+			for key in ["enemy", "boss"]:
+				var ed: Dictionary = GameData.enemy(String(z.get(key, "")))
+				if String(ed.get("model", "")) == alvo or (alvo == "dragon_whelp" and String(ed.get("model", "")) == "dragon_ancient"):
+					ed["model"] = "imp"
+		print("[teste] trocado ", alvo)
+	for k in ["montaria", "pet"]:
+		if args.has(k):
+			var it := Shop.item(String(args[k]))
+			player.purchases.append({"id": it["id"], "price": 0})
+			Shop._apply(player, it)
+	travel(String(args["mapa"]), true)
+	await get_tree().create_timer(1.5).timeout
+	if args.has("zona"):   # zona=N: vai para o centro da zona N do mapa
+		var zz: Dictionary = GameData.ZONES[GameData.MAPS[map_id]["zones"][int(args["zona"])]]
+		player.global_position = zz["center"] + Vector3(0, 0.3, 0)
+	if args.has("so"):   # coloca um monstro deste tipo do lado do herói; sem=Peça1,Peça2 esconde peças dele
+		var e := Enemy.new()
+		e.setup(String(args["so"]), player.global_position + Vector3(3, 0, 0))
+		actors.add_child(e)
+		await get_tree().process_frame
+		if args.has("sem"):
+			for nm in String(args["sem"]).split(","):
+				for mi in e.find_children(nm + "*", "MeshInstance3D", true, false):
+					(mi as MeshInstance3D).visible = false
+		print("[teste] colocado ", args["so"])
+	if args.has("lista"):
+		var i := 0
+		for c in world.get_children():
+			print("[teste] filho ", i, " ", c.name, " <", c.get_class(), "> filhos=", c.get_child_count())
+			i += 1
+	if args.has("esconder"):   # esconder=a-b (índices dos filhos do mundo)
+		var ab: PackedStringArray = String(args["esconder"]).split("-")
+		var kids := world.get_children()
+		for i in range(int(ab[0]), mini(int(ab[1]) + 1, kids.size())):
+			if kids[i] is Node3D:
+				(kids[i] as Node3D).visible = false
+			elif kids[i] is Light3D:
+				pass
+		print("[teste] escondidos ", ab)
+	if args.has("tipo"):   # esconde só os monstros deste tipo (ex.: tipo=whelp)
+		for e in get_tree().get_nodes_in_group("enemy"):
+			if String(args["tipo"]) in String((e as Enemy).data.get("model", "")):
+				(e as Node3D).visible = false
+		print("[teste] escondido tipo ", args["tipo"])
+	if args.has("nan"):
+		var bad := 0
+		for n in get_tree().root.find_children("*", "Node3D", true, false):
+			var t: Transform3D = (n as Node3D).global_transform
+			var ok := t.origin.is_finite() and t.basis.x.is_finite() and t.basis.y.is_finite() and t.basis.z.is_finite()
+			if not ok or t.basis.determinant() == 0.0:
+				bad += 1
+				if bad < 15:
+					print("[teste] RUIM ", n.get_path(), " ", t)
+			if n is MultiMeshInstance3D and (n as MultiMeshInstance3D).multimesh != null:
+				var mm := (n as MultiMeshInstance3D).multimesh
+				for i in mm.instance_count:
+					var it := mm.get_instance_transform(i)
+					if not it.origin.is_finite() or not it.basis.x.is_finite():
+						bad += 1
+						if bad < 15:
+							print("[teste] RUIM multimesh ", n.get_path(), " inst ", i, " ", it)
+						break
+		print("[teste] objetos com transform ruim: ", bad)
+	if args.has("atores"):   # atores=0 esconde todos; atores=longe esconde os monstros longe do herói (>40)
+		for c in actors.get_children():
+			if c is Node3D and c != player:
+				if String(args["atores"]) == "0" or (c as Node3D).global_position.distance_to(player.global_position) > 40.0:
+					(c as Node3D).visible = false
+		print("[teste] atores escondidos ", args["atores"])
+	if args.has("semsombra"):
+		for l in get_tree().root.find_children("*", "Light3D", true, false):
+			(l as Light3D).shadow_enabled = false
+		print("[teste] sombras desligadas")
+	if args.has("semomni"):
+		for l in get_tree().root.find_children("*", "OmniLight3D", true, false):
+			(l as Light3D).visible = false
+		print("[teste] omni desligadas")
+	if args.has("contar"):
+		var mis := 0
+		var surf := 0
+		var mm := 0
+		for n in get_tree().root.find_children("*", "MeshInstance3D", true, false):
+			var mi := n as MeshInstance3D
+			if mi.is_visible_in_tree() and mi.mesh != null:
+				mis += 1
+				surf += mi.mesh.get_surface_count()
+		for n in get_tree().root.find_children("*", "MultiMeshInstance3D", true, false):
+			var mmi := n as MultiMeshInstance3D
+			if mmi.multimesh != null:
+				mm += mmi.multimesh.instance_count
+		print("[teste] CONTA malhas ", mis, " superficies ", surf, " multimesh inst ", mm, " luzes ", get_tree().root.find_children("*", "Light3D", true, false).size())
+	if args.has("info"):
+		var c3 := get_viewport().get_camera_3d()
+		print("[teste] camera atual ", c3.get_path() if c3 else "NENHUMA", " size ", c3.size if c3 else 0, " near ", c3.near if c3 else 0, " far ", c3.far if c3 else 0, " cull ", c3.cull_mask if c3 else 0)
+		for we in get_tree().root.find_children("*", "WorldEnvironment", true, false):
+			var en: Environment = (we as WorldEnvironment).environment
+			print("[teste] env ", we.get_path(), " bg ", en.background_mode, " fog ", en.fog_enabled, " dens ", en.fog_density, " tonemap ", en.tonemap_mode, " exp ", en.tonemap_exposure, " adj ", en.adjustment_enabled)
+		for l in get_tree().root.find_children("*", "DirectionalLight3D", true, false):
+			print("[teste] sol ", l.get_path(), " energia ", (l as Light3D).light_energy, " sombra ", (l as Light3D).shadow_enabled)
+		print("[teste] luzes omni ", get_tree().root.find_children("*", "OmniLight3D", true, false).size(), " decals ", get_tree().root.find_children("*", "Decal", true, false).size(), " gpu part ", get_tree().root.find_children("*", "GPUParticles3D", true, false).size(), " cpu part ", get_tree().root.find_children("*", "CPUParticles3D", true, false).size())
+	if args.has("semglow"):
+		for we in find_children("*", "WorldEnvironment", true, false):
+			(we as WorldEnvironment).environment.glow_enabled = false
+			print("[teste] glow desligado")
+	for i in 3:
+		await get_tree().create_timer(1.0).timeout
+		print("[teste] fade ", _fade.color, " viajando ", _traveling, " mapa ", map_id, " herói ", player.global_position, " câmera ", cam.global_position, " chão ", player.is_on_floor())
 
 
 func _make_menu() -> void:

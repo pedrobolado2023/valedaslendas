@@ -176,6 +176,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Teste local sem Supabase: `VALE_DEV=1`. Fora de net.gd usar `get_node("/root/Net")` (com `-s` o nome `Net` não
   existe na compilação). Web: preset "Web" em `export_presets.cfg` (modo compatibilidade, sem os heróis inteiros),
   `deploy/Dockerfile.web` (nginx) e `deploy/Dockerfile.server`.
+- **Navegador (WebGL) tem limite de objetos desenhados:** mapas com ~750+ malhas visíveis ficavam com o 3D azul/preto
+  (o dragon_whelp antigo tinha 41 peças; foi refeito com `make_monsters.py`). Monstros a mais de `Enemy.DRAW_DIST` (60)
+  do herói não são desenhados. Shaders: nunca `smoothstep` com limites invertidos nem `normalize` de normal que pode
+  ser zero (usar `safe_n` do toon). Teste no navegador: export debug + `?mapa=m8&nivel=170` (ver `game._web_test`:
+  `zona`, `montaria`, `pet`, `contar`, `trocar`, `semparte`); recarregar com Ctrl+Shift+R (o navegador guarda o .pck).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

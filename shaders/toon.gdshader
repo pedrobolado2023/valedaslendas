@@ -22,7 +22,15 @@ varying vec3 lpos;
 varying vec3 lnrm;
 varying vec3 vcol;
 
+// Normal segura: modelos antigos têm vértices com normal zerada/NaN. No PC isso dá zero, mas no navegador
+// (WebGL/ANGLE) normalize() vira NaN e, com o glow, um ponto NaN pinta a tela inteira de preto/azul.
+vec3 safe_n(vec3 n) {
+	float l = dot(n, n);
+	return (l > 1e-8 && l < 1e8) ? n * inversesqrt(l) : vec3(0.0, 1.0, 0.0);
+}
+
 void vertex() {
+	NORMAL = safe_n(NORMAL);
 	lpos = VERTEX;
 	lnrm = NORMAL;
 	vcol = use_vertex_color ? COLOR.rgb : vec3(1.0);
@@ -31,7 +39,7 @@ void vertex() {
 void fragment() {
 	vec3 col = texture(albedo_tex, UV * uv_scale).rgb * albedo.rgb * vcol;
 	if (detail_strength > 0.0) {
-		vec3 w = pow(abs(normalize(lnrm)), vec3(4.0));
+		vec3 w = pow(abs(safe_n(lnrm)), vec3(4.0));
 		w /= (w.x + w.y + w.z + 0.0001);
 		vec3 p = lpos * detail_scale;
 		float d = texture(detail_tex, p.zy).r * w.x + texture(detail_tex, p.xz).r * w.y + texture(detail_tex, p.xy).r * w.z;
@@ -41,9 +49,10 @@ void fragment() {
 	ALBEDO = col;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
-	float edge = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	float edge = 1.0 - clamp(dot(safe_n(NORMAL), safe_n(VIEW)), 0.0, 1.0);
 	float rim = smoothstep(rim_threshold, rim_threshold + 0.05, edge);
-	EMISSION = rim_color.rgb * rim * rim_strength + vec3(flash);
+	EMISSION = clamp(rim_color.rgb * rim * rim_strength + vec3(flash), vec3(0.0), vec3(4.0));
+	ALBEDO = clamp(ALBEDO, vec3(0.0), vec3(4.0));
 }
 
 void light() {

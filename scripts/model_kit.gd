@@ -12,6 +12,7 @@ var mats: Array[ShaderMaterial] = []
 var current := ""
 
 static var _mesh_cache := {}
+static var debug_drop: PackedStringArray = []   # teste: peças (prefixo do nome) removidas ao carregar
 
 
 static func _scene(model: String) -> PackedScene:
@@ -28,6 +29,9 @@ static func load_kit(model: String, outline: float = 0.03, detail: float = 0.3) 
 	var node := scene.instantiate() as Node3D
 	if node == null:
 		return null
+	for pre in debug_drop:
+		for n in node.find_children(pre + "*", "MeshInstance3D", true, false):
+			n.free()
 	var kit := ModelKit.new()
 	kit.root = node
 	kit._convert(node, outline, detail)

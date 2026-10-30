@@ -147,9 +147,31 @@ func _quad(color: Color, size: Vector2, prio: int) -> MeshInstance3D:
 	return mi
 
 
+## Longe do herói o monstro não é desenhado (no navegador o WebGL deixa de desenhar o 3D inteiro quando
+## há objetos demais: mapas com ~900 malhas ficavam com a tela azul/preta). A lógica continua rodando.
+const DRAW_DIST := 60.0
+var _draw_t := 0.0
+
+
+func _update_draw(delta: float) -> void:
+	_draw_t -= delta
+	if _draw_t > 0.0:
+		return
+	_draw_t = 0.4 + randf() * 0.2
+	var cam := get_viewport().get_camera_3d() if is_inside_tree() else null
+	var p := get_tree().get_first_node_in_group("player") as Node3D
+	var ref: Vector3 = p.global_position if p != null else (cam.global_position if cam != null else global_position)
+	var near := Vector2(global_position.x - ref.x, global_position.z - ref.z).length() < DRAW_DIST
+	if _vis != null and _vis.visible != near:
+		_vis.visible = near
+	if _label != null and not near:
+		_label.visible = false
+
+
 func _physics_process(delta: float) -> void:
 	if not alive:
 		return
+	_update_draw(delta)
 	if net_id > 0:
 		_net_process(delta)
 		return

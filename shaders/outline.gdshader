@@ -7,7 +7,10 @@ uniform vec4 outline_color : source_color = vec4(0.04, 0.03, 0.03, 1.0);
 uniform float outline_width : hint_range(0.0, 0.2) = 0.03;
 
 void vertex() {
-	VERTEX += NORMAL * outline_width;
+	// normal zerada/NaN (modelos antigos): sem inflar, senão o vértice vira NaN no navegador
+	float l = dot(NORMAL, NORMAL);
+	vec3 n = (l > 1e-8 && l < 1e8) ? NORMAL * inversesqrt(l) : vec3(0.0);
+	VERTEX += n * outline_width;
 }
 
 void fragment() {
