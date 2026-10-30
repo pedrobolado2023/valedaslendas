@@ -729,6 +729,21 @@ const CHARACTERS := {
 }
 
 
+## Lealdade a um reino (tecla H): bônus da especialidade do reino; trocar custa gemas e só 1 vez a cada 7 dias.
+## Guerra dos Reinos (online, semanal): pontos por monstro/chefe/masmorra/duelo; o 1º da semana ganha a Coroa (+XP).
+const KINGDOM_BONUS := {"eloreth": {"hp": 0.05}, "seryth": {"xp": 0.05}, "valdrath": {"def": 0.02}, "drakaris": {"atk": 0.05},
+	"thalyss": {"speed": 0.03, "mp": 0.03}, "vyndara": {"atk": 0.025, "hp": 0.025}, "sombras": {"gold": 0.05, "mp": 0.03}}
+const KINGDOM_WAR := {"change_gems": 200, "change_days": 7, "kill": 1, "boss": 10, "dungeon": 50, "duel": 30, "crown_xp": 0.10}
+static var CROWN := ""   # reino com a Coroa nesta semana (o servidor manda)
+
+
+static func bonus_text(b: Dictionary) -> String:
+	var parts: Array = []
+	for k in b:
+		parts.append("+%s%% %s" % [str(snappedf(float(b[k]) * 100.0, 0.1)), String(BONUS_NAMES.get(k, k))])
+	return ", ".join(parts)
+
+
 ## Fragmentos dos reinos (tecla Y): bônus por nível do fragmento (nível = cidades do reino concluídas na campanha).
 const FRAGMENT_MAX := 9
 const FRAGMENTS := {
@@ -921,14 +936,14 @@ const STORY_END := "Este é o último confronto. Derrote %s e a vontade d'A Orig
 static var QUESTS: Array = []
 const FEATURE_NAMES := {"board": "Quadro de Missões (J)", "pets": "Pets (P)", "forge": "Forja (U)", "refine": "Refino de itens (I)",
 	"dungeon": "Masmorras (Portal)", "market": "Mercadinho (B)", "mounts": "Montarias (R)", "guild": "Guildas (G)",
-	"global_boss": "Boss global", "duel": "Duelos (G)"}
+	"global_boss": "Boss global", "duel": "Duelos (G)", "kingdom": "Lealdade a um Reino (H)"}
 ## O que cada etapa libera nos mapas base: zona → [na caçada, na coleta, no chefe]. Nos mapas gerados o chefe da
 ## última zona libera o mapa seguinte.
 const CAMPAIGN_UNLOCKS := {
 	"campo": [["skill:2"], ["board"], ["skill:3", "pets"]],
 	"floresta": [[], ["forge"], ["skill:4"]],
 	"ruinas": [["dungeon"], ["market"], ["skill:5", "map:deserto"]],
-	"dunas": [[], ["mounts"], ["skill:6"]],
+	"dunas": [["kingdom"], ["mounts"], ["skill:6"]],
 	"cemiterio": [[], [], ["skill:7", "guild"]],
 	"templo": [[], [], ["skill:8", "map:gelo"]],
 	"tundra": [[], ["global_boss"], []],

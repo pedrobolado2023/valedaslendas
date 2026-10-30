@@ -241,6 +241,7 @@ func _kill(m: String, e: Dictionary) -> void:
 			net._enemy_dead.rpc_id(int(pid), int(e["id"]), credit, drop if int(pid) == top else "")
 			if e["hits"].has(pid):
 				net.guild_points(int(pid), 5 if e["boss"] else 1)
+				net.kingdom_points(int(pid), int(GameData.KINGDOM_WAR["boss" if e["boss"] else "kill"]))
 	if m.contains("#"):
 		pass
 	elif not e["boss"]:
@@ -397,6 +398,7 @@ func _dg_end(key: String, win: bool, why: String) -> void:
 			r["mat_mult"] = rw
 			for i in int(cfg["items"]) * int(rw):
 				r["rarities"].append(GameData.roll_rarity("boss"))
+		net.kingdom_points(int(pid), int(GameData.KINGDOM_WAR["dungeon"]))
 		p["credit_gems"] = int(p.get("credit_gems", 0)) + int(r["gems"])
 		p["credit_items"] = int(p.get("credit_items", 0)) + (r["rarities"] as Array).size()
 		net._dungeon_ev.rpc_id(int(pid), "win", r)

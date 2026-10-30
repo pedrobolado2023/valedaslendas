@@ -205,6 +205,8 @@ func in_combat() -> bool:
 ## Quantas skills a classe tem (até GameData.MAX_SKILLS).
 ## Fragmentos dos reinos equipados (chaves de reino) e o bônus somado deles (o jogo calcula em game.apply_fragments).
 var fragments: Array = []
+var kingdom := ""        # reino jurado (painel H)
+var kingdom_t := 0.0     # quando trocou de reino pela última vez (horário Unix)
 var frag_bonus := {}
 
 

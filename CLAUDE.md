@@ -256,6 +256,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   ataque, velocidade/mana, mana/ouro; Aetherion um pouco de tudo), nível = cidades do reino com o chefe final vencido
   (`game.fragment_levels`, até `FRAGMENT_MAX` 9). Encaixes `game.fragment_slots` (1; 2 no Ato II). `game.apply_fragments`
   soma em `player.frag_bonus` (usado em `recalc`, `gain_xp`, `add_gold`); save `fragments`. Fragmento novo entra sozinho se houver encaixe.
+- **Lealdade e Guerra dos Reinos (H, `ui/kingdom_panel.gd`):** campanha libera em "dunas" (`kingdom`). Jurar no painel
+  ou falando com o soberano (`game.swear_kingdom`; 1ª grátis, trocar = `KINGDOM_WAR.change_gems` e 7 dias); bônus
+  `KINGDOM_BONUS` somado em `apply_fragments`; save `kingdom`/`kingdom_t`. Servidor: `Net._war` (semana, pontos, coroa;
+  tabela `kingdom_war` em `supabase/reinos.sql`), `kingdom_points` (monstro, chefe, masmorra, duelo contra outro reino,
+  boss global), `_war_check` vira a semana e dá a Coroa (+XP, `GameData.CROWN`). Reino aparece em cima dos outros heróis.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

@@ -27,6 +27,7 @@ var events: WorldEvents          # boss global (horários, covil, recompensas)
 var shop_panel: ShopPanel
 var pet_panel: PetPanel
 var fragment_panel: FragmentPanel
+var kingdom_panel: KingdomPanel
 var _frag_lv := {}
 var rewards_panel: RewardsPanel
 var portal_panel: PortalPanel
@@ -629,6 +630,8 @@ func _apply_save(d: Dictionary) -> void:
 			if int(eq[k]) == int(item["uid"]):
 				player.gear[String(k)] = item
 	player.fragments = (d.get("fragments", []) as Array).duplicate()
+	player.kingdom = String(d.get("kingdom", ""))
+	player.kingdom_t = float(d.get("kingdom_t", 0.0))
 	quest_index = -1
 	var qid := String(d.get("quest_id", ""))
 	if qid == "fim":
@@ -672,7 +675,7 @@ func save_now() -> void:
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
-		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "fragments": player.fragments, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
+		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "fragments": player.fragments, "kingdom": player.kingdom, "kingdom_t": player.kingdom_t, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	}
 	SaveGame.write(data)
@@ -720,6 +723,12 @@ func _build_ui() -> void:
 	add_child(fragment_panel)
 	fragment_panel.setup(self)
 	hud.fragments_pressed.connect(func() -> void: fragment_panel.toggle())
+	kingdom_panel = KingdomPanel.new()
+	add_child(kingdom_panel)
+	kingdom_panel.setup(self)
+	hud.kingdom_pressed.connect(func() -> void:
+		if gate("kingdom"):
+			kingdom_panel.toggle())
 	rewards_panel = RewardsPanel.new()
 	add_child(rewards_panel)
 	rewards_panel.setup(player)
@@ -990,6 +999,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			rewards_panel.toggle()
 		KEY_Y:
 			fragment_panel.toggle()
+		KEY_H:
+			if gate("kingdom"):
+				kingdom_panel.toggle()
 		KEY_P:
 			if gate("pets"):
 				pet_panel.toggle()
@@ -1007,7 +1019,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or market_panel.visible or forge_panel.visible or admin_panel.visible or fragment_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or market_panel.visible or forge_panel.visible or admin_panel.visible or fragment_panel.visible or kingdom_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
@@ -1015,6 +1027,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			shop_panel.visible = false
 			pet_panel.visible = false
 			fragment_panel.visible = false
+			kingdom_panel.visible = false
 			rewards_panel.visible = false
 			portal_panel.visible = false
 			social_panel.visible = false
@@ -1056,9 +1069,15 @@ func _interact(what: String, from_click: bool) -> void:
 			var rk := String(royal.get_meta("who"))
 			var kd: Dictionary = GameData.KINGDOMS[String(GameData.CHARACTERS[rk]["kingdom"])]
 			dialog.portrait = rk
-			dialog.open(royal.npc_name, "%s
-
-[i][color=#e8b75a]%s — \"%s\"[/color][/i]" % [String(GameData.CHARACTER_LINES.get(rk, "")), String(kd["name"]), String(kd["motto"])], [["Fechar", dialog.close]])
+			var kgr := String(GameData.CHARACTERS[rk]["kingdom"])
+			var opts: Array = []
+			if feature_on("kingdom") and player.kingdom != kgr and GameData.KINGDOM_BONUS.has(kgr):
+				opts.append(["Jurar lealdade a %s" % String(kd["name"]), func() -> void:
+					dialog.close()
+					swear_kingdom(kgr)])
+			opts.append(["Fechar", dialog.close])
+			dialog.open(royal.npc_name, "%s\n\n[i][color=#e8b75a]%s — \"%s\"[/color][/i]%s" % [String(GameData.CHARACTER_LINES.get(rk, "")), String(kd["name"]), String(kd["motto"]),
+				("\nBônus de quem jura lealdade: " + GameData.bonus_text(GameData.KINGDOM_BONUS[kgr])) if GameData.KINGDOM_BONUS.has(kgr) else ""], opts)
 		"npc":
 			talk()
 		"board":
@@ -1294,6 +1313,11 @@ func apply_fragments() -> void:
 			keep.append(String(kg))
 	player.fragments = keep
 	var total := {}
+	if player.kingdom != "" and feature_on("kingdom"):   # lealdade: bônus do reino (+ Coroa da semana)
+		for k in GameData.KINGDOM_BONUS[player.kingdom]:
+			total[k] = float(total.get(k, 0.0)) + float(GameData.KINGDOM_BONUS[player.kingdom][k])
+		if GameData.CROWN == player.kingdom:
+			total["xp"] = float(total.get("xp", 0.0)) + float(GameData.KINGDOM_WAR["crown_xp"])
 	for kg in keep:
 		var b := GameData.fragment_bonus(String(kg), int(lv[kg]))
 		for k in b:
@@ -1301,6 +1325,33 @@ func apply_fragments() -> void:
 	player.frag_bonus = total
 	player.recalc()
 	player.stats_changed.emit()
+
+
+## Jurar lealdade a um reino: a 1ª vez é grátis; trocar custa gemas e só depois de alguns dias.
+func swear_kingdom(kg: String) -> void:
+	if not gate("kingdom") or not GameData.KINGDOM_BONUS.has(kg) or player.kingdom == kg:
+		return
+	var cfg: Dictionary = GameData.KINGDOM_WAR
+	var now := Time.get_unix_time_from_system()
+	if player.kingdom != "":
+		var wait := float(cfg["change_days"]) * 86400.0 - (now - player.kingdom_t)
+		if wait > 0.0:
+			toast("Você só pode trocar de reino daqui a %d dia(s)." % int(ceil(wait / 86400.0)), 3.0)
+			return
+		if player.gems < int(cfg["change_gems"]):
+			toast("Trocar de reino custa %d gemas." % int(cfg["change_gems"]), 2.5)
+			return
+		player.gems -= int(cfg["change_gems"])
+	player.kingdom = kg
+	player.kingdom_t = now
+	apply_fragments()
+	var kd: Dictionary = GameData.KINGDOMS[kg]
+	hud.banner("Lealdade a %s" % String(kd["name"]), "\"%s\" — bônus: %s" % [String(kd["motto"]), GameData.bonus_text(GameData.KINGDOM_BONUS[kg])], 4.0)
+	Sfx.play("legendary", -4.0)
+	var net := get_node("/root/Net")
+	if net.online:
+		net.kingdom_set.rpc_id(1, kg)
+	save_now()
 
 
 ## true se a função já foi liberada; senão avisa qual missão libera.

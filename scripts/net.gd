@@ -35,6 +35,7 @@ signal enemy_attack(id: int, slam: bool, center: Vector3, r: float, wind: float)
 signal enemy_dead(id: int, credit: bool, drop: String)
 signal hurt(dmg: int, id: int)
 signal dungeon_event(kind: String, data: Dictionary)
+signal war_info(crown: String, points: Dictionary, last: Dictionary)
 
 const SNAP_HZ := 10.0
 
@@ -101,6 +102,7 @@ func _start_server() -> void:
 	_guild_load()
 	_started = Time.get_unix_time_from_system()
 	_config_load()
+	_war_load()
 	print("[servidor] Vale das Lendas ouvindo na porta %d · Supabase %s · chave secreta %s" % [port, sb_url, "OK" if sb_service != "" else "FALTANDO"])
 
 
@@ -130,6 +132,8 @@ func _process(delta: float) -> void:
 		_boss_all()
 	_save_t += delta
 	if _save_t > 60.0:
+		_war_check()
+		_war_save()
 		for gk in _guilds:   # pontos de guilda: grava de minuto em minuto
 			if _guilds[gk].get("dirty", false):
 				_guilds[gk].erase("dirty")
@@ -148,7 +152,7 @@ func _broadcast() -> void:
 		var mk := map_key(int(id))
 		if not by_map.has(mk):
 			by_map[mk] = {}
-		by_map[mk][id] = [p["name"], p["cls"], p["gear"], p["pos"], p["rot"], p["moving"], p.get("mount", ""), String(p.get("guild", ""))]
+		by_map[mk][id] = [p["name"], p["cls"], p["gear"], p["pos"], p["rot"], p["moving"], p.get("mount", ""), String(p.get("guild", "")), String(p.get("kingdom", ""))]
 	for id in _players:
 		if _players[id].has("map"):
 			_snapshot.rpc_id(int(id), by_map.get(map_key(int(id)), {}))
@@ -207,6 +211,9 @@ func hello(token: String) -> void:
 		_world_ev.rpc_id(id, "anuncio", "", Vector3.ZERO, String(cfg["motd"]))
 	_market_payouts(id)
 	_guild_join_online(id)
+	_players[id]["kingdom"] = String(_cur_char(id).get("kingdom", ""))
+	_war_check()
+	_war_info.rpc_id(id, String(_war["crown"]), _war["points"], _war["last"])
 	_boss_send(id)
 	var left := _boss_at - Time.get_unix_time_from_system()
 	if left > -float(GameData.GLOBAL_BOSS["minutes"]) * 60.0 and _boss_at > 0.0:   # entrou durante o aviso/evento
@@ -357,6 +364,7 @@ func push_save(data: Dictionary, slot: int = 0) -> void:
 	acc["cur"] = slot
 	acc["saved_at"] = String(data.get("saved_at", ""))
 	p["level"] = int(data.get("level", 1))
+	p["kingdom"] = String(data.get("kingdom", ""))
 	p["save_t"] = Time.get_unix_time_from_system()
 	p["credit_gems"] = 0
 	p["credit_gold"] = 0
@@ -694,6 +702,81 @@ func guild_leave(kick_name: String = "") -> void:
 		g["leader"] = String(mem[0]["uid"])
 	_guild_save(k)
 	_guild_refresh(k)
+
+
+# ------------------------------------------------------------------ Guerra dos Reinos (semanal)
+
+var _war := {"week": -1, "points": {}, "last": {}, "crown": ""}
+var _war_dirty := false
+
+
+func _war_load() -> void:
+	_war["week"] = Dungeon.week_key()
+	if not _db():
+		return
+	var r := await _sb("/rest/v1/kingdom_war?select=data&id=eq.1", HTTPClient.METHOD_GET, null)
+	if r["json"] is Array and not (r["json"] as Array).is_empty() and r["json"][0]["data"] is Dictionary:
+		var d: Dictionary = r["json"][0]["data"]
+		for k in ["week", "points", "last", "crown"]:
+			if d.has(k):
+				_war[k] = d[k]
+	_war_check()
+
+
+## Virou a semana: o reino com mais pontos ganha a Coroa e os pontos zeram.
+func _war_check() -> void:
+	var wk := Dungeon.week_key()
+	if int(_war["week"]) == wk:
+		return
+	var best := ""
+	var bp := 0
+	for k in _war["points"]:
+		if int(_war["points"][k]) > bp:
+			bp = int(_war["points"][k])
+			best = String(k)
+	_war["crown"] = best
+	_war["last"] = _war["points"]
+	_war["points"] = {}
+	_war["week"] = wk
+	_war_dirty = true
+	for pid in _players:
+		_war_info.rpc_id(int(pid), best, {}, _war["last"])
+	print("[servidor] nova semana da Guerra dos Reinos; coroa: ", best)
+
+
+func kingdom_points(id: int, n: int) -> void:
+	var kg := String(_players.get(id, {}).get("kingdom", ""))
+	if kg == "" or n <= 0:
+		return
+	_war_check()
+	_war["points"][kg] = int(_war["points"].get(kg, 0)) + n
+	_war_dirty = true
+
+
+func _war_save() -> void:
+	if _war_dirty and _db():
+		_war_dirty = false
+		_sb("/rest/v1/kingdom_war?on_conflict=id", HTTPClient.METHOD_POST, {"id": 1, "data": _war}, "", ["Prefer: resolution=merge-duplicates,return=minimal"])
+
+
+@rpc("any_peer", "reliable")
+func kingdom_set(kg: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(id) and GameData.KINGDOM_BONUS.has(kg):
+		_players[id]["kingdom"] = kg
+
+
+@rpc("any_peer", "reliable")
+func kingdom_rank() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(id):
+		_war_check()
+		_war_info.rpc_id(id, String(_war["crown"]), _war["points"], _war["last"])
+
+
+@rpc("authority", "reliable")
+func _war_info(crown: String, points: Dictionary, last: Dictionary) -> void:
+	war_info.emit(crown, points, last)
 
 
 ## Pontos da guilda (monstros mortos, dano no boss).
@@ -1091,6 +1174,8 @@ func pvp_dead_srv(id: int) -> void:
 	if _players.has(to):
 		_players[to]["duel"] = 0
 		var w := String(_players[to]["name"])
+		if String(_players[to].get("kingdom", "")) != String(_players[id].get("kingdom", "")):
+			kingdom_points(to, int(GameData.KINGDOM_WAR["duel"]))
 		_duel_end.rpc_id(to, w)
 		_duel_end.rpc_id(id, w)
 		for pid in _players:
@@ -1424,7 +1509,7 @@ func _status_push() -> void:
 			"map": String(GameData.MAPS[m]["name"]) if GameData.MAPS.has(m) else m, "guild": String(p.get("guild", "")), "admin": bool(p.get("admin", false))})
 	var data := {"online": _players.size(), "players": list, "uptime": int(Time.get_unix_time_from_system() - _started),
 		"boss_in": int(_boss_at - Time.get_unix_time_from_system()) if _boss_at > 0.0 else null, "cfg": cfg,
-		"market": _market.size(), "guilds": _guilds.size(), "time": Time.get_datetime_string_from_system()}
+		"market": _market.size(), "guilds": _guilds.size(), "war": _war["points"], "crown": _war["crown"], "time": Time.get_datetime_string_from_system()}
 	await _sb("/rest/v1/server_status", HTTPClient.METHOD_POST, {"id": 1, "data": data, "updated_at": Time.get_datetime_string_from_system(true) + "Z"}, "", ["Prefer: resolution=merge-duplicates"])
 
 
@@ -1500,6 +1585,7 @@ func _boss_dead(last: int) -> void:
 			item = "lendaria" if r < float(odds["lendaria"]) else ("epica" if r < float(odds["lendaria"]) + float(odds["epica"]) else "rara")
 		_boss_reward.rpc_id(pid, i + 1, pid == last, item)
 		guild_points(pid, int(_boss["hits"][pid]) / 1000)
+		kingdom_points(pid, int(GameData.KINGDOM_WAR["boss"]) * 3)
 		# o que o servidor deu entra na conta do próximo save (não conta como trapaça)
 		var cfg2: Dictionary = GameData.GLOBAL_BOSS
 		_players[pid]["credit_gems"] = int(_players[pid].get("credit_gems", 0)) + int(cfg2["reward_gems"]) + (int(cfg2["top_gems"][i]) if i < 3 else 0) + (int(cfg2["last_gems"]) if pid == last else 0)
@@ -1597,7 +1683,7 @@ func _snapshot(players: Dictionary) -> void:
 		if int(id) == my_id:
 			continue
 		var a: Array = players[id]
-		others[int(id)] = {"name": a[0], "cls": a[1], "gear": a[2], "pos": a[3], "rot": a[4], "moving": a[5], "mount": a[6], "guild": a[7] if a.size() > 7 else ""}
+		others[int(id)] = {"name": a[0], "cls": a[1], "gear": a[2], "pos": a[3], "rot": a[4], "moving": a[5], "mount": a[6], "guild": a[7] if a.size() > 7 else "", "kingdom": a[8] if a.size() > 8 else ""}
 
 
 @rpc("authority", "unreliable_ordered")
