@@ -119,8 +119,8 @@ func pull() -> bool:
 
 ## Envia o save (o último pedido vence; não trava o jogo).
 func push(data: Dictionary) -> void:
-	if not enabled or token == "":
-		return
+	if not enabled or token == "" or get_node("/root/Net").server_url != "":
+		return   # com servidor do jogo, quem grava no banco é ele (ver supabase/seguranca.sql)
 	_pending = data.duplicate(true)
 	if _busy:
 		return

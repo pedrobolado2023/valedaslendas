@@ -125,6 +125,7 @@ func hello(token: String) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if OS.get_environment("VALE_DEV") != "":   # teste local sem Supabase: qualquer token entra
 		_players[id] = {"uid": "dev-%d" % id, "name": token, "cls": "", "gear": {}, "save": {}, "admin": token.begins_with("admin")}
+		_players[id]["save_t"] = Time.get_unix_time_from_system()
 		_welcome.rpc_id(id, true, {})
 		return
 	var user := await _sb("/auth/v1/user", HTTPClient.METHOD_GET, null, token)
@@ -142,6 +143,7 @@ func hello(token: String) -> void:
 	_players[id] = {"uid": uid, "name": mail.get_slice("@", 0), "cls": "", "gear": {}, "save": save,
 		"admin": meta is Dictionary and bool(meta.get("admin", false))}
 	print("[servidor] entrou: ", mail, " (", _players.size(), " online)")
+	_players[id]["save_t"] = Time.get_unix_time_from_system()
 	_welcome.rpc_id(id, true, save)
 	_boss_send(id)
 	var left := _boss_at - Time.get_unix_time_from_system()
@@ -199,12 +201,52 @@ func push_save(data: Dictionary) -> void:
 	if not is_server or not _players.has(id):
 		return
 	var p: Dictionary = _players[id]
-	var old: Dictionary = p["save"]
-	# trava básica contra trapaça: o nível não pode pular de uma vez
-	if not old.is_empty() and int(data.get("level", 1)) > int(old.get("level", 1)) + 20:
-		print("[servidor] save recusado (nível pulou): ", p["name"])
+	var why := _save_check(p, data)
+	if why != "":
+		print("[servidor] save recusado de ", p["name"], ": ", why)
+		_save_refused.rpc_id(id, why)
 		return
 	p["save"] = data
+	p["save_t"] = Time.get_unix_time_from_system()
+	p["credit_gems"] = 0
+	p["credit_gold"] = 0
+	p["credit_items"] = 0
+
+
+## Confere se o save novo é possível a partir do anterior (contra trapaça). Devolve "" se estiver ok.
+## Generoso de propósito: quem joga normal nunca é barrado; quem edita o jogo para se dar milhões é.
+func _save_check(p: Dictionary, data: Dictionary) -> String:
+	var old: Dictionary = p["save"]
+	if old.is_empty() or bool(p.get("admin", false)):
+		return ""
+	var hours := maxf((Time.get_unix_time_from_system() - float(p.get("save_t", Time.get_unix_time_from_system() - 60.0))) / 3600.0, 1.0 / 60.0)
+	var lv0 := int(old.get("level", 1))
+	var lv1 := int(data.get("level", 1))
+	if lv1 > lv0 + maxi(20, int(hours * 30.0)):
+		return "nível subiu rápido demais"
+	var gem_cap := 150 + 5 * maxi(0, lv1 - lv0) + int(hours * 400.0) + int(p.get("credit_gems", 0))
+	if int(data.get("gems", 0)) - int(old.get("gems", 0)) > gem_cap:
+		return "gemas a mais (%d)" % (int(data.get("gems", 0)) - int(old.get("gems", 0)))
+	var gold_cap := 50000 + int(hours * 3600.0 * (200.0 + lv1 * 60.0)) + int(p.get("credit_gold", 0))
+	if int(data.get("gold", 0)) - int(old.get("gold", 0)) > gold_cap:
+		return "ouro a mais"
+	var leg0 := 0
+	var leg1 := 0
+	var ref0 := 0
+	var ref1 := 0
+	for it in old.get("inventory", []):
+		leg0 += 1 if String(it.get("rarity", "")) == "lendaria" else 0
+		ref0 += int(it.get("refine", 0))
+	for it in data.get("inventory", []):
+		leg1 += 1 if String(it.get("rarity", "")) == "lendaria" else 0
+		ref1 += int(it.get("refine", 0))
+	if leg1 - leg0 > 10 + int(hours * 2.0) + int(p.get("credit_items", 0)):   # loja (conjuntos) + drops raros
+		return "itens lendários a mais"
+	if (data.get("inventory", []) as Array).size() - (old.get("inventory", []) as Array).size() > 60 + int(hours * 120.0):
+		return "itens a mais"
+	if ref1 - ref0 > 30 + int(hours * 60.0):
+		return "refino rápido demais"
+	return ""
 
 
 func _store(id: int) -> void:
@@ -304,6 +346,11 @@ func _boss_dead(last: int) -> void:
 			var r := randf()
 			item = "lendaria" if r < float(odds["lendaria"]) else ("epica" if r < float(odds["lendaria"]) + float(odds["epica"]) else "rara")
 		_boss_reward.rpc_id(pid, i + 1, pid == last, item)
+		# o que o servidor deu entra na conta do próximo save (não conta como trapaça)
+		var cfg2: Dictionary = GameData.GLOBAL_BOSS
+		_players[pid]["credit_gems"] = int(_players[pid].get("credit_gems", 0)) + int(cfg2["reward_gems"]) + (int(cfg2["top_gems"][i]) if i < 3 else 0) + (int(cfg2["last_gems"]) if pid == last else 0)
+		_players[pid]["credit_gold"] = int(_players[pid].get("credit_gold", 0)) + int(cfg2["reward_gold"]) * 2 + (int(cfg2["top_gold"][i]) if i < 3 else 0) + (int(cfg2["last_gold"]) if pid == last else 0)
+		_players[pid]["credit_items"] = int(_players[pid].get("credit_items", 0)) + 2
 	print("[servidor] boss global derrotado · último golpe: ", _players.get(last, {}).get("name", "?"), " · ", order.size(), " participantes")
 
 
@@ -423,6 +470,11 @@ func _hurt(dmg: int, id: int) -> void:
 func _boss_state(key: String, hp: int, max_hp: int, top: Array) -> void:
 	boss_hp.emit(hp, max_hp)
 	boss_rank.emit(top)
+
+
+@rpc("authority", "reliable")
+func _save_refused(why: String) -> void:
+	push_warning("Servidor recusou o save: " + why)
 
 
 @rpc("authority", "reliable")
