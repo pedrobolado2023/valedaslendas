@@ -218,6 +218,13 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   do herói não são desenhados (45 no navegador); luzes de efeito no navegador limitadas a `Fx.WEB_LIGHTS` (grupo "fx_light", `Fx.budget_light`). Shaders: nunca `smoothstep` com limites invertidos nem `normalize` de normal que pode
   ser zero (usar `safe_n` do toon). Teste no navegador: export debug + `?mapa=m8&nivel=170` (ver `game._web_test`:
   `zona`, `montaria`, `pet`, `contar`, `trocar`, `semparte`); recarregar com Ctrl+Shift+R (o navegador guarda o .pck).
+- **Masmorras por bioma:** `masmorra_<bioma>` gerados em `_static_init` (visual do bioma); `GameData.dungeon_map_for`/`is_dungeon`;
+  dificuldades em `DUNGEON_DIFF` (Normal/Difícil/Pesadelo: força, prêmio, onda extra), escolha em `Dungeon.choose()`.
+- **Boss semanal da guilda:** `GameData.GUILD_BOSS`; `Dungeon.enter_guild()` (botão no painel G), só o chefe forte;
+  1x por semana (`stats.gb_week`, semana começa na segunda); servidor dá pontos à guilda em `Net.guild_boss_done`.
+- **Ícones da loja/materiais:** `tools/make_shop_icons.py` → `textures/shop/<id>.png` (`ShopPanel.icon_of`). Mercadinho
+  vende lotes de material (`market_sell_mat`). Download web: olhos 128 px, roupas 256 px, música QOA, imagens dos
+  modelos inteiros fora do preset Web (pck ~51 MB; wasm vai com gzip do nginx).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).
