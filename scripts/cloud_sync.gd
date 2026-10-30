@@ -74,6 +74,14 @@ func login(mail: String, senha: String, criar: bool) -> String:
 	return msg if msg != "" else "Erro %d" % int(r["code"])
 
 
+## Esqueci a senha: o Supabase manda um e-mail com o link para criar outra. Devolve "" se deu certo.
+func recover(mail: String) -> String:
+	var r := await _req("/auth/v1/recover", HTTPClient.METHOD_POST, {"email": mail}, false)
+	if int(r["code"]) == 0:
+		return "Sem conexão com o servidor."
+	return "" if int(r["code"]) < 300 else "Não deu para enviar agora (erro %d). Tente de novo em 1 minuto." % int(r["code"])
+
+
 func logout() -> void:
 	token = ""
 	refresh = ""

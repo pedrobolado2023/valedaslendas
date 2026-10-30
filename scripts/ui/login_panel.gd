@@ -56,6 +56,19 @@ func _ready() -> void:
 	_msg = UiTheme.label("O progresso fica salvo na sua conta e abre em qualquer computador ou navegador.", 14, Color(0.8, 0.75, 0.65))
 	_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_msg)
+	var forgot := Button.new()
+	forgot.text = "Esqueci a senha"
+	forgot.flat = true
+	forgot.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
+	forgot.pressed.connect(func() -> void:
+		var mail := _mail.text.strip_edges()
+		if not "@" in mail:
+			_msg.text = "Digite o seu e-mail acima e clique de novo em \"Esqueci a senha\"."
+			return
+		_msg.text = "Enviando..."
+		var err: String = await cloud.recover(mail)
+		_msg.text = err if err != "" else "Pronto! Veja o seu e-mail (e o spam): o link cria uma senha nova.")
+	v.add_child(forgot)
 	var off := Button.new()
 	off.text = "Jogar sem conta (só neste computador)"
 	off.pressed.connect(queue_free)
