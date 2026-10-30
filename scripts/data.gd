@@ -729,6 +729,36 @@ const CHARACTERS := {
 }
 
 
+## Fragmentos dos reinos (tecla Y): bônus por nível do fragmento (nível = cidades do reino concluídas na campanha).
+const FRAGMENT_MAX := 9
+const FRAGMENTS := {
+	"eloreth": {"name": "Fragmento de Eloreth", "bonus": {"hp": 0.03}, "lore": "a vida das florestas ancestrais"},
+	"seryth": {"name": "Fragmento de Seryth", "bonus": {"xp": 0.03}, "lore": "o saber das bibliotecas proibidas"},
+	"valdrath": {"name": "Fragmento de Valdrath", "bonus": {"def": 0.012}, "lore": "a resistência das fortalezas de gelo"},
+	"drakaris": {"name": "Fragmento de Drakaris", "bonus": {"atk": 0.03}, "lore": "o fogo dos dragões"},
+	"thalyss": {"name": "Fragmento de Thalyss", "bonus": {"speed": 0.015, "mp": 0.02}, "lore": "a liberdade dos rios"},
+	"vyndara": {"name": "Fragmento de Vyndara", "bonus": {"atk": 0.015, "hp": 0.015}, "lore": "a honra dos cavaleiros de elite"},
+	"sombras": {"name": "Fragmento das Sombras", "bonus": {"mp": 0.04, "gold": 0.03}, "lore": "os segredos guardados no escuro"},
+	"aetherion": {"name": "Fragmento de Aetherion", "bonus": {"atk": 0.01, "hp": 0.01, "def": 0.005, "xp": 0.01}, "lore": "todos os elementos ao mesmo tempo"},
+}
+const BONUS_NAMES := {"hp": "vida", "mp": "mana", "atk": "ataque", "def": "defesa", "speed": "velocidade", "xp": "XP", "gold": "ouro"}
+
+
+static func fragment_bonus(kg: String, n: int) -> Dictionary:
+	var out := {}
+	for k in FRAGMENTS[kg]["bonus"]:
+		out[k] = float(FRAGMENTS[kg]["bonus"][k]) * clampi(n, 0, FRAGMENT_MAX)
+	return out
+
+
+static func fragment_text(kg: String, n: int) -> String:
+	var parts: Array = []
+	var b := fragment_bonus(kg, n)
+	for k in b:
+		parts.append("+%s%% %s" % [str(snappedf(float(b[k]) * 100.0, 0.1)), String(BONUS_NAMES.get(k, k))])
+	return ", ".join(parts)
+
+
 ## O que cada um diz ao herói na sua capital (modelo 3D em models/npc_<chave>.glb, feito por blender/make_sete.py).
 const CHARACTER_LINES := {
 	"kaeldryn": "Valdrath não pede ajuda — mas também não recusa um bom guerreiro. O fragmento do meu reino sumiu, e eu vou descobrir quem o levou. Mostre que posso confiar em você.",

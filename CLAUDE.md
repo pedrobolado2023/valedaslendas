@@ -252,6 +252,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   curto = `head_shell` + `tufts` (mechas deitadas, uma malha só), solto = lâmina ondulada nos ossos de cabelo;
   rosto por personagem em `FACES` (alvos do MPFB), `brows`; corpo com Decimate 0,5; texturas 128/256 px no .import) → `models/npc_<chave>.glb` (só idle). No jogo:
   `GameData.royal_of(mapa)` põe o soberano na capital do reino (`game.royal`, interação "royal", fala em `CHARACTER_LINES`). Rhaegar = nome parecido com Game of Thrones (avisado).
+- **Fragmentos dos Reinos (Y, `ui/fragment_panel.gd`):** `GameData.FRAGMENTS` (bônus por nível: vida, XP, defesa,
+  ataque, velocidade/mana, mana/ouro; Aetherion um pouco de tudo), nível = cidades do reino com o chefe final vencido
+  (`game.fragment_levels`, até `FRAGMENT_MAX` 9). Encaixes `game.fragment_slots` (1; 2 no Ato II). `game.apply_fragments`
+  soma em `player.frag_bonus` (usado em `recalc`, `gain_xp`, `add_gold`); save `fragments`. Fragmento novo entra sozinho se houver encaixe.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

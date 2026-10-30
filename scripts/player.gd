@@ -147,12 +147,22 @@ func recalc() -> void:
 	max_mp = int(max_mp * (1.0 + float(shop_bonus.get("mp", 0.0))))
 	atk *= 1.0 + float(shop_bonus.get("atk", 0.0))
 	speed *= 1.0 + float(shop_bonus.get("speed", 0.0))
+	for fk in ["hp", "mp", "atk", "speed"]:   # fragmentos dos reinos equipados
+		if frag_bonus.has(fk):
+			if fk == "hp":
+				max_hp = int(max_hp * (1.0 + float(frag_bonus[fk])))
+			elif fk == "mp":
+				max_mp = int(max_mp * (1.0 + float(frag_bonus[fk])))
+			elif fk == "atk":
+				atk *= 1.0 + float(frag_bonus[fk])
+			else:
+				speed *= 1.0 + float(frag_bonus[fk])
 	var g := gear_stats()
 	atk *= 1.0 + float(g.get("atk", 0.0))
 	max_hp = int(max_hp * (1.0 + float(g.get("hp", 0.0))))
 	max_mp = int(max_mp * (1.0 + float(g.get("mp", 0.0))))
 	speed *= 1.0 + float(g.get("speed", 0.0))
-	defense = minf(0.6, float(g.get("def", 0.0)))
+	defense = minf(0.6, float(g.get("def", 0.0)) + float(frag_bonus.get("def", 0.0)))
 	hp = minf(hp, max_hp)
 	mp = minf(mp, max_mp)
 
@@ -193,6 +203,11 @@ func in_combat() -> bool:
 
 
 ## Quantas skills a classe tem (até GameData.MAX_SKILLS).
+## Fragmentos dos reinos equipados (chaves de reino) e o bônus somado deles (o jogo calcula em game.apply_fragments).
+var fragments: Array = []
+var frag_bonus := {}
+
+
 ## Quantas skills a campanha principal já liberou (o jogo atualiza em game._recalc_unlocks).
 var story_skills := 10
 
@@ -654,7 +669,7 @@ func revive(at: Vector3) -> void:
 func gain_xp(n: int) -> int:
 	if level >= GameData.MAX_LEVEL:
 		return 0
-	n = maxi(1, int(round(n * GameData.xp_gain_mult(level) * Shop.xp_mult(self) * GameData.XP_MULT)))
+	n = maxi(1, int(round(n * GameData.xp_gain_mult(level) * Shop.xp_mult(self) * GameData.XP_MULT * (1.0 + float(frag_bonus.get("xp", 0.0))))))
 	return gain_xp_raw(n)
 
 
@@ -690,7 +705,7 @@ func gain_xp_raw(n: int) -> int:
 
 func add_gold(n: int) -> void:
 	if n > 0:
-		n = int(n * GameData.GOLD_MULT)
+		n = int(n * GameData.GOLD_MULT * (1.0 + float(frag_bonus.get("gold", 0.0))))
 	gold += n
 	stats_changed.emit()
 

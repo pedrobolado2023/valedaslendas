@@ -20,6 +20,7 @@ signal social_pressed
 signal ranking_pressed
 signal market_pressed
 signal forge_pressed
+signal fragments_pressed
 
 var player: Player
 var root: Control
@@ -274,6 +275,7 @@ func _build_buttons() -> void:
 	_menu_btn(v, "Missões (J)", missions_pressed)
 	_menu_btn(v, "Equipamento (I)", gear_pressed)
 	_menu_btn(v, "Pets (P)", pets_pressed)
+	_menu_btn(v, "Fragmentos dos Reinos (Y)", fragments_pressed)
 	_menu_btn(v, "Recompensas (O)", rewards_pressed)
 	_menu_btn(v, "Social: grupo, amigos, duelo (G)", social_pressed)
 	_menu_btn(v, "Ranking geral (N)", ranking_pressed)

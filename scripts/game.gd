@@ -26,6 +26,8 @@ var missions := MissionBook.new()
 var events: WorldEvents          # boss global (horários, covil, recompensas)
 var shop_panel: ShopPanel
 var pet_panel: PetPanel
+var fragment_panel: FragmentPanel
+var _frag_lv := {}
 var rewards_panel: RewardsPanel
 var portal_panel: PortalPanel
 var chat: ChatBox
@@ -626,6 +628,7 @@ func _apply_save(d: Dictionary) -> void:
 		for k in eq:
 			if int(eq[k]) == int(item["uid"]):
 				player.gear[String(k)] = item
+	player.fragments = (d.get("fragments", []) as Array).duplicate()
 	quest_index = -1
 	var qid := String(d.get("quest_id", ""))
 	if qid == "fim":
@@ -669,7 +672,7 @@ func save_now() -> void:
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
-		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
+		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "fragments": player.fragments, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	}
 	SaveGame.write(data)
@@ -713,6 +716,10 @@ func _build_ui() -> void:
 	pet_panel = PetPanel.new()
 	add_child(pet_panel)
 	pet_panel.setup(player)
+	fragment_panel = FragmentPanel.new()
+	add_child(fragment_panel)
+	fragment_panel.setup(self)
+	hud.fragments_pressed.connect(func() -> void: fragment_panel.toggle())
 	rewards_panel = RewardsPanel.new()
 	add_child(rewards_panel)
 	rewards_panel.setup(player)
@@ -981,6 +988,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			social_panel.toggle()
 		KEY_O:
 			rewards_panel.toggle()
+		KEY_Y:
+			fragment_panel.toggle()
 		KEY_P:
 			if gate("pets"):
 				pet_panel.toggle()
@@ -998,13 +1007,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or market_panel.visible or forge_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or market_panel.visible or forge_panel.visible or admin_panel.visible or fragment_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
 			gear_panel.visible = false
 			shop_panel.visible = false
 			pet_panel.visible = false
+			fragment_panel.visible = false
 			rewards_panel.visible = false
 			portal_panel.visible = false
 			social_panel.visible = false
@@ -1243,6 +1253,56 @@ func best_open_map() -> String:
 	return best
 
 
+## Nível de cada fragmento: quantas cidades do reino já tiveram o chefe final vencido na campanha.
+func fragment_levels() -> Dictionary:
+	var out := {}
+	for i in mini(quest_index, GameData.QUESTS.size()):
+		var q: Dictionary = GameData.QUESTS[i]
+		if String(q["type"]) != "boss":
+			continue
+		var zs: Array = GameData.MAPS[q["map"]]["zones"]
+		if String(q["zone"]) == String(zs[-1]):
+			var kg := GameData.kingdom_of(String(q["map"]))
+			out[kg] = mini(GameData.FRAGMENT_MAX, int(out.get(kg, 0)) + 1)
+	if feature_on("all"):
+		for kg in GameData.KINGDOM_ORDER:
+			out[kg] = maxi(int(out.get(kg, 0)), 1)
+	return out
+
+
+## Encaixes de fragmento: 1, e 2 a partir do Ato II (primeiro mapa novo liberado).
+func fragment_slots() -> int:
+	return 2 if feature_on("map:m1") or feature_on("all") else 1
+
+
+## Soma o bônus dos fragmentos equipados no herói (tira os que não tem; equipa sozinho o novo se houver encaixe livre).
+func apply_fragments() -> void:
+	if player == null:
+		return
+	var lv := fragment_levels()
+	for kg in lv:
+		if not _frag_lv.is_empty() and int(_frag_lv.get(kg, 0)) == 0 and player.fragments.size() < fragment_slots() and not (kg in player.fragments):
+			player.fragments.append(kg)
+	if _frag_lv.is_empty() and player.fragments.is_empty():   # save sem escolha: enche os encaixes livres
+		for kg in lv:
+			if player.fragments.size() < fragment_slots():
+				player.fragments.append(kg)
+	_frag_lv = lv
+	var keep: Array = []
+	for kg in player.fragments:
+		if int(lv.get(String(kg), 0)) > 0 and keep.size() < fragment_slots():
+			keep.append(String(kg))
+	player.fragments = keep
+	var total := {}
+	for kg in keep:
+		var b := GameData.fragment_bonus(String(kg), int(lv[kg]))
+		for k in b:
+			total[k] = float(total.get(k, 0.0)) + float(b[k])
+	player.frag_bonus = total
+	player.recalc()
+	player.stats_changed.emit()
+
+
 ## true se a função já foi liberada; senão avisa qual missão libera.
 func gate(key: String) -> bool:
 	if feature_on(key):
@@ -1279,11 +1339,16 @@ func _recalc_unlocks(announce: bool) -> void:
 		player.set_meta("mounts_on", feature_on("mounts"))
 		if not feature_on("mounts") and player.riding:
 			player.set_riding(false)
+	var old_frag := _frag_lv
+	apply_fragments()
 	if announce and hud != null:
 		var names: Array = []
 		for k in unlocks:
 			if not old.has(k) and k != "all":
 				names.append(_unlock_name(String(k)))
+		for kg in _frag_lv:
+			if int(old_frag.get(kg, 0)) == 0:
+				names.append(String(GameData.FRAGMENTS[kg]["name"]) + " (Y)")
 		if not names.is_empty():
 			Fx.later(self, 3.2).connect(func() -> void:
 				hud.banner("Liberado!", ", ".join(names), 4.5)
