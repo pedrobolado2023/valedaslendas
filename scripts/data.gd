@@ -514,6 +514,18 @@ const BASE_MAPS := {
 			"sun": Color(0.55, 0.6, 1.0), "sun_energy": 0.85, "ambient": Color(0.3, 0.3, 0.5), "ambient_energy": 0.62, "lava": 0.0, "houses": ["house_dark", "house_dark"]}},
 }
 
+## Mercadinho do Jogo: imposto sobre cada venda (cai com o nível de quem vende), preço mínimo/máximo e anúncios por herói.
+const MARKET := {"min_price": 5, "max_price": 100000, "max_listings": 10}
+
+
+static func market_tax(level: int) -> float:
+	if level >= 80:
+		return 0.05
+	if level >= 60:
+		return 0.10
+	return 0.20
+
+
 ## Nome do herói: até HERO_NAME_MAX letras; tira espaços repetidos e caracteres de controle.
 const HERO_NAME_MAX := 18
 

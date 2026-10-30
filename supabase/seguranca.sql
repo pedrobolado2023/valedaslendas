@@ -14,3 +14,23 @@ create table if not exists public.hero_names (
 alter table public.hero_names enable row level security;
 drop policy if exists "todos leem nomes" on public.hero_names;
 create policy "todos leem nomes" on public.hero_names for select using (true);
+
+-- Mercadinho do Jogo: anúncios e pagamentos pendentes (só o servidor lê e grava)
+create table if not exists public.market (
+  id bigint generated always as identity primary key,
+  seller uuid not null references auth.users (id) on delete cascade,
+  seller_name text not null,
+  item jsonb not null,
+  price int not null,
+  payout int not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.market_payouts (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  gems int not null,
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.market enable row level security;
+alter table public.market_payouts enable row level security;

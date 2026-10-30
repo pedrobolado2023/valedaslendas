@@ -310,7 +310,8 @@ func refresh() -> void:
 		row.add_child(icon)
 		_border(icon, item)
 		var cls_tag := "" if String(item["cls"]) == player.class_key else "  · " + String(GameData.CLASSES[item["cls"]]["name"])
-		var lab := UiTheme.label("%s  (%s · %s)%s\n%s" % [GameData.item_name(item), String(GameData.SLOT_INFO[item["slot"]]["name"]), String(GameData.RARITY[item["rarity"]]["name"]), cls_tag, bonus_text(item)], 14, GameData.RARITY[item["rarity"]]["color"])
+		var sell_tag := "  · Vendável" if bool(item.get("sell", false)) else ""
+		var lab := UiTheme.label("%s  (%s · %s)%s%s\n%s" % [GameData.item_name(item), String(GameData.SLOT_INFO[item["slot"]]["name"]), String(GameData.RARITY[item["rarity"]]["name"]), cls_tag, sell_tag, bonus_text(item)], 14, GameData.RARITY[item["rarity"]]["color"])
 		lab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lab)
 		var b := Button.new()

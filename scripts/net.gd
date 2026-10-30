@@ -19,6 +19,8 @@ signal online_names(names: Array)
 signal item_received(item: Dictionary, from: String)
 signal gift_done(uid: int, ok: bool, msg: String)
 signal ranking_list(rows: Array)
+signal market_rows(rows: Array)
+signal market_event(kind: String, data: Dictionary)
 signal duel_asked(from: String)
 signal duel_started(peer: int, name: String)
 signal duel_ended(winner: String)
@@ -84,6 +86,7 @@ func _start_server() -> void:
 	world = ServerWorld.new()
 	world.net = self
 	add_child(world)
+	_market_load()
 	print("[servidor] Vale das Lendas ouvindo na porta %d · Supabase %s · chave secreta %s" % [port, sb_url, "OK" if sb_service != "" else "FALTANDO"])
 
 
@@ -158,6 +161,7 @@ func hello(token: String) -> void:
 	print("[servidor] entrou: ", mail, " (", _players.size(), " online)")
 	_players[id]["save_t"] = Time.get_unix_time_from_system()
 	_welcome.rpc_id(id, true, save)
+	_market_payouts(id)
 	_boss_send(id)
 	var left := _boss_at - Time.get_unix_time_from_system()
 	if left > -float(GameData.GLOBAL_BOSS["minutes"]) * 60.0 and _boss_at > 0.0:   # entrou durante o aviso/evento
@@ -417,6 +421,178 @@ func _gift_in(item: Dictionary, from: String) -> void:
 @rpc("authority", "reliable")
 func _gift_result(uid: int, ok: bool, msg: String) -> void:
 	gift_done.emit(uid, ok, msg)
+
+
+## ---------- Mercadinho do Jogo (anúncios por gemas; imposto de GameData.market_tax; só itens "sell")
+var _market: Array = []        # [{id, seller(uid), seller_name, item, price, payout}]
+var _market_next := 1
+var _dev_payouts := {}         # sem banco: uid -> gemas a receber
+
+
+func _db() -> bool:
+	return sb_service != "" and OS.get_environment("VALE_DEV") == ""
+
+
+func _market_load() -> void:
+	if not _db():
+		return
+	var r := await _sb("/rest/v1/market?select=*&order=id.desc&limit=500", HTTPClient.METHOD_GET, null)
+	if r["json"] is Array:
+		for row in r["json"]:
+			_market.append({"id": int(row["id"]), "seller": String(row["seller"]), "seller_name": String(row["seller_name"]),
+				"item": row["item"], "price": int(row["price"]), "payout": int(row["payout"])})
+		print("[servidor] mercadinho: ", _market.size(), " anúncios")
+
+
+func _cur_char(id: int) -> Dictionary:
+	var acc: Dictionary = _players[id]["save"]
+	var ch: Array = acc.get("chars", [])
+	var cur := int(acc.get("cur", 0))
+	return ch[cur] if cur < ch.size() else {}
+
+
+@rpc("any_peer", "reliable")
+func market_list() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var rows: Array = []
+	for l in _market.slice(0, 150):
+		rows.append({"id": l["id"], "seller": l["seller_name"], "item": l["item"], "price": l["price"], "mine": l["seller"] == _players[id]["uid"]})
+	_market_rows_to.rpc_id(id, rows)
+
+
+@rpc("any_peer", "reliable")
+func market_sell(uid: int, price: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var cfg: Dictionary = GameData.MARKET
+	var c := _cur_char(id)
+	var p: Dictionary = _players[id]
+	if price < int(cfg["min_price"]) or price > int(cfg["max_price"]):
+		_market_reply(id, "erro", {"msg": "Preço entre %d e %d gemas." % [cfg["min_price"], cfg["max_price"]]})
+		return
+	var mine := 0
+	for l in _market:
+		mine += 1 if l["seller"] == p["uid"] else 0
+	if mine >= int(cfg["max_listings"]):
+		_market_reply(id, "erro", {"msg": "Máximo de %d anúncios." % cfg["max_listings"]})
+		return
+	for k in c.get("gear", {}):
+		if int(c["gear"][k]) == uid:
+			_market_reply(id, "erro", {"msg": "Tire o item do corpo antes de vender."})
+			return
+	var inv: Array = c.get("inventory", [])
+	for i in inv.size():
+		if int(inv[i].get("uid", -1)) == uid:
+			var item: Dictionary = inv[i]
+			if not bool(item.get("sell", false)):
+				_market_reply(id, "erro", {"msg": "Esse item não pode ser vendido."})
+				return
+			inv.remove_at(i)
+			var payout := int(price * (1.0 - GameData.market_tax(int(c.get("level", 1)))))
+			var l := {"id": _market_next, "seller": p["uid"], "seller_name": p["name"], "item": item, "price": price, "payout": payout}
+			_market_next += 1
+			if _db():
+				var r := await _sb("/rest/v1/market", HTTPClient.METHOD_POST, {"seller": p["uid"], "seller_name": p["name"], "item": item, "price": price, "payout": payout}, "", ["Prefer: return=representation"])
+				if r["json"] is Array and not (r["json"] as Array).is_empty():
+					l["id"] = int(r["json"][0]["id"])
+			_market.push_front(l)
+			_store(id)
+			_market_reply(id, "vendendo", {"uid": uid, "price": price, "payout": payout})
+			return
+	_market_reply(id, "erro", {"msg": "Salve e tente de novo (o servidor ainda não viu esse item)."})
+
+
+@rpc("any_peer", "reliable")
+func market_buy(lid: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	for i in _market.size():
+		var l: Dictionary = _market[i]
+		if int(l["id"]) != lid:
+			continue
+		var c := _cur_char(id)
+		if l["seller"] == _players[id]["uid"]:
+			_market_reply(id, "erro", {"msg": "Esse anúncio é seu (use Cancelar)."})
+			return
+		if int(c.get("gems", 0)) < int(l["price"]):
+			_market_reply(id, "erro", {"msg": "Gemas insuficientes."})
+			return
+		_market.remove_at(i)
+		c["gems"] = int(c.get("gems", 0)) - int(l["price"])
+		_players[id]["credit_items"] = int(_players[id].get("credit_items", 0)) + 1
+		if _db():
+			_sb("/rest/v1/market?id=eq.%d" % lid, HTTPClient.METHOD_DELETE, null)
+		_pay(String(l["seller"]), int(l["payout"]), "venda: " + GameData.item_name(l["item"]))
+		_store(id)
+		_market_reply(id, "comprou", {"item": l["item"], "price": l["price"]})
+		return
+	_market_reply(id, "erro", {"msg": "Alguém já comprou esse item."})
+
+
+@rpc("any_peer", "reliable")
+func market_cancel(lid: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	for i in _market.size():
+		var l: Dictionary = _market[i]
+		if int(l["id"]) == lid and l["seller"] == _players[id]["uid"]:
+			_market.remove_at(i)
+			if _db():
+				_sb("/rest/v1/market?id=eq.%d" % lid, HTTPClient.METHOD_DELETE, null)
+			_players[id]["credit_items"] = int(_players[id].get("credit_items", 0)) + 1
+			_market_reply(id, "voltou", {"item": l["item"]})
+			return
+
+
+## Paga o vendedor: online recebe na hora; offline fica guardado e entra quando ele entrar.
+func _pay(uid: String, gems: int, note: String) -> void:
+	for pid in _players:
+		if String(_players[pid]["uid"]) == uid:
+			_players[pid]["credit_gems"] = int(_players[pid].get("credit_gems", 0)) + gems
+			_market_reply(int(pid), "pago", {"gems": gems, "note": note})
+			return
+	if _db():
+		_sb("/rest/v1/market_payouts", HTTPClient.METHOD_POST, {"user_id": uid, "gems": gems, "note": note}, "", ["Prefer: return=minimal"])
+	else:
+		_dev_payouts[uid] = int(_dev_payouts.get(uid, 0)) + gems
+
+
+func _market_payouts(id: int) -> void:
+	var uid := String(_players[id]["uid"])
+	var total := 0
+	if _db():
+		var r := await _sb("/rest/v1/market_payouts?select=gems&user_id=eq." + uid, HTTPClient.METHOD_GET, null)
+		if r["json"] is Array:
+			for row in r["json"]:
+				total += int(row["gems"])
+		if total > 0:
+			await _sb("/rest/v1/market_payouts?user_id=eq." + uid, HTTPClient.METHOD_DELETE, null)
+	else:
+		total = int(_dev_payouts.get(uid, 0))
+		_dev_payouts.erase(uid)
+	if total > 0 and _players.has(id):
+		_players[id]["credit_gems"] = int(_players[id].get("credit_gems", 0)) + total
+		_market_reply(id, "pago", {"gems": total, "note": "vendas enquanto você estava fora"})
+
+
+func _market_reply(id: int, kind: String, data: Dictionary) -> void:
+	if _players.has(id):
+		_market_ev.rpc_id(id, kind, data)
+
+
+@rpc("authority", "reliable")
+func _market_rows_to(rows: Array) -> void:
+	market_rows.emit(rows)
+
+
+@rpc("authority", "reliable")
+func _market_ev(kind: String, data: Dictionary) -> void:
+	market_event.emit(kind, data)
 
 
 ## ---------- ranking geral (top 20 por nível, do banco; sem banco: quem está online)

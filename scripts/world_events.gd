@@ -170,6 +170,7 @@ func _rank_reward(rank: int, last_hit: bool, item: String) -> void:
 	p.gold += gold
 	if item != "":
 		var it: Dictionary = p.new_item(String(Player.ITEM_SLOTS.pick_random()), item)
+		it["sell"] = true
 		p.add_item(it)
 		parts.append("%s (%s)" % [GameData.item_name(it), String(GameData.RARITY[item]["name"])])
 	if not parts.is_empty():

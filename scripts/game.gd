@@ -31,6 +31,7 @@ var portal_panel: PortalPanel
 var chat: ChatBox
 var social_panel: SocialPanel
 var ranking_panel: RankingPanel
+var market_panel: MarketPanel
 var dungeon: Dungeon
 var _new_name := ""   # nome digitado no menu (jogo novo)
 var cloud: CloudSync
@@ -593,7 +594,7 @@ func _apply_save(d: Dictionary) -> void:
 		eq = {"weapon": d.get("weapon_uid", -1), "chest": d.get("armor_uid", -1)}
 	for it in d.get("inventory", []):
 		var item := {"uid": int(it["uid"]), "cls": _cls(String(it["cls"])), "slot": String(it["slot"]), "rarity": String(it["rarity"]),
-			"refine": int(it.get("refine", 0))}
+			"refine": int(it.get("refine", 0)), "sell": bool(it.get("sell", false))}
 		player.add_item(item)
 		for k in eq:
 			if int(eq[k]) == int(item["uid"]):
@@ -678,6 +679,9 @@ func _build_ui() -> void:
 	portal_panel = PortalPanel.new()
 	add_child(portal_panel)
 	portal_panel.setup(self)
+	market_panel = MarketPanel.new()
+	add_child(market_panel)
+	market_panel.setup(self)
 	ranking_panel = RankingPanel.new()
 	add_child(ranking_panel)
 	ranking_panel.setup(self)
@@ -704,6 +708,7 @@ func _build_ui() -> void:
 	hud.settings_pressed.connect(func() -> void: settings_panel.toggle())
 	hud.social_pressed.connect(func() -> void: social_panel.toggle())
 	hud.ranking_pressed.connect(func() -> void: ranking_panel.toggle())
+	hud.market_pressed.connect(func() -> void: market_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
 	admin_panel.setup(self)
@@ -903,6 +908,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			gear_panel.toggle()
 		KEY_R:
 			player.toggle_ride()
+		KEY_B:
+			market_panel.toggle()
 		KEY_N:
 			ranking_panel.toggle()
 		KEY_G:
@@ -925,7 +932,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or market_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
@@ -936,6 +943,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			portal_panel.visible = false
 			social_panel.visible = false
 			ranking_panel.visible = false
+			market_panel.visible = false
 			admin_panel.visible = false
 			if not any_open:
 				settings_panel.toggle()
@@ -1370,6 +1378,7 @@ func _drop(kind: String, value: int, title: String, at: Vector3) -> void:
 
 func _drop_item(rarity: String, at: Vector3) -> void:
 	var item := player.new_item(String(Player.ITEM_SLOTS.pick_random()), rarity)
+	item["sell"] = true   # item que cai pode ir para o Mercadinho
 	var l := Loot.new()
 	l.kind = "item"
 	l.item = item

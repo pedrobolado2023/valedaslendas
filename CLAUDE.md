@@ -146,6 +146,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   pelo nome no mesmo mapa; `PvpProxy` = alvo invisível que segue o adversário, golpes vão por `Net.pvp_hit` com 25%
   do dano; quem cair perde, `duel_ended`).
 - **Celular:** `ui/touch_controls.gd` (só em tela de toque): joystick (`Player.touch_dir`) e botão Atacar (`touch_attack`).
+- **Mercadinho do Jogo (B, `ui/market_panel.gd`):** jogadores anunciam itens por gemas; só itens com `"sell": true`
+  (os que caem: `_drop_item`, boss) — iniciais e da loja não. Imposto `GameData.market_tax` (20% até nv 59, 10% 60-79,
+  5% 80+). Servidor (`Net.market_sell/buy/cancel/list`) guarda anúncios (tabela `market`), confere o item no save,
+  cobra o comprador e paga o vendedor (online na hora; offline em `market_payouts`, entra no próximo login).
+  Substituiu o "enviar item" do Social. Tabelas em `supabase/seguranca.sql`.
 - **Portal (`ui/portal_panel.gd`):** todos os mapas em grade de 4 colunas com rolagem + boss global e masmorra no topo.
 - **Dragão de Lava (boss global, modelo do Gemini `dragon_boss.html`):** malha extraída com Node
   (`tools/dragon_extract/gen.mjs`, precisa `npm i three@0.160.0`) → `blender/make_lava_dragon.py` (reduz, posição de
