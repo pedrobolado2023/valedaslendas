@@ -151,7 +151,7 @@ func hello(token: String) -> void:
 
 ## Estado do herói (10x por segundo, sem garantia de entrega).
 @rpc("any_peer", "unreliable_ordered")
-func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gear: Dictionary, mount: String, alive: bool) -> void:
+func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gear: Dictionary, mount: String, alive: bool, hero: String) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if not is_server or not _players.has(id):
 		return
@@ -161,6 +161,8 @@ func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gea
 	p["rot"] = rot
 	p["moving"] = moving
 	p["cls"] = cls
+	if hero != "":   # nome do herói (aparece em cima dele e no ranking do boss)
+		p["name"] = GameData.clean_name(hero)
 	p["gear"] = gear
 	p["mount"] = mount
 	p["alive"] = alive
@@ -423,7 +425,7 @@ func _boss_reward(rank: int, last_hit: bool, item: String) -> void:
 func send_state(map: String, p: Player) -> void:
 	if not online:
 		return
-	state.rpc_id(1, map, p.global_position, p.rotation.y, p.velocity.length() > 0.5, p.class_key, p.visual_rarities(), p.mount if p.riding else "", p.alive)
+	state.rpc_id(1, map, p.global_position, p.rotation.y, p.velocity.length() > 0.5, p.class_key, p.visual_rarities(), p.mount if p.riding else "", p.alive, p.hero_name)
 
 
 func send_save(data: Dictionary) -> void:

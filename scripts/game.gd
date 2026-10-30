@@ -29,6 +29,7 @@ var pet_panel: PetPanel
 var rewards_panel: RewardsPanel
 var portal_panel: PortalPanel
 var dungeon: Dungeon
+var _new_name := ""   # nome digitado no menu (jogo novo)
 var cloud: CloudSync
 var remote: RemotePlayers
 var settings_panel: SettingsPanel
@@ -259,7 +260,9 @@ func _make_menu() -> void:
 	_menu = ClassMenu.new()
 	_menu.save_info = _save_summary()
 	add_child(_menu)
-	_menu.chosen.connect(func(k: String) -> void: start_game(k, {}))
+	_menu.chosen.connect(func(k: String) -> void:
+		_new_name = _menu.hero_name()
+		start_game(k, {}))
 	_menu.continue_pressed.connect(func() -> void:
 		var d := SaveGame.read()
 		start_game(_cls(String(d.get("class", "assassino"))), d))
@@ -419,7 +422,8 @@ func _save_summary() -> String:
 		return ""
 	var cls := _cls(String(d.get("class", "assassino")))
 	var mapn := String(GameData.MAPS.get(String(d.get("map", "vale")), GameData.MAPS["vale"])["name"])
-	return "%s  ·  Nível %d  ·  %s" % [String(GameData.CLASSES[cls]["name"]), int(d.get("level", 1)), mapn]
+	var nm := String(d.get("name", ""))
+	return "%s%s  ·  Nível %d  ·  %s" % [nm + "  ·  " if nm != "" else "", String(GameData.CLASSES[cls]["name"]), int(d.get("level", 1)), mapn]
 
 
 func start_game(key: String, save: Dictionary) -> void:
@@ -431,6 +435,7 @@ func start_game(key: String, save: Dictionary) -> void:
 	Vfx.warmup()
 	player = Player.new()
 	player.class_key = key
+	player.hero_name = _new_name
 	player.cam_right = cam_right
 	player.cam_fwd = cam_fwd
 	if not save.is_empty():
@@ -499,6 +504,7 @@ func _apply_save(d: Dictionary) -> void:
 	player.shop_bonus = d.get("shop_bonus", {})
 	player.pet = String(d.get("pet", ""))
 	player.mount = String(d.get("mount", ""))
+	player.hero_name = String(d.get("name", ""))
 	player.stats = d.get("stats", {})
 	player.login = d.get("login", {})
 	player.achieved = d.get("achieved", [])
@@ -549,7 +555,7 @@ func save_now() -> void:
 	var data := {
 		"version": 2, "class": player.class_key, "level": player.level, "xp": player.xp, "gold": player.gold,
 		"boss_done": events.defeated_key if events != null else "",
-		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
+		"gems": player.gems, "shop_counts": player.shop_counts, "shop_bonus": player.shop_bonus, "pet": player.pet, "mount": player.mount, "name": player.hero_name, "stats": player.stats, "login": player.login, "achieved": player.achieved, "pet_levels": player.pet_levels,
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
@@ -611,6 +617,9 @@ func _build_ui() -> void:
 		tutorial_done = true
 		save_now())
 	hud.admin_pressed.connect(func() -> void: admin_panel.toggle())
+	hud.pets_pressed.connect(func() -> void: pet_panel.toggle())
+	hud.rewards_pressed.connect(func() -> void: rewards_panel.toggle())
+	hud.settings_pressed.connect(func() -> void: settings_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
 	admin_panel.setup(self)

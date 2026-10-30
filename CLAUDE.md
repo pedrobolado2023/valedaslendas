@@ -128,6 +128,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   cada um (`_boss.hits`), manda o top 6 4x/s (`boss_rank`, `ui/boss_rank.gd`) e, na morte, `_boss_reward(posição,
   último golpe, item)`: top 3 = `top_gems/top_gold`, último golpe = `last_gems/last_gold` + item (1% lendário, 2%
   épico, resto raro). Evento invocado usa uma chave só no servidor (`evento-<_boss_at>`). Trava: 2% da vida por golpe.
+- **HUD:** os botões de função ficam num menu atrás da engrenagem (canto inferior esquerdo, `hud._gear_menu`;
+  ícone `textures/ui/gear.png`); a engrenagem mostra "+N" quando há pontos de skill. Teclas continuam valendo.
+- **Nome do herói:** campo no menu de classes (obrigatório, 2 a `HERO_NAME_MAX` letras, `GameData.clean_name`);
+  `player.hero_name`, save "name"; aparece no HUD, no "Continuar" e online (em cima do herói e no ranking do boss).
 - **Portal (`ui/portal_panel.gd`):** todos os mapas em grade de 4 colunas com rolagem + boss global e masmorra no topo.
 - **Dragão de Lava (boss global, modelo do Gemini `dragon_boss.html`):** malha extraída com Node
   (`tools/dragon_extract/gen.mjs`, precisa `npm i three@0.160.0`) → `blender/make_lava_dragon.py` (reduz, posição de

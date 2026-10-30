@@ -514,6 +514,18 @@ const BASE_MAPS := {
 			"sun": Color(0.55, 0.6, 1.0), "sun_energy": 0.85, "ambient": Color(0.3, 0.3, 0.5), "ambient_energy": 0.62, "lava": 0.0, "houses": ["house_dark", "house_dark"]}},
 }
 
+## Nome do herói: até HERO_NAME_MAX letras; tira espaços repetidos e caracteres de controle.
+const HERO_NAME_MAX := 18
+
+
+static func clean_name(s: String) -> String:
+	var out := ""
+	for ch in s.strip_edges():
+		if ch.unicode_at(0) >= 32 and not (ch == " " and out.ends_with(" ")):
+			out += ch
+	return out.substr(0, HERO_NAME_MAX).strip_edges()
+
+
 ## Masmorras: 3 por dia; 3 ondas e um chefe com os monstros do mapa do nível do herói; 10 minutos.
 const DUNGEON := {"map": "masmorra", "zone": "sala_masmorra", "per_day": 3, "waves": [8, 10, 12], "minutes": 10,
 	"boss_hp_mult": 3.0, "reward_gold_levels": 0.0, "reward_gems": 10, "reward_xp_levels": 0.35, "items": 2}

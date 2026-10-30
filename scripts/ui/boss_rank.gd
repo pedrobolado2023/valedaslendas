@@ -39,7 +39,9 @@ func show_top(top: Array) -> void:
 		return
 	var me := ""
 	var g := get_parent()
-	if g != null and g.get("cloud") != null:
+	if g != null and g.get("player") != null and String(g.get("player").hero_name) != "":
+		me = String(g.get("player").hero_name)
+	elif g != null and g.get("cloud") != null:
 		me = String(g.get("cloud").email).get_slice("@", 0)
 	for c in _list.get_children():
 		c.queue_free()

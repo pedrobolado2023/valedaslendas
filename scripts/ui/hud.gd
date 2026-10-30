@@ -13,6 +13,9 @@ signal missions_pressed
 signal gear_pressed
 signal admin_pressed
 signal shop_pressed
+signal pets_pressed
+signal rewards_pressed
+signal settings_pressed
 
 var player: Player
 var root: Control
@@ -30,6 +33,8 @@ var _gold: Label
 var _slots: Array = []
 var _btn_auto: Button
 var _btn_skills: Button
+var _gear_btn: Button
+var _gear_menu: PanelContainer
 var _quest_box: PanelContainer
 var _quest_title: Label
 var _quest_obj: Label
@@ -231,25 +236,57 @@ func _build_right(game: Node) -> void:
 	v.add_child(_missions)
 
 
+## Botão de engrenagem (canto de baixo à esquerda): abre o menu com todas as funções (as teclas continuam valendo).
 func _build_buttons() -> void:
-	var h := HBoxContainer.new()
-	h.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	h.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	h.offset_left = 16
-	h.offset_bottom = -16
-	h.add_theme_constant_override("separation", 8)
-	root.add_child(h)
-	_btn_auto = _button(h, "Auto-combate (T)", func() -> void: auto_combat_pressed.emit())
+	_gear_btn = Button.new()
+	_gear_btn.icon = load("res://textures/ui/gear.png")
+	_gear_btn.expand_icon = true
+	_gear_btn.custom_minimum_size = Vector2(64, 64)
+	_gear_btn.focus_mode = Control.FOCUS_NONE
+	_gear_btn.tooltip_text = "Menu"
+	_gear_btn.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_gear_btn.offset_left = 16
+	_gear_btn.offset_top = -80
+	_gear_btn.offset_right = 80
+	_gear_btn.offset_bottom = -16
+	_gear_btn.pressed.connect(func() -> void: _gear_menu.visible = not _gear_menu.visible)
+	root.add_child(_gear_btn)
+	_gear_menu = PanelContainer.new()
+	_gear_menu.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_gear_menu.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_gear_menu.offset_left = 16
+	_gear_menu.offset_bottom = -88
+	_gear_menu.add_theme_stylebox_override("panel", Toon.ui_box(Color(0.06, 0.035, 0.05, 0.96), UiTheme.GOLD, 12, 8, 2))
+	_gear_menu.visible = false
+	root.add_child(_gear_menu)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	_gear_menu.add_child(v)
+	_btn_auto = _button(v, "Auto-combate (T)", func() -> void: auto_combat_pressed.emit())
 	_btn_auto.toggle_mode = true
-	_btn_skills = _button(h, "Skills (K)", func() -> void: skills_pressed.emit())
-	_button(h, "Missões (J)", func() -> void: missions_pressed.emit())
-	_button(h, "Equipamento (I)", func() -> void: gear_pressed.emit())
-	_button(h, "Loja (L)", func() -> void: shop_pressed.emit())
+	_btn_auto.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_btn_auto.custom_minimum_size = Vector2(240, 40)
+	_btn_skills = _menu_btn(v, "Skills (K)", skills_pressed)
+	_menu_btn(v, "Missões (J)", missions_pressed)
+	_menu_btn(v, "Equipamento (I)", gear_pressed)
+	_menu_btn(v, "Pets (P)", pets_pressed)
+	_menu_btn(v, "Recompensas (O)", rewards_pressed)
+	_menu_btn(v, "Loja (L)", shop_pressed)
+	_menu_btn(v, "Mapa (M)", map_pressed)
+	_menu_btn(v, "Música", music_pressed)
+	_menu_btn(v, "Configurações (Esc)", settings_pressed)
 	if GameData.ADMIN_ENABLED:
-		var ab := _button(h, "Admin (F1)", func() -> void: admin_pressed.emit())
+		var ab := _menu_btn(v, "Admin (F1)", admin_pressed)
 		ab.add_theme_color_override("font_color", Color(1.0, 0.6, 0.5))
-	_button(h, "Mapa (M)", func() -> void: map_pressed.emit())
-	_button(h, "Música", func() -> void: music_pressed.emit())
+
+
+func _menu_btn(parent: Node, text: String, sig: Signal) -> Button:
+	var b := _button(parent, text, func() -> void:
+		_gear_menu.visible = false
+		sig.emit())
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size = Vector2(240, 40)
+	return b
 
 
 func _button(parent: Node, text: String, f: Callable) -> Button:
@@ -334,7 +371,7 @@ func refresh() -> void:
 	if player == null:
 		return
 	var p := player
-	_name.text = "%s  ·  Nv %d" % [String(p.cdata["name"]), p.level]
+	_name.text = "%s  ·  %s  ·  Nv %d" % [p.hero_name, String(p.cdata["name"]), p.level] if p.hero_name != "" else "%s  ·  Nv %d" % [String(p.cdata["name"]), p.level]
 	_hp.max_value = p.max_hp
 	_hp.value = p.hp
 	_hp_t.text = "%d / %d" % [int(ceil(p.hp)), p.max_hp] + ("  (+%d escudo)" % int(p.shield) if p.shield > 0.0 else "")
@@ -359,6 +396,7 @@ func refresh() -> void:
 		b.append("Escudo")
 	_buffs.text = "  ".join(b)
 	_btn_skills.text = "Skills (K)" + ("  +%d" % p.skill_points if p.skill_points > 0 else "")
+	_gear_btn.text = "+%d" % p.skill_points if p.skill_points > 0 else ""   # aviso de pontos de skill no botão
 	for i in _slots.size():
 		var s: Dictionary = _slots[i]
 		var lvl: int = p.skill_levels[i]

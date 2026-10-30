@@ -6,6 +6,7 @@ signal chosen(key: String)
 signal continue_pressed
 
 var save_info := ""
+var name_edit: LineEdit
 
 
 func _ready() -> void:
@@ -36,9 +37,20 @@ func _ready() -> void:
 		cont.add_theme_stylebox_override("normal", Toon.ui_box(Color(0.3, 0.16, 0.06, 0.97), UiTheme.GOLD, 12, 10, 3))
 		cont.pressed.connect(func() -> void: continue_pressed.emit())
 		v.add_child(cont)
-	var sub := UiTheme.label("Escolha seu herói" + ("  (escolher começa um jogo novo)" if save_info != "" else ""), 22, Color(0.9, 0.85, 0.75))
+	var sub := UiTheme.label("Dê um nome e escolha seu herói" + ("  (escolher começa um jogo novo)" if save_info != "" else ""), 22, Color(0.9, 0.85, 0.75))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
+	var nr := HBoxContainer.new()
+	nr.alignment = BoxContainer.ALIGNMENT_CENTER
+	nr.add_theme_constant_override("separation", 10)
+	v.add_child(nr)
+	nr.add_child(UiTheme.label("Nome do herói:", 20, UiTheme.GOLD))
+	name_edit = LineEdit.new()
+	name_edit.placeholder_text = "ex.: Lyra da Floresta"
+	name_edit.max_length = GameData.HERO_NAME_MAX + 8   # espaços sobrando são limpos depois
+	name_edit.custom_minimum_size = Vector2(380, 44)
+	name_edit.add_theme_font_size_override("font_size", 20)
+	nr.add_child(name_edit)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 18)
 	v.add_child(row)
@@ -46,6 +58,20 @@ func _ready() -> void:
 	for key in GameData.CLASS_ORDER:
 		row.add_child(_card(String(key), i))
 		i += 1
+
+
+## Nome limpo (2 a HERO_NAME_MAX letras); vazio = pede o nome antes de começar.
+func hero_name() -> String:
+	return GameData.clean_name(name_edit.text) if name_edit != null else ""
+
+
+func _choose(key: String) -> void:
+	if hero_name().length() < 2:
+		name_edit.placeholder_text = "Digite um nome (2 letras ou mais)"
+		name_edit.grab_focus()
+		name_edit.add_theme_color_override("font_placeholder_color", Color(1.0, 0.5, 0.4))
+		return
+	chosen.emit(key)
 
 
 func _card(key: String, i: int) -> Control:
@@ -56,7 +82,7 @@ func _card(key: String, i: int) -> Control:
 	b.add_theme_stylebox_override("normal", Toon.ui_box(Color(0.1, 0.05, 0.07, 0.95), Color(0.4, 0.27, 0.15), 14, 10))
 	b.add_theme_stylebox_override("hover", Toon.ui_box(Color(0.18, 0.09, 0.1, 0.98), UiTheme.GOLD, 14, 10, 3))
 	b.add_theme_stylebox_override("pressed", Toon.ui_box(Color(0.25, 0.12, 0.1, 1.0), Color(1, 0.9, 0.5), 14, 10, 3))
-	b.pressed.connect(func() -> void: chosen.emit(key))
+	b.pressed.connect(func() -> void: _choose(key))
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
 	col.offset_left = 14
@@ -142,4 +168,4 @@ func _unhandled_input(event: InputEvent) -> void:
 	if k != null and k.pressed and not k.echo:
 		var idx: int = k.keycode - KEY_1
 		if idx >= 0 and idx < GameData.CLASS_ORDER.size():
-			chosen.emit(GameData.CLASS_ORDER[idx])
+			_choose(GameData.CLASS_ORDER[idx])
