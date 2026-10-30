@@ -17,9 +17,13 @@ func _ready() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
-	_base = _circle(R, Color(1, 1, 1, 0.12))
+	# joystick acima da engrenagem/barra de skills, com folga da borda
+	_base = _circle(R, Color(1, 1, 1, 0.14))
 	_base.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_base.position = Vector2(150, -330)
+	_base.offset_left = 120
+	_base.offset_right = 120 + R * 2
+	_base.offset_top = -190 - R * 2
+	_base.offset_bottom = -190
 	root.add_child(_base)
 	_knob = _circle(42, Color(1, 0.85, 0.5, 0.45))
 	_base.add_child(_knob)
@@ -29,10 +33,10 @@ func _ready() -> void:
 	atk.focus_mode = Control.FOCUS_NONE
 	atk.custom_minimum_size = Vector2(150, 150)
 	atk.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	atk.offset_left = -190
-	atk.offset_top = -390
-	atk.offset_right = -40
-	atk.offset_bottom = -240
+	atk.offset_left = -230
+	atk.offset_top = -340
+	atk.offset_right = -70
+	atk.offset_bottom = -180
 	atk.add_theme_font_size_override("font_size", 24)
 	atk.button_down.connect(func() -> void: Player.touch_attack = true)
 	atk.button_up.connect(func() -> void: Player.touch_attack = false)
@@ -57,7 +61,7 @@ func _input(e: InputEvent) -> void:
 	var vp := get_viewport().get_visible_rect().size
 	if e is InputEventScreenTouch:
 		var t := e as InputEventScreenTouch
-		if t.pressed and _finger < 0 and t.position.x < vp.x * 0.4 and t.position.y > vp.y * 0.35:
+		if t.pressed and _finger < 0 and t.position.x < vp.x * 0.4 and t.position.y > vp.y * 0.35 and t.position.y < vp.y - 110:
 			_finger = t.index
 			_center = t.position
 		elif not t.pressed and t.index == _finger:

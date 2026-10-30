@@ -31,6 +31,13 @@ func _ready() -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_theme_stylebox_override("panel", Toon.ui_box(Color(0.03, 0.02, 0.03, 0.55), Color(0.4, 0.3, 0.2, 0.6), 10, 6, 1))
 	root.add_child(_panel)
+	if DisplayServer.is_touchscreen_available():   # celular: chat no alto à esquerda (embaixo fica o joystick)
+		_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_panel.grow_vertical = Control.GROW_DIRECTION_END
+		_panel.offset_left = 16
+		_panel.offset_right = 16 + 400
+		_panel.offset_top = 180
+		_panel.offset_bottom = 180 + 150
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_child(v)
@@ -38,7 +45,7 @@ func _ready() -> void:
 	_log.bbcode_enabled = true
 	_log.scroll_following = true
 	_log.fit_content = false
-	_log.custom_minimum_size = Vector2(440, 150)
+	_log.custom_minimum_size = Vector2(380, 100) if DisplayServer.is_touchscreen_available() else Vector2(440, 150)
 	_log.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_log.add_theme_font_size_override("normal_font_size", 14)
 	v.add_child(_log)

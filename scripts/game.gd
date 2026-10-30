@@ -878,7 +878,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_interact(what, true)
 				return
 			var vp := get_viewport().get_visible_rect().size
-			if DisplayServer.is_touchscreen_available() and mb.position.x < vp.x * 0.4 and mb.position.y > vp.y * 0.35:
+			if DisplayServer.is_touchscreen_available() and mb.position.x < vp.x * 0.4 and mb.position.y > vp.y * 0.35 and mb.position.y < vp.y - 110:
 				return   # toque no joystick do celular não é ataque
 			player.mouse_held = true
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_UP:
