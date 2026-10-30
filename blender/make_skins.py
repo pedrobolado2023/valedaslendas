@@ -55,6 +55,24 @@ def horn(name, mat, base, p1, p2, r0, rings=12, seg=10):
     return o
 
 
+def long_skirt(c, m, z0, z1, r_bottom, r_top):
+    """Saia longa em cone presa à bacia (até os pés)."""
+    import bpy
+    bpy.ops.mesh.primitive_cone_add(vertices=40, radius1=r_bottom, radius2=r_top, depth=z0 - z1, end_fill_type="NOTHING")
+    o = bpy.context.active_object
+    o.name = "Saia"
+    o.location = Vector((0, K.bone_head(c.arm, "pelvis").y + 0.01, (z0 + z1) / 2))
+    o.scale = (1.0, 0.82, 1.0)
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    bpy.ops.object.shade_smooth()
+    o.data.materials.append(m)
+    md = o.modifiers.new("Esp", "SOLIDIFY")
+    md.thickness = 0.012
+    K.apply_modifiers(o, keep=())
+    rigid(c, o, "pelvis")
+    return o
+
+
 # =================================================================== Druida
 
 def sk_eloreth(c):
@@ -219,11 +237,69 @@ def sk_inverno(c):
     D.cape(c, fur, 1.15, 0.52, K.color_mat("ski_barra", (0.42, 0.58, 0.72), rough=0.8))
 
 
-SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno)}
+def sk_areias(c):
+    """Oráculo das Areias (Seryth): túnica longa de linho creme, faixa e peitoral dourados com hieróglifos (barras
+    gravadas), véu de seda sobre o cabelo preso, olho de turquesa na testa, braceletes de ouro."""
+    linen = K.color_mat("ska_linho", (0.93, 0.86, 0.72), rough=0.75)
+    gold = K.color_mat("ska_ouro", (0.95, 0.72, 0.28), metal=0.85, rough=0.3)
+    turq = K.color_mat("ska_turquesa", (0.2, 0.8, 0.78), glow=1.1)
+    veil = K.color_mat("ska_veu", (0.78, 0.25, 0.2), rough=0.6)
+    sand = K.color_mat("ska_sandalia", (0.45, 0.3, 0.17), rough=0.7)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, linen, offset=0.005, zmin=c.ankle_z + 0.05)
+    long_skirt(c, linen, c.hip_z + 0.06, c.ankle_z + 0.03, 0.34, 0.2)
+    piece(c, c.tights, "Bota", FEET, sand, offset=0.012, thresh=0.3, zmax=c.ankle_z + 0.05)
+    D.gloves(c, K.color_mat("ska_pele_luva", (0.84, 0.66, 0.5), rough=0.6), offset=0.003)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.12, 0.08, 0.06), 1.4)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.1, 0.07, 0.05), 1.0)
+    # peitoral dourado em gola larga (colar egípcio): três aros com barras gravadas
+    neck = K.bone_head(c.arm, "neck_01")
+    for k in range(3):   # colar largo deitado sobre o peito (mais baixo na frente)
+        g = prim("torus", "Gorjal", gold if k != 1 else turq, neck + Vector((0, -0.01 - k * 0.012, -0.045 - k * 0.022)),
+                 (0.27 + k * 0.05, 0.25 + k * 0.045, 0.3), rot=(0.42, 0, 0), minor=0.1 if k != 1 else 0.07)
+        rigid(c, g, "spine_03")
+    # faixa dourada na cintura com "hieróglifos" (placas) caindo na frente
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", gold, Vector((0, cy, zb)), (2 * rx + 0.012, 2 * ry + 0.012, 0.6), minor=0.09)
+    rigid(c, band, "spine_01")
+    fl = c.knee_z - 0.05
+    z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.03          # mesma saia em cone (frente: raio × 0,82)
+    py = K.bone_head(c.arm, "pelvis").y + 0.01
+    rz = lambda z: (0.2 + (0.34 - 0.2) * (z0s - z) / (z0s - z1s)) * 0.82
+    top = Vector((0, py - rz(zb - 0.05) - 0.012, zb - 0.05))
+    bot = Vector((0, py - rz(fl) - 0.012, fl))
+    tilt = -math.atan2(top.y - bot.y, top.z - bot.z)
+    band2 = prim("box", "Faixa", gold, (top + bot) / 2, (0.09, 0.008, (top - bot).length), rot=(tilt, 0, 0))
+    rigid(c, band2, "pelvis")
+    for k in range(4):   # hieróglifos em turquesa ao longo da faixa
+        t = (k + 0.7) / 5
+        gl = prim("box", "Faixa", turq, top.lerp(bot, t) + Vector((0, -0.006, 0)), (0.045, 0.006, 0.022 if k % 2 else 0.035), rot=(tilt, 0, 0))
+        rigid(c, gl, "pelvis")
+    # braceletes de ouro
+    for side in ("l", "r"):
+        wr = K.bone_head(c.arm, "hand_" + side)
+        for k in range(2):
+            cu = prim("torus", "Bracadeira", gold, wr + Vector((0, 0, 0.03 + k * 0.035)), (0.072, 0.072, 0.4), minor=0.1)
+            rigid(c, cu, "lowerarm_" + side)
+    # tiara com olho de turquesa e véu caindo pelas costas
+    h, s2 = c.head, (c.head_top - c.head).length
+    ring = prim("torus", "Coroa", gold, Vector((0, h.y + s2 * 0.02, c.eye_z + s2 * 0.42)), (s2 * 1.14, s2 * 1.24, 0.3), rot=(0.18, 0, 0), minor=0.06)
+    rigid(c, ring, "head")
+    eye = prim("sphere", "Joia", turq, Vector((0, h.y - s2 * 0.61, c.eye_z + s2 * 0.5)), (0.03, 0.012, 0.02))
+    rigid(c, eye, "head")
+    for side in (-1, 1):
+        dr = prim("sphere", "Joia", gold, Vector((side * s2 * 0.6, h.y - s2 * 0.05, c.eye_z - s2 * 0.42)), (0.016, 0.016, 0.04))
+        rigid(c, dr, "head")
+    D.cape(c, veil, 1.25, 0.42, gold)
+
+
+SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
+         "sk_areias": ("druida", D, sk_areias)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
-          "sk_inverno": [("hair/bob02/bob02.mhclo", "Hair"), ("eyebrows/eyebrow003/eyebrow003.mhclo", "Eyebrows")]}
+          "sk_inverno": [("hair/bob02/bob02.mhclo", "Hair"), ("eyebrows/eyebrow003/eyebrow003.mhclo", "Eyebrows")],
+          "sk_areias": [("hair/ponytail01/ponytail01.mhclo", "Hair"), ("eyebrows/eyebrow010/eyebrow010.mhclo", "Eyebrows")]}
 
 
 def main():
