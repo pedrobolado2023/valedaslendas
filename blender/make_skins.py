@@ -172,10 +172,58 @@ def sk_cinzas(c):
     D.cape(c, ash, 1.1, 0.46, ember)
 
 
-SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas)}
+def sk_inverno(c):
+    """Druida do Inverno (Valdrath): túnica azul-gelo, manto de pele branca com gola grossa, capuz de pele, botas
+    forradas, cristais de gelo nos ombros e na testa, cabelo curto castanho-claro."""
+    wool = K.color_mat("ski_la", (0.42, 0.58, 0.72), rough=0.8)
+    fur = K.color_mat("ski_pele", (0.95, 0.95, 0.96), rough=0.95)
+    leather = K.color_mat("ski_couro", (0.33, 0.24, 0.18), rough=0.7)
+    ice = K.color_mat("ski_gelo", (0.6, 0.9, 1.0), glow=1.2)
+    silver = K.color_mat("ski_prata", (0.78, 0.84, 0.9), metal=0.7, rough=0.3)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, wool, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, K.color_mat("ski_tunica", (0.3, 0.45, 0.6), rough=0.75), offset=0.012, zmin=c.hip_z - 0.04)
+    piece(c, c.skirt, "TunicaSaia", ["pelvis", "thigh_l", "thigh_r"], wool, offset=0.016, thresh=0.05, zmin=c.knee_z - 0.04)
+    piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, leather, offset=0.016, thresh=0.3, zmax=c.knee_z - 0.04)
+    D.gloves(c, leather)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.55, 0.4, 0.28), 1.5)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.4, 0.28, 0.2), 1.0)
+    for side in ("l", "r"):   # bordas de pele nas botas
+        kn = K.bone_head(c.arm, "calf_" + side)
+        cuff = prim("torus", "Bota", fur, kn + Vector((0, 0.005, -0.07)), (0.12, 0.12, 0.45), minor=0.16)
+        rigid(c, cuff, "calf_" + side)
+    # gola de pele grossa (sobre os ombros)
+    neck = K.bone_head(c.arm, "neck_01")
+    for k in range(2):
+        g = prim("torus", "Gola", fur, neck + Vector((0, 0.015, -0.035 - k * 0.035)), (0.3 + k * 0.05, 0.27 + k * 0.04, 0.55), minor=0.14)
+        rigid(c, g, "spine_03")
+    # cristais de gelo nos ombros
+    for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):
+        sh = K.bone_head(c.arm, bone_n)
+        for k, (dx, ln) in enumerate(((0.0, 0.09), (0.03, 0.06), (-0.025, 0.05))):
+            cr = prim("cone", "GemaOmbro", ice, sh + Vector((side * (0.05 + dx), 0.02, 0.07 + ln / 2)), (0.03, 0.03, ln), rot=(0.2 * k, side * -0.35, 0), seg=6)
+            rigid(c, cr, bone_n)
+    # tiara de prata com cristal de gelo na testa
+    h, s = c.head, (c.head_top - c.head).length
+    ring = prim("torus", "Coroa", silver, Vector((0, h.y + s * 0.02, c.eye_z + s * 0.42)), (s * 1.14, s * 1.24, 0.25), rot=(0.18, 0, 0), minor=0.05)
+    rigid(c, ring, "head")
+    fz, fy = c.eye_z + s * 0.5, h.y - s * 0.6
+    for k, (dx, ln) in enumerate(((0.0, 0.09), (-0.03, 0.055), (0.03, 0.055))):
+        cr = prim("cone", "Joia", ice, Vector((dx, fy, fz + ln / 2)), (0.026, 0.02, ln), rot=(0.15, dx * 6, 0), seg=6)
+        rigid(c, cr, "head")
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", leather, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.4), minor=0.06)
+    rigid(c, band, "spine_01")
+    gem = prim("sphere", "CintoFivela", ice, Vector((0, cy - ry - 0.012, zb)), (0.03, 0.012, 0.034))
+    rigid(c, gem, "spine_01")
+    D.cape(c, fur, 1.15, 0.52, K.color_mat("ski_barra", (0.42, 0.58, 0.72), rough=0.8))
+
+
+SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
-          "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")]}
+          "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
+          "sk_inverno": [("hair/bob02/bob02.mhclo", "Hair"), ("eyebrows/eyebrow003/eyebrow003.mhclo", "Eyebrows")]}
 
 
 def main():
