@@ -1039,6 +1039,14 @@ static func _build_campaign() -> void:
 							head + String(STORY_SPECIAL.get(String(e["type"]), e["text"])), int(e["count"]), e.get("unlock", [])))
 
 
+## Primeira missão da campanha para um herói deste nível (usada para consertar saves com a campanha "terminada" cedo).
+static func quest_index_for_level(level: int) -> int:
+	for i in QUESTS.size():
+		if int(QUESTS[i]["min_level"]) >= level and String(QUESTS[i]["type"]) == "kill":
+			return maxi(0, i - 3) if int(QUESTS[i]["min_level"]) > level + 4 else i
+	return QUESTS.size()
+
+
 ## Tudo o que as missões antes de `index` já liberaram (chave → true). Fim da campanha libera tudo.
 static func story_unlocks(index: int) -> Dictionary:
 	var out := {}

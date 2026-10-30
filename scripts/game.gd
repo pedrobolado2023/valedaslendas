@@ -48,7 +48,8 @@ var return_map := "vale"         # mapa para onde o herói volta ao sair de um m
 var quest_index := 0
 var quest_state := "none"      # none | active | done (campanha: GameData.QUESTS)
 var royal: Npc                 # soberano do reino (só na capital)
-var unlocks := {}              # o que a campanha já liberou (skills, funções, mapas)
+var unlocks := {}              # o que a campanha já liberou
+var campaign_skip := false     # admin pulou a campanha de propósito (não volta sozinha) (skills, funções, mapas)
 var _boss_req_t := 0.0
 var quest_kills := 0
 var show_path := false
@@ -644,10 +645,17 @@ func _apply_save(d: Dictionary) -> void:
 	quest_kills = int(d.get("quest_kills", 0))
 	if quest_index < 0:   # save antigo (missões por número): volta ao começo da zona em que estava
 		quest_index = GameData.legacy_quest_index(int(d.get("quest_index", 0))) if d.has("quest_index") else 0
+		quest_index = mini(quest_index, GameData.quest_index_for_level(int(d.get("level", 1))))   # nunca à frente do nível
 		quest_state = "none"
 		quest_kills = 0
 	if quest_state in ["kill", "boss"]:
 		quest_state = "active"
+	campaign_skip = bool(d.get("campaign_skip", false))
+	var end_lv := int(GameData.QUESTS[-1]["min_level"])
+	if quest_index >= GameData.QUESTS.size() and not campaign_skip and player.level < end_lv - 30:
+		quest_index = GameData.quest_index_for_level(player.level)   # campanha "terminada" no nível baixo: volta
+		quest_state = "none"
+		quest_kills = 0
 	_recalc_unlocks(false)
 	missions.from_dict(d.get("missions", {}))
 	player.give_all_skins(player.gear.size() < GameData.GEAR_SLOTS.size())
@@ -675,7 +683,7 @@ func save_now() -> void:
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
-		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "fragments": player.fragments, "kingdom": player.kingdom, "kingdom_t": player.kingdom_t, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
+		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "fragments": player.fragments, "kingdom": player.kingdom, "kingdom_t": player.kingdom_t, "campaign_skip": campaign_skip, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	}
 	SaveGame.write(data)
@@ -843,7 +851,19 @@ func admin_skip_quest() -> void:
 	save_now()
 
 
+## Admin: volta a campanha para a missão do nível atual (o que vem antes continua liberado).
+func admin_campaign_to_level() -> void:
+	campaign_skip = false
+	quest_index = GameData.quest_index_for_level(player.level)
+	quest_state = "none"
+	quest_kills = 0
+	_recalc_unlocks(false)
+	refresh_quest_ui()
+	save_now()
+
+
 func admin_finish_campaign() -> void:
+	campaign_skip = true
 	quest_index = GameData.QUESTS.size()
 	quest_state = "none"
 	_recalc_unlocks(true)

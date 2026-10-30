@@ -44,6 +44,8 @@ var _gear_menu: PanelContainer
 var _quest_box: PanelContainer
 var _quest_title: Label
 var _quest_obj: Label
+var _quest_body: Array = []     # o que some ao minimizar o painel de missões
+var _quest_min_btn: Button
 var _btn_path: Button
 var _btn_qauto: Button
 var _missions: Label
@@ -212,9 +214,19 @@ func _build_right(game: Node) -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	_quest_box.add_child(v)
+	var top := HBoxContainer.new()
+	v.add_child(top)
 	_quest_title = UiTheme.title("", 19)
 	_quest_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(_quest_title)
+	_quest_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(_quest_title)
+	_quest_min_btn = Button.new()   # minimizar / abrir o painel (fica salvo nas configurações)
+	_quest_min_btn.focus_mode = Control.FOCUS_NONE
+	_quest_min_btn.custom_minimum_size = Vector2(34, 30)
+	_quest_min_btn.tooltip_text = "Minimizar / abrir o painel de missões"
+	_quest_min_btn.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_quest_min_btn.pressed.connect(func() -> void: set_quest_min((_quest_body[0] as Control).visible))
+	top.add_child(_quest_min_btn)
 	_quest_obj = UiTheme.label("", 16)
 	_quest_obj.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_quest_obj)
@@ -240,6 +252,21 @@ func _build_right(game: Node) -> void:
 	_missions = UiTheme.label("", 14, Color(0.85, 0.82, 0.72))
 	_missions.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(_missions)
+	_quest_body = [_quest_obj, h, sep, _missions]
+	var cfg := ConfigFile.new()
+	cfg.load("user://config.cfg")
+	set_quest_min(bool(cfg.get_value("hud", "quest_min", false)))
+
+
+## Minimiza (só o título fica) ou abre o painel de missões.
+func set_quest_min(on: bool) -> void:
+	for n in _quest_body:
+		(n as Control).visible = not on
+	_quest_min_btn.text = "+" if on else "–"
+	var cfg := ConfigFile.new()
+	cfg.load("user://config.cfg")
+	cfg.set_value("hud", "quest_min", on)
+	cfg.save("user://config.cfg")
 
 
 ## Botão de engrenagem (canto de baixo à esquerda): abre o menu com todas as funções (as teclas continuam valendo).

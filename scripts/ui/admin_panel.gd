@@ -230,6 +230,9 @@ func _world_col() -> Control:
 	_btn(v, "Pular para a próxima missão", func() -> void:
 		game.call("admin_skip_quest")
 		_done("Missão de história pulada."))
+	_btn(v, "Campanha: voltar para a missão do meu nível", func() -> void:
+		game.call("admin_campaign_to_level")
+		_done("Campanha na missão do seu nível."))
 	_btn(v, "Campanha: liberar tudo (pular até o fim)", func() -> void:
 		game.call("admin_finish_campaign")
 		_done("Campanha concluída: tudo liberado."))
