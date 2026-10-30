@@ -14,19 +14,70 @@ static var PATH: String = TEST_PATH if OS.get_environment("VALE_TESTE") != "" el
 static var backend: Object = LocalBackend.new()
 
 
+## Conta com vários heróis: o arquivo guarda {"chars": [save, ...], "cur": índice}. read()/write() continuam
+## lendo/gravando o herói ATUAL (o resto do jogo não muda). Saves antigos (um herói só) viram o herói 1.
+const MAX_CHARS := 4
+static var cur := 0
+
+
+static func account() -> Dictionary:
+	var d: Dictionary = backend.read()
+	return normalize(d)
+
+
+static func normalize(d: Dictionary) -> Dictionary:
+	if d.is_empty():
+		return {"chars": [], "cur": 0}
+	if not d.has("chars"):
+		return {"chars": [d], "cur": 0, "saved_at": String(d.get("saved_at", ""))}
+	return d
+
+
 static func exists() -> bool:
-	return backend.exists()
+	return not (account()["chars"] as Array).is_empty()
+
+
+static func count() -> int:
+	return (account()["chars"] as Array).size()
+
+
+static func select(i: int) -> void:
+	cur = clampi(i, 0, MAX_CHARS - 1)
+
+
+static func remove(i: int) -> void:
+	var acc := account()
+	var ch: Array = acc["chars"]
+	if i >= 0 and i < ch.size():
+		ch.remove_at(i)
+		backend.write(acc)
 
 
 static func write(data: Dictionary) -> bool:
 	data["schema"] = SCHEMA
 	if not data.has("account_id"):
 		data["account_id"] = account_id()
-	return backend.write(data)
+	var acc := account()
+	var ch: Array = acc["chars"]
+	if cur >= ch.size():
+		ch.append(data)
+		cur = ch.size() - 1
+	else:
+		ch[cur] = data
+	acc["cur"] = cur
+	acc["saved_at"] = String(data.get("saved_at", Time.get_datetime_string_from_system()))
+	acc["schema"] = SCHEMA
+	return backend.write(acc)
 
 
 static func read() -> Dictionary:
-	return backend.read()
+	var ch: Array = account()["chars"]
+	return ch[cur] if cur < ch.size() else {}
+
+
+## Gravar a conta inteira (vinda da nuvem/servidor).
+static func write_account(acc: Dictionary) -> bool:
+	return backend.write(normalize(acc))
 
 
 static func erase() -> void:

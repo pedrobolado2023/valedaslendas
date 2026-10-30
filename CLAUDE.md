@@ -132,6 +132,12 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   ícone `textures/ui/gear.png`); a engrenagem mostra "+N" quando há pontos de skill. Teclas continuam valendo.
 - **Nome do herói:** campo no menu de classes (obrigatório, 2 a `HERO_NAME_MAX` letras, `GameData.clean_name`);
   `player.hero_name`, save "name"; aparece no HUD, no "Continuar" e online (em cima do herói e no ranking do boss).
+- **Conta com até 4 heróis:** `SaveGame` guarda {"chars": [...], "cur"}; `read()/write()` são do herói atual
+  (`SaveGame.select(i)`); saves antigos viram o herói 1 (`normalize`). Menu lista "Jogar/Apagar" de cada herói.
+  Servidor guarda a conta inteira; `push_save(data, slot)`. Nome único: `Net.reserve_name` → tabela `hero_names`.
+- **Segurança online:** `Net._save_check` recusa save impossível (ouro/gemas/lendários/refino/nível acima do ritmo
+  possível no tempo; créditos do boss contam). Com servidor, só ele grava no banco (`supabase/seguranca.sql` tira a
+  gravação do navegador e cria `hero_names` — o dono precisa rodar no SQL Editor).
 - **Portal (`ui/portal_panel.gd`):** todos os mapas em grade de 4 colunas com rolagem + boss global e masmorra no topo.
 - **Dragão de Lava (boss global, modelo do Gemini `dragon_boss.html`):** malha extraída com Node
   (`tools/dragon_extract/gen.mjs`, precisa `npm i three@0.160.0`) → `blender/make_lava_dragon.py` (reduz, posição de

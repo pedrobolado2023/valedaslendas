@@ -95,8 +95,8 @@ func _ready() -> void:
 		if await get_node("/root/Net").connect_to_server(cloud.token):
 			toast("Conectado ao servidor online", 2.0))
 	get_node("/root/Net").loaded.connect(func(sv: Dictionary) -> void:
-		if not sv.is_empty() and String(sv.get("saved_at", "")) > String(SaveGame.read().get("saved_at", "")):
-			SaveGame.backend.write(sv)
+		if not sv.is_empty() and String(sv.get("saved_at", "")) > String(SaveGame.account().get("saved_at", "")):
+			SaveGame.write_account(sv)
 			if player == null and _menu != null:
 				_menu.queue_free()
 				_make_menu())
@@ -258,14 +258,40 @@ func _web_test() -> void:
 
 func _make_menu() -> void:
 	_menu = ClassMenu.new()
-	_menu.save_info = _save_summary()
+	var ch: Array = SaveGame.account()["chars"]
+	for i in ch.size():
+		_menu.slots.append(_summary_of(ch[i]))
 	add_child(_menu)
-	_menu.chosen.connect(func(k: String) -> void:
-		_new_name = _menu.hero_name()
-		start_game(k, {}))
-	_menu.continue_pressed.connect(func() -> void:
+	_menu.chosen.connect(_new_hero)
+	_menu.continue_slot.connect(func(i: int) -> void:
+		SaveGame.select(i)
 		var d := SaveGame.read()
 		start_game(_cls(String(d.get("class", "assassino"))), d))
+	_menu.delete_slot.connect(func(i: int) -> void:
+		SaveGame.remove(i)
+		if get_node("/root/Net").online:
+			get_node("/root/Net").delete_char.rpc_id(1, i)
+		_menu.queue_free()
+		_make_menu())
+
+
+## Herói novo: o nome não pode repetir (na conta; online, em todo o jogo — o servidor reserva).
+func _new_hero(k: String) -> void:
+	var nm: String = _menu.hero_name()
+	for d in SaveGame.account()["chars"]:
+		if String(d.get("name", "")).to_lower() == nm.to_lower():
+			_menu.error("Você já tem um herói chamado %s." % nm)
+			return
+	var net := get_node("/root/Net")
+	if net.online:
+		_menu.error("Conferindo o nome...")
+		var ok: bool = await net.reserve_name(nm)
+		if not ok:
+			_menu.error("O nome \"%s\" já é de outro jogador. Escolha outro." % nm)
+			return
+	_new_name = nm
+	SaveGame.select(SaveGame.count())   # vai para um encaixe novo da conta
+	start_game(k, {})
 
 
 func _notification(what: int) -> void:
@@ -417,7 +443,10 @@ static func _cls(k: String) -> String:
 
 
 func _save_summary() -> String:
-	var d := SaveGame.read()
+	return _summary_of(SaveGame.read())
+
+
+func _summary_of(d: Dictionary) -> String:
 	if d.is_empty():
 		return ""
 	var cls := _cls(String(d.get("class", "assassino")))

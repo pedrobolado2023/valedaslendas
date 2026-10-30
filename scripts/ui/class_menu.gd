@@ -4,8 +4,12 @@ extends CanvasLayer
 
 signal chosen(key: String)
 signal continue_pressed
+signal continue_slot(i: int)
+signal delete_slot(i: int)
 
 var save_info := ""
+var slots: Array = []        # resumo de cada herói da conta (texto)
+var _msg: Label
 var name_edit: LineEdit
 
 
@@ -28,16 +32,32 @@ func _ready() -> void:
 	var title := UiTheme.title("Vale das Lendas", 64)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
-	if save_info != "":
+	# heróis da conta (até SaveGame.MAX_CHARS): continuar ou apagar
+	for i in slots.size():
+		var row0 := HBoxContainer.new()
+		row0.add_theme_constant_override("separation", 8)
+		v.add_child(row0)
 		var cont := Button.new()
-		cont.text = "Continuar:  " + save_info
+		cont.text = "Jogar:  " + String(slots[i])
 		cont.focus_mode = Control.FOCUS_NONE
-		cont.custom_minimum_size = Vector2(0, 54)
-		cont.add_theme_font_size_override("font_size", 22)
+		cont.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cont.custom_minimum_size = Vector2(0, 46)
+		cont.add_theme_font_size_override("font_size", 20)
 		cont.add_theme_stylebox_override("normal", Toon.ui_box(Color(0.3, 0.16, 0.06, 0.97), UiTheme.GOLD, 12, 10, 3))
-		cont.pressed.connect(func() -> void: continue_pressed.emit())
-		v.add_child(cont)
-	var sub := UiTheme.label("Dê um nome e escolha seu herói" + ("  (escolher começa um jogo novo)" if save_info != "" else ""), 22, Color(0.9, 0.85, 0.75))
+		var idx := i
+		cont.pressed.connect(func() -> void: continue_slot.emit(idx))
+		row0.add_child(cont)
+		var del := Button.new()
+		del.text = "Apagar"
+		del.focus_mode = Control.FOCUS_NONE
+		del.pressed.connect(func() -> void:
+			if del.text == "Apagar":
+				del.text = "Confirmar?"
+			else:
+				delete_slot.emit(idx))
+		row0.add_child(del)
+	var full := slots.size() >= SaveGame.MAX_CHARS
+	var sub := UiTheme.label("Conta cheia (%d heróis): apague um para criar outro" % SaveGame.MAX_CHARS if full else ("Novo herói: dê um nome e escolha a classe" if not slots.is_empty() else "Dê um nome e escolha seu herói"), 22, Color(0.9, 0.85, 0.75))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(sub)
 	var nr := HBoxContainer.new()
@@ -51,6 +71,10 @@ func _ready() -> void:
 	name_edit.custom_minimum_size = Vector2(380, 44)
 	name_edit.add_theme_font_size_override("font_size", 20)
 	nr.add_child(name_edit)
+	name_edit.editable = not full
+	_msg = UiTheme.label("", 16, Color(1.0, 0.55, 0.45))
+	_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_msg)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 18)
 	v.add_child(row)
@@ -65,7 +89,15 @@ func hero_name() -> String:
 	return GameData.clean_name(name_edit.text) if name_edit != null else ""
 
 
+func error(t: String) -> void:
+	if _msg != null:
+		_msg.text = t
+
+
 func _choose(key: String) -> void:
+	if slots.size() >= SaveGame.MAX_CHARS:
+		error("Sua conta já tem %d heróis. Apague um para criar outro." % SaveGame.MAX_CHARS)
+		return
 	if hero_name().length() < 2:
 		name_edit.placeholder_text = "Digite um nome (2 letras ou mais)"
 		name_edit.grab_focus()

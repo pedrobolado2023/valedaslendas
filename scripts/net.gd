@@ -124,7 +124,7 @@ func hello(token: String) -> void:
 		return
 	var id := multiplayer.get_remote_sender_id()
 	if OS.get_environment("VALE_DEV") != "":   # teste local sem Supabase: qualquer token entra
-		_players[id] = {"uid": "dev-%d" % id, "name": token, "cls": "", "gear": {}, "save": {}, "admin": token.begins_with("admin")}
+		_players[id] = {"uid": "dev-%d" % id, "name": token, "cls": "", "gear": {}, "save": {"chars": [], "cur": 0}, "admin": token.begins_with("admin")}
 		_players[id]["save_t"] = Time.get_unix_time_from_system()
 		_welcome.rpc_id(id, true, {})
 		return
@@ -139,6 +139,7 @@ func hello(token: String) -> void:
 	var save: Dictionary = {}
 	if int(row["code"]) == 200 and row["json"] is Array and not (row["json"] as Array).is_empty():
 		save = row["json"][0]["data"]
+	save = SaveGame.normalize(save)   # conta com vários heróis
 	var meta: Variant = user["json"].get("app_metadata", {})
 	_players[id] = {"uid": uid, "name": mail.get_slice("@", 0), "cls": "", "gear": {}, "save": save,
 		"admin": meta is Dictionary and bool(meta.get("admin", false))}
@@ -196,28 +197,109 @@ func request_boss(zid: String, type_id: String) -> void:
 
 ## Save do jogador: o servidor guarda e grava no Supabase (o navegador não escreve direto no banco).
 @rpc("any_peer", "reliable")
-func push_save(data: Dictionary) -> void:
+func push_save(data: Dictionary, slot: int = 0) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if not is_server or not _players.has(id):
 		return
 	var p: Dictionary = _players[id]
-	var why := _save_check(p, data)
+	slot = clampi(slot, 0, SaveGame.MAX_CHARS - 1)
+	var acc: Dictionary = p["save"]
+	var ch: Array = acc["chars"]
+	if slot > ch.size():
+		return
+	var why := _save_check(p, data, ch[slot] if slot < ch.size() else {})
 	if why != "":
 		print("[servidor] save recusado de ", p["name"], ": ", why)
 		_save_refused.rpc_id(id, why)
 		return
-	p["save"] = data
+	if slot < ch.size():
+		ch[slot] = data
+	else:
+		ch.append(data)
+	acc["cur"] = slot
+	acc["saved_at"] = String(data.get("saved_at", ""))
 	p["save_t"] = Time.get_unix_time_from_system()
 	p["credit_gems"] = 0
 	p["credit_gold"] = 0
 	p["credit_items"] = 0
 
 
+## Apagar um herói da conta.
+@rpc("any_peer", "reliable")
+func delete_char(i: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var ch: Array = _players[id]["save"]["chars"]
+	if i >= 0 and i < ch.size():
+		ch.remove_at(i)
+		_store(id)
+
+
+## Reserva um nome de herói (único no jogo). Responde com _name_result.
+var _dev_names := {}
+
+
+@rpc("any_peer", "reliable")
+func reserve_name_srv(nm: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	nm = GameData.clean_name(nm)
+	var key := nm.to_lower()
+	var uid := String(_players[id]["uid"])
+	var ok := nm.length() >= 2
+	if ok and (OS.get_environment("VALE_DEV") != "" or sb_service == ""):
+		ok = not _dev_names.has(key) or _dev_names[key] == uid
+		if ok:
+			_dev_names[key] = uid
+	elif ok:
+		var r := await _sb("/rest/v1/hero_names", HTTPClient.METHOD_POST, {"name_key": key, "name": nm, "user_id": uid}, "", ["Prefer: return=minimal"])
+		if int(r["code"]) == 409:   # já existe: vale se for do mesmo jogador
+			var g := await _sb("/rest/v1/hero_names?select=user_id&name_key=eq." + key.uri_encode(), HTTPClient.METHOD_GET, null)
+			ok = g["json"] is Array and not (g["json"] as Array).is_empty() and String(g["json"][0]["user_id"]) == uid
+		elif int(r["code"]) >= 300:
+			print("[servidor] tabela hero_names indisponível (rodar supabase/seguranca.sql): ", r["code"])
+	if _players.has(id):
+		_name_result.rpc_id(id, nm, ok)
+
+
+signal name_checked(nm: String, ok: bool)
+
+
+@rpc("authority", "reliable")
+func _name_result(nm: String, ok: bool) -> void:
+	name_checked.emit(nm, ok)
+
+
+## Cliente: pede o nome ao servidor e espera a resposta (até 8 s; sem resposta, deixa passar).
+func reserve_name(nm: String) -> bool:
+	if not online:
+		return true
+	reserve_name_srv.rpc_id(1, nm)
+	var t0 := Time.get_ticks_msec()
+	var res := [null]
+	var cb := func(n: String, ok: bool) -> void:
+		if n.to_lower() == GameData.clean_name(nm).to_lower():
+			res[0] = ok
+	name_checked.connect(cb)
+	while res[0] == null and Time.get_ticks_msec() - t0 < 8000:
+		await get_tree().process_frame
+	name_checked.disconnect(cb)
+	return true if res[0] == null else bool(res[0])
+
+
 ## Confere se o save novo é possível a partir do anterior (contra trapaça). Devolve "" se estiver ok.
 ## Generoso de propósito: quem joga normal nunca é barrado; quem edita o jogo para se dar milhões é.
-func _save_check(p: Dictionary, data: Dictionary) -> String:
-	var old: Dictionary = p["save"]
-	if old.is_empty() or bool(p.get("admin", false)):
+func _save_check(p: Dictionary, data: Dictionary, old: Dictionary) -> String:
+	if bool(p.get("admin", false)):
+		return ""
+	if old.is_empty():   # herói novo: tem que começar do começo
+		var legs := 0
+		for it in data.get("inventory", []):
+			legs += 1 if String(it.get("rarity", "")) == "lendaria" else 0
+		if int(data.get("level", 1)) > 5 or int(data.get("gems", 0)) > GameData.GEMS_START + 300 or int(data.get("gold", 0)) > 50000 or legs > 16:
+			return "herói novo já começou forte demais"
 		return ""
 	var hours := maxf((Time.get_unix_time_from_system() - float(p.get("save_t", Time.get_unix_time_from_system() - 60.0))) / 3600.0, 1.0 / 60.0)
 	var lv0 := int(old.get("level", 1))
@@ -254,7 +336,13 @@ func _store(id: int) -> void:
 	if p.is_empty() or (p["save"] as Dictionary).is_empty() or sb_service == "":
 		return
 	var d: Dictionary = p["save"]
-	var row := {"user_id": p["uid"], "data": d, "level": int(d.get("level", 1)), "class": String(d.get("class", "")),
+	var top := {}
+	for c in d.get("chars", []):
+		if top.is_empty() or int(c.get("level", 1)) > int(top.get("level", 1)):
+			top = c
+	if top.is_empty():
+		return
+	var row := {"user_id": p["uid"], "data": d, "level": int(top.get("level", 1)), "class": String(top.get("name", top.get("class", ""))),
 		"saved_at": String(d.get("saved_at", "")), "updated_at": Time.get_datetime_string_from_system(true) + "Z"}
 	var r := await _sb("/rest/v1/saves?on_conflict=user_id", HTTPClient.METHOD_POST, row, "", ["Prefer: resolution=merge-duplicates,return=minimal"])
 	if int(r["code"]) >= 300:
@@ -490,4 +578,4 @@ func send_state(map: String, p: Player) -> void:
 
 func send_save(data: Dictionary) -> void:
 	if online:
-		push_save.rpc_id(1, data)
+		push_save.rpc_id(1, data, SaveGame.cur)

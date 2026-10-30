@@ -110,9 +110,9 @@ func pull() -> bool:
 	if int(r["code"]) != 200 or not (r["json"] is Array) or (r["json"] as Array).is_empty():
 		return false
 	var cloud: Dictionary = r["json"][0]["data"]
-	var local := SaveGame.read()
+	var local := SaveGame.account()
 	if String(cloud.get("saved_at", "")) > String(local.get("saved_at", "")):
-		SaveGame.backend.write(cloud)
+		SaveGame.write_account(cloud)
 		return true
 	return false
 
