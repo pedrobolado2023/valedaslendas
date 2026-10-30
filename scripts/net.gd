@@ -598,6 +598,25 @@ func guild_points(id: int, n: int) -> void:
 		_guilds[k]["dirty"] = true
 
 
+## Boss semanal da guilda derrotado: pontos para a guilda (1 vez por semana por herói).
+@rpc("any_peer", "reliable")
+func guild_boss_done() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var wk := Dungeon.week_key()
+	var c := _cur_char(id)
+	var st: Dictionary = c.get("stats", {})
+	if int(st.get("gb_week_srv", -1)) == wk:
+		return
+	st["gb_week_srv"] = wk
+	c["stats"] = st
+	guild_points(id, int(GameData.GUILD_BOSS["guild_points"]))
+	var k := String(_players[id].get("guild", "")).to_lower()
+	if _guilds.has(k):
+		_guild_refresh(k)
+
+
 @rpc("any_peer", "reliable")
 func guild_ranking() -> void:
 	var id := multiplayer.get_remote_sender_id()

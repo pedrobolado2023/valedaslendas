@@ -170,6 +170,11 @@ func _draw_guild() -> void:
 	ml.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_guild_box.add_child(ml)
 	var r3 := HBoxContainer.new()
+	var dg: Dungeon = game.get("dungeon")
+	if dg != null:
+		r3.add_child(_b("Boss da guilda (já feito esta semana)" if dg.guild_done_week() else "Boss da guilda (semanal)", func() -> void:
+			visible = false
+			dg.enter_guild()))
 	r3.add_child(_b("Convidar o nome acima", func() -> void: _net_call("guild_invite", _name.text.strip_edges())))
 	if bool(_guild.get("leader", false)):
 		r3.add_child(_b("Expulsar o nome acima", func() -> void: _net_call("guild_leave", _name.text.strip_edges())))

@@ -598,6 +598,10 @@ static func clean_name(s: String) -> String:
 const DUNGEON := {"map": "masmorra", "zone": "sala_masmorra", "per_day": 3, "waves": [8, 10, 12], "minutes": 10,
 	"boss_hp_mult": 3.0, "reward_gold_levels": 0.0, "reward_gems": 10, "reward_xp_levels": 0.35, "items": 2}
 
+## Boss semanal da guilda: 1 vez por semana por herói (semana começa na segunda), só o chefe, bem mais forte.
+const GUILD_BOSS := {"hp_mult": 12.0, "power": 1.5, "minutes": 10, "gems": 60, "mat_mult": 5.0, "items": 3,
+	"table": "boss", "guild_points": 500, "xp_levels": 1.0}
+
 ## Dificuldades da masmorra: força dos monstros, prêmio e ondas extras.
 const DUNGEON_DIFF := {
 	"normal": {"name": "Normal", "power": 1.0, "reward": 1.0, "extra_wave": 0, "table": "boss"},

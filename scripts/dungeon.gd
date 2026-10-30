@@ -14,6 +14,7 @@ var _boss := ""
 var _map := "masmorra"
 var _zone := "sala_masmorra"
 var diff := "normal"
+var guild := false        # boss semanal da guilda
 var _label: Label
 
 
@@ -48,15 +49,37 @@ func choose() -> void:
 	game.dialog.open(String(GameData.MAPS[mid]["name"]), "Escolha a dificuldade (%d/%d masmorras hoje). Quanto mais difícil, mais fortes os monstros e maior o prêmio." % [runs_today(), int(GameData.DUNGEON["per_day"])], opts)
 
 
-func enter(difficulty: String = "normal") -> void:
+static func week_key() -> int:
+	return int((Time.get_unix_time_from_system() + 3 * 86400) / (7 * 86400))   # semanas a partir da segunda
+
+
+func guild_done_week() -> bool:
+	return int(game.player.stats.get("gb_week", -1)) == week_key()
+
+
+## Boss semanal da guilda (botão no painel social G).
+func enter_guild() -> void:
+	var p: Player = game.player
+	if String(p.get_meta("guild", "")) == "":
+		game.toast("Entre em uma guilda para enfrentar o boss da guilda.", 2.5)
+		return
+	if guild_done_week():
+		game.toast("Você já derrotou o boss da guilda esta semana. Volta na segunda!", 2.5)
+		return
+	enter("normal", true)
+
+
+func enter(difficulty: String = "normal", guild_boss: bool = false) -> void:
 	diff = difficulty if GameData.DUNGEON_DIFF.has(difficulty) else "normal"
+	guild = guild_boss
 	var cfg: Dictionary = GameData.DUNGEON
-	if runs_today() >= int(cfg["per_day"]):
+	if not guild and runs_today() >= int(cfg["per_day"]):
 		game.toast("Você já fez as %d masmorras de hoje. Volte amanhã!" % int(cfg["per_day"]), 2.5)
 		return
 	var p: Player = game.player
-	p.stats["dg_day"] = Rewards.today()
-	p.stats["dg_count"] = runs_today() + 1
+	if not guild:
+		p.stats["dg_day"] = Rewards.today()
+		p.stats["dg_count"] = runs_today() + 1
 	# monstros e chefe da zona mais alta que o herói alcança
 	var bm := GameData.best_map(p.level)
 	var zs: Array = GameData.MAPS[bm]["zones"]
@@ -71,7 +94,7 @@ func enter(difficulty: String = "normal") -> void:
 	_zone = String(GameData.MAPS[_map]["zones"][0])
 	state = "wait"
 	wave = 0
-	time_left = float(cfg["minutes"]) * 60.0
+	time_left = float(GameData.GUILD_BOSS["minutes"] if guild else cfg["minutes"]) * 60.0
 	game.travel(_map, true)
 
 
@@ -104,6 +127,8 @@ func _process(delta: float) -> void:
 
 
 func hud_text() -> String:
+	if guild and state == "boss":
+		return "Boss da Guilda · %d:%02d" % [int(time_left) / 60, int(time_left) % 60]
 	if state in ["fight", "boss"]:
 		return "Masmorra · %s · %d inimigos · %d:%02d" % ["CHEFE" if state == "boss" else "onda %d/%d" % [wave, GameData.DUNGEON["waves"].size()],
 			_alive.size(), int(time_left) / 60, int(time_left) % 60]
@@ -115,7 +140,7 @@ func _spawn(type_id: String, at: Vector3) -> Enemy:
 	e.setup(type_id, at, _zone)
 	e.died.connect(game._on_killed)
 	game.actors.add_child(e)
-	var pw := float(GameData.DUNGEON_DIFF[diff]["power"])   # dificuldade: vida e dano
+	var pw := float(GameData.GUILD_BOSS["power"] if guild else GameData.DUNGEON_DIFF[diff]["power"])   # dificuldade: vida e dano
 	e.max_hp = int(e.max_hp * pw)
 	e.hp = e.max_hp
 	e.dmg = int(e.dmg * pw)
@@ -130,12 +155,14 @@ func _next_wave() -> void:
 	var z: Dictionary = GameData.ZONES[_zone]
 	var c: Vector3 = z["center"]
 	wave += 1
-	if wave > waves.size():
+	if wave > waves.size() or guild:
 		state = "boss"
 		var b := _spawn(_boss, z["boss_pos"] + Vector3(0, 0.3, 0))
-		b.max_hp = int(b.max_hp * float(GameData.DUNGEON["boss_hp_mult"]))
+		b.max_hp = int(b.max_hp * float(GameData.GUILD_BOSS["hp_mult"] if guild else GameData.DUNGEON["boss_hp_mult"]))
 		b.hp = b.max_hp
-		game.hud.banner("Chefe da Masmorra", String(b.data["name"]), 2.5)
+		if guild:
+			b.scale *= 1.5
+		game.hud.banner("Boss da Guilda" if guild else "Chefe da Masmorra", String(b.data["name"]), 2.5)
 		return
 	state = "fight"
 	for i in int(waves[wave - 1]):
@@ -146,6 +173,9 @@ func _next_wave() -> void:
 
 func _win() -> void:
 	state = "done"
+	if guild:
+		_win_guild()
+		return
 	var cfg: Dictionary = GameData.DUNGEON
 	var p: Player = game.player
 	var rw := float(GameData.DUNGEON_DIFF[diff]["reward"])
@@ -163,6 +193,26 @@ func _win() -> void:
 	_leave(8.0)
 
 
+func _win_guild() -> void:
+	var g: Dictionary = GameData.GUILD_BOSS
+	var p: Player = game.player
+	p.stats["gb_week"] = week_key()
+	var xp := int(GameData.xp_need(p.level) * float(g["xp_levels"]))
+	p.gain_xp(xp)
+	Shop.credit_gems(p, int(g["gems"]), "boss_guilda")
+	for k in GameData.MAT_DROP["boss"]:
+		p.mats[k] = int(p.mats.get(k, 0)) + int(ceil(float(GameData.MAT_DROP["boss"][k]) * float(g["mat_mult"])))
+	for i in int(g["items"]):
+		game._drop_item(GameData.roll_rarity(String(g["table"])), p.global_position + Vector3(2.0 * (i - 1), 0, 2))
+	var net := get_node_or_null("/root/Net")
+	if net != null and bool(net.get("online")):
+		net.guild_boss_done.rpc_id(1)
+	game.hud.banner("Boss da Guilda derrotado!", "+%d XP   +%d gemas   +%d pontos para a guilda   ·   saindo em 8 s" % [xp, int(g["gems"]), int(g["guild_points"])], 5.0)
+	Sfx.play("legendary", -2.0)
+	game.call("save_now")
+	_leave(8.0)
+
+
 func _fail(why: String) -> void:
 	state = "done"
 	for e in _alive:
@@ -176,5 +226,6 @@ func _fail(why: String) -> void:
 func _leave(secs: float) -> void:
 	await get_tree().create_timer(secs).timeout
 	state = ""
+	guild = false
 	if GameData.is_dungeon(String(game.map_id)):
 		game.travel(String(game.return_map), true)
