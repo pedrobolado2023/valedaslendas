@@ -1381,6 +1381,7 @@ func talk() -> void:
 		dialog.open(nm, "Você salvou o reino! Continue fortalecendo seu herói com as missões do quadro.", [["Fechar", dialog.close]])
 		return
 	var qmap := GameData.quest_map(q)
+	dialog.portrait = GameData.speaker_for(String(q["text"]), GameData.kingdom_of(qmap))
 	if qmap != map_id:
 		var mn := String(GameData.MAPS[qmap]["name"])
 		dialog.open(nm, "Sua próxima missão, [color=#e8b75a]%s[/color], está em %s. Use o Portal de Viagem do acampamento." % [String(q["title"]), mn],

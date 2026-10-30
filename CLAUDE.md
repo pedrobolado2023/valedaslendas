@@ -245,7 +245,9 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Valdrath, Drakaris, Thalyss, Vyndara, Sombras + Aetherion): soberano, lema, cor e 8 cidades. Mapas base pelo
   `BASE_KINGDOM`, gerados pelo bioma (`MAPS[id].kingdom`, nome = cidade). História em 5 atos por nível (`ACTS`):
   `STORY_BASE` (Ato I, falas por zona), `STORY_ACT` (Atos II-V), `STORY_SPECIAL`, `STORY_END`; Ato IV+ coleta
-  "Estilhaço do Fragmento de <reino>". Portal agrupado por reino. Rhaegar = nome parecido com Game of Thrones (avisado).
+  "Estilhaço do Fragmento de <reino>". Portal agrupado por reino.
+  Retratos dos 7 em `textures/portraits/<chave>.png` (recortados da imagem da pág. 4 do PDF); `GameData.CHARACTERS`,
+  `speaker_for(texto, reino)` (1º citado no texto, senão o soberano); `dialog.portrait = chave` antes de `open`. Rhaegar = nome parecido com Game of Thrones (avisado).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

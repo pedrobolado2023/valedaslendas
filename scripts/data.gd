@@ -717,6 +717,34 @@ const KINGDOMS := {
 		"color": Color(0.85, 0.75, 1.0), "about": "Não aparece em nenhum mapa. Foi escondido da realidade — e alguém ainda vive lá.",
 		"cities": ["Fenda de Aetherion", "Ruínas Sem Nome", "Céu Partido", "Ponte do Vazio", "Santuário Apagado", "Eco Estelar", "Portão Esquecido", "Coração de Aetherion"]},
 }
+## Os sete personagens principais (retratos em textures/portraits/<chave>.png, recortados do documento do dono).
+const CHARACTERS := {
+	"kaeldryn": {"name": "Kaeldryn", "title": "Príncipe de Valdrath", "kingdom": "valdrath"},
+	"lysara": {"name": "Lysara", "title": "Rainha de Eloreth", "kingdom": "eloreth"},
+	"darius": {"name": "Darius", "title": "Príncipe de Drakaris", "kingdom": "drakaris"},
+	"emberlyn": {"name": "Emberlyn", "title": "General de Thalyss", "kingdom": "thalyss"},
+	"rhaegar": {"name": "Rhaegar", "title": "Príncipe de Vyndara", "kingdom": "vyndara"},
+	"selene": {"name": "Selene", "title": "Herdeira de Seryth", "kingdom": "seryth"},
+	"nyx": {"name": "Nyx", "title": "Senhor das Sombras", "kingdom": "sombras"},
+}
+
+
+## Quem "fala" numa missão: o primeiro personagem citado no texto; senão o soberano do reino ("" em Aetherion).
+static func speaker_for(text: String, kingdom: String) -> String:
+	var best := ""
+	var at := 1 << 30
+	for k in CHARACTERS:
+		var i := text.find(String(CHARACTERS[k]["name"]))
+		if i >= 0 and i < at:
+			at = i
+			best = String(k)
+	if best == "":
+		for k in CHARACTERS:
+			if String(CHARACTERS[k]["kingdom"]) == kingdom:
+				best = String(k)
+	return best
+
+
 const BASE_KINGDOM := {"vale": "eloreth", "deserto": "seryth", "gelo": "valdrath", "vulcao": "drakaris"}
 
 

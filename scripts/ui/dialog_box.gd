@@ -1,11 +1,16 @@
 class_name DialogBox
 extends CanvasLayer
-## Caixa de diálogo do NPC, com botões de escolha.
+## Caixa de diálogo do NPC, com botões de escolha. `portrait` (chave de GameData.CHARACTERS) mostra o retrato do
+## personagem no próximo `open` e depois some sozinho.
 
 var _panel: PanelContainer
 var _name: Label
 var _text: RichTextLabel
 var _buttons: HBoxContainer
+var _pic: TextureRect
+var _pic_box: VBoxContainer
+var _pic_name: Label
+var portrait := ""
 
 
 func _ready() -> void:
@@ -24,15 +29,35 @@ func _ready() -> void:
 	_panel.offset_bottom = -150
 	_panel.add_theme_stylebox_override("panel", Toon.ui_box(Color(0.06, 0.035, 0.05, 0.96), UiTheme.GOLD, 22, 10, 3))
 	root.add_child(_panel)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 18)
+	_panel.add_child(hb)
+	_pic_box = VBoxContainer.new()
+	_pic_box.add_theme_constant_override("separation", 4)
+	hb.add_child(_pic_box)
+	var frame := PanelContainer.new()
+	frame.add_theme_stylebox_override("panel", Toon.ui_box(Color(0, 0, 0, 0.6), UiTheme.GOLD, 10, 3, 2))
+	_pic_box.add_child(frame)
+	_pic = TextureRect.new()
+	_pic.custom_minimum_size = Vector2(150, 200)
+	_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	frame.add_child(_pic)
+	_pic_name = UiTheme.label("", 14, UiTheme.GOLD)
+	_pic_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pic_name.custom_minimum_size = Vector2(150, 0)
+	_pic_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pic_box.add_child(_pic_name)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 12)
-	_panel.add_child(v)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hb.add_child(v)
 	_name = UiTheme.title("", 26)
 	v.add_child(_name)
 	_text = RichTextLabel.new()
 	_text.bbcode_enabled = true
 	_text.fit_content = true
-	_text.custom_minimum_size = Vector2(800, 60)
+	_text.custom_minimum_size = Vector2(640, 60)
 	_text.add_theme_font_size_override("normal_font_size", 19)
 	_text.add_theme_font_size_override("bold_font_size", 19)
 	v.add_child(_text)
@@ -46,6 +71,13 @@ func _ready() -> void:
 func open(npc_name: String, bbcode: String, options: Array) -> void:
 	_name.text = npc_name
 	_text.text = bbcode
+	var path := "res://textures/portraits/%s.png" % portrait
+	_pic_box.visible = portrait != "" and ResourceLoader.exists(path)
+	if _pic_box.visible:
+		_pic.texture = load(path)
+		var c: Dictionary = GameData.CHARACTERS[portrait]
+		_pic_name.text = "%s\n%s" % [String(c["name"]), String(c["title"])]
+	portrait = ""
 	for c in _buttons.get_children():
 		c.queue_free()
 	for o in options:
