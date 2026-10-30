@@ -18,6 +18,11 @@ signal party_invited(from: String)
 signal online_names(names: Array)
 signal item_received(item: Dictionary, from: String)
 signal gift_done(uid: int, ok: bool, msg: String)
+signal ranking_list(rows: Array)
+signal duel_asked(from: String)
+signal duel_started(peer: int, name: String)
+signal duel_ended(winner: String)
+signal pvp_hurt(dmg: int)
 # monstros do servidor (cliente)
 signal enemies(map: String, snap: Dictionary)
 signal enemy_attack(id: int, slam: bool, center: Vector3, r: float, wind: float)
@@ -176,6 +181,8 @@ func state(map: String, pos: Vector3, rot: float, moving: bool, cls: String, gea
 	p["gear"] = gear
 	p["mount"] = mount
 	p["alive"] = alive
+	if not alive and int(p.get("duel", 0)) != 0:   # caiu no duelo
+		pvp_dead_srv(id)
 
 
 ## Golpe num monstro do servidor.
@@ -225,6 +232,7 @@ func push_save(data: Dictionary, slot: int = 0) -> void:
 		ch.append(data)
 	acc["cur"] = slot
 	acc["saved_at"] = String(data.get("saved_at", ""))
+	p["level"] = int(data.get("level", 1))
 	p["save_t"] = Time.get_unix_time_from_system()
 	p["credit_gems"] = 0
 	p["credit_gold"] = 0
@@ -409,6 +417,114 @@ func _gift_in(item: Dictionary, from: String) -> void:
 @rpc("authority", "reliable")
 func _gift_result(uid: int, ok: bool, msg: String) -> void:
 	gift_done.emit(uid, ok, msg)
+
+
+## ---------- ranking geral (top 20 por nível, do banco; sem banco: quem está online)
+@rpc("any_peer", "reliable")
+func ranking() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var rows: Array = []
+	if sb_service != "" and OS.get_environment("VALE_DEV") == "":
+		var r := await _sb("/rest/v1/saves?select=class,level&order=level.desc&limit=20", HTTPClient.METHOD_GET, null)
+		if r["json"] is Array:
+			for row in r["json"]:
+				rows.append([String(row["class"]), int(row["level"])])
+	else:
+		for pid in _players:
+			rows.append([String(_players[pid]["name"]), int(_players[pid].get("level", 1))])
+		rows.sort_custom(func(a, b) -> bool: return int(a[1]) > int(b[1]))
+	if _players.has(id):
+		_ranking_rows.rpc_id(id, rows.slice(0, 20))
+
+
+@rpc("authority", "reliable")
+func _ranking_rows(rows: Array) -> void:
+	ranking_list.emit(rows)
+
+
+## ---------- duelo 1x1 (mesmo mapa): o servidor repassa os golpes; quem cair perde
+@rpc("any_peer", "reliable")
+func duel_request(nm: String) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	var to := _find(nm)
+	if not is_server or not _players.has(id):
+		return
+	if to == 0 or to == id or String(_players[to].get("map", "")) != String(_players[id].get("map", "")):
+		_chat_to.rpc_id(id, "sistema", "", "%s precisa estar online e no mesmo mapa." % nm)
+		return
+	if _players[to].get("duel", 0) != 0 or _players[id].get("duel", 0) != 0:
+		_chat_to.rpc_id(id, "sistema", "", "Alguém já está em duelo.")
+		return
+	_players[to]["duel_from"] = id
+	_duel_ask.rpc_id(to, String(_players[id]["name"]))
+	_chat_to.rpc_id(id, "sistema", "", "Desafio enviado para %s." % nm)
+
+
+@rpc("any_peer", "reliable")
+func duel_accept() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var from := int(_players[id].get("duel_from", 0))
+	if not _players.has(from) or _players[from].get("duel", 0) != 0:
+		return
+	_players[id]["duel"] = from
+	_players[from]["duel"] = id
+	_duel_go.rpc_id(id, from, String(_players[from]["name"]))
+	_duel_go.rpc_id(from, id, String(_players[id]["name"]))
+
+
+## Golpe no adversário do duelo (dano de PvP = 25% do normal, no máximo 15% da vida dele por golpe).
+@rpc("any_peer", "reliable")
+func pvp_hit(dmg: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	var to := int(_players[id].get("duel", 0))
+	if _players.has(to):
+		_pvp_take.rpc_id(to, maxi(1, int(dmg * 0.25)))
+
+
+@rpc("any_peer", "reliable")
+func pvp_dead() -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if is_server and _players.has(id):
+		pvp_dead_srv(id)
+
+
+func pvp_dead_srv(id: int) -> void:
+	var to := int(_players[id].get("duel", 0))
+	_players[id]["duel"] = 0
+	if _players.has(to):
+		_players[to]["duel"] = 0
+		var w := String(_players[to]["name"])
+		_duel_end.rpc_id(to, w)
+		_duel_end.rpc_id(id, w)
+		for pid in _players:
+			if String(_players[pid].get("map", "")) == String(_players[id].get("map", "")):
+				_chat_to.rpc_id(int(pid), "sistema", "", "%s venceu o duelo contra %s!" % [w, _players[id]["name"]])
+
+
+@rpc("authority", "reliable")
+func _duel_ask(from: String) -> void:
+	duel_asked.emit(from)
+
+
+@rpc("authority", "reliable")
+func _duel_go(peer: int, nm: String) -> void:
+	duel_started.emit(peer, nm)
+
+
+@rpc("authority", "reliable")
+func _duel_end(winner: String) -> void:
+	duel_ended.emit(winner)
+
+
+@rpc("authority", "reliable")
+func _pvp_take(dmg: int) -> void:
+	pvp_hurt.emit(dmg)
 
 
 ## Grupo do jogador (lista de ids, inclui ele mesmo).

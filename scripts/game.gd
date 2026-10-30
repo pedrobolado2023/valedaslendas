@@ -30,6 +30,7 @@ var rewards_panel: RewardsPanel
 var portal_panel: PortalPanel
 var chat: ChatBox
 var social_panel: SocialPanel
+var ranking_panel: RankingPanel
 var dungeon: Dungeon
 var _new_name := ""   # nome digitado no menu (jogo novo)
 var cloud: CloudSync
@@ -275,6 +276,44 @@ func _make_menu() -> void:
 			get_node("/root/Net").delete_char.rpc_id(1, i)
 		_menu.queue_free()
 		_make_menu())
+
+
+## Duelo: pedido aparece no chat/aviso (aceitar no Social, G); começa → alvo PvpProxy no adversário.
+var duel_from := ""
+var _duel_proxy: PvpProxy
+
+
+func _hook_duel() -> void:
+	var net := get_node("/root/Net")
+	if net.duel_asked.is_connected(_on_duel_asked):
+		return
+	net.duel_asked.connect(_on_duel_asked)
+	net.duel_started.connect(func(peer: int, nm: String) -> void:
+		duel_from = ""
+		if _duel_proxy != null and is_instance_valid(_duel_proxy):
+			_duel_proxy.queue_free()
+		_duel_proxy = PvpProxy.new()
+		_duel_proxy.peer = peer
+		_duel_proxy.setup("slime", player.global_position, "")
+		actors.add_child(_duel_proxy)
+		hud.banner("Duelo contra %s!" % nm, "Quem cair primeiro perde", 3.0)
+		Sfx.play("boss", -6.0, 1.3))
+	net.duel_ended.connect(func(w: String) -> void:
+		if _duel_proxy != null and is_instance_valid(_duel_proxy):
+			_duel_proxy.queue_free()
+		_duel_proxy = null
+		var won := w == player.hero_name
+		hud.banner("Você venceu o duelo!" if won else "Você perdeu o duelo", "Vencedor: " + w, 3.5)
+		if won:
+			player.stat_add("duels"))
+	net.pvp_hurt.connect(func(dmg: int) -> void:
+		if player != null and player.alive:
+			player.take_damage(dmg, _duel_proxy.global_position if _duel_proxy != null and is_instance_valid(_duel_proxy) else player.global_position))
+
+
+func _on_duel_asked(from: String) -> void:
+	duel_from = from
+	toast("%s te desafiou para um duelo — aceite no Social (G)" % from, 3.5)
 
 
 ## Herói novo: o nome não pode repetir (na conta; online, em todo o jogo — o servidor reserva).
@@ -639,9 +678,13 @@ func _build_ui() -> void:
 	portal_panel = PortalPanel.new()
 	add_child(portal_panel)
 	portal_panel.setup(self)
+	ranking_panel = RankingPanel.new()
+	add_child(ranking_panel)
+	ranking_panel.setup(self)
 	social_panel = SocialPanel.new()
 	add_child(social_panel)
 	social_panel.setup(self)
+	_hook_duel()
 	chat = ChatBox.new()
 	chat.game = self
 	add_child(chat)
@@ -659,6 +702,7 @@ func _build_ui() -> void:
 	hud.rewards_pressed.connect(func() -> void: rewards_panel.toggle())
 	hud.settings_pressed.connect(func() -> void: settings_panel.toggle())
 	hud.social_pressed.connect(func() -> void: social_panel.toggle())
+	hud.ranking_pressed.connect(func() -> void: ranking_panel.toggle())
 	admin_panel = AdminPanel.new()
 	add_child(admin_panel)
 	admin_panel.setup(self)
@@ -855,6 +899,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			gear_panel.toggle()
 		KEY_R:
 			player.toggle_ride()
+		KEY_N:
+			ranking_panel.toggle()
 		KEY_G:
 			social_panel.toggle()
 		KEY_O:
@@ -875,7 +921,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if what != "":
 				_interact(what, false)
 		KEY_ESCAPE:
-			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or admin_panel.visible
+			var any_open := dialog.visible or skill_panel.visible or board_panel.visible or gear_panel.visible or shop_panel.visible or pet_panel.visible or rewards_panel.visible or portal_panel.visible or social_panel.visible or ranking_panel.visible or admin_panel.visible
 			dialog.close()
 			skill_panel.visible = false
 			board_panel.visible = false
@@ -885,6 +931,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			rewards_panel.visible = false
 			portal_panel.visible = false
 			social_panel.visible = false
+			ranking_panel.visible = false
 			admin_panel.visible = false
 			if not any_open:
 				settings_panel.toggle()

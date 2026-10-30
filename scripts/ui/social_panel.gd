@@ -51,6 +51,7 @@ func setup(g: Node) -> void:
 	nr.add_child(_name)
 	nr.add_child(_b("Convidar para o grupo", func() -> void: _net_call("party_invite", _name.text.strip_edges())))
 	nr.add_child(_b("Adicionar amigo", _add_friend))
+	nr.add_child(_b("Desafiar (duelo)", func() -> void: _net_call("duel_request", _name.text.strip_edges())))
 	_invite_box = HBoxContainer.new()
 	_invite_box.visible = false
 	v.add_child(_invite_box)
@@ -177,7 +178,13 @@ func _refresh_lists() -> void:
 		c.queue_free()
 	for c in _invite_box.get_children():
 		c.queue_free()
-	_invite_box.visible = _invite_from != ""
+	_invite_box.visible = _invite_from != "" or String(game.get("duel_from")) != ""
+	if String(game.get("duel_from")) != "":
+		_invite_box.add_child(UiTheme.label("%s te desafiou para um duelo  " % game.get("duel_from"), 15, Color(1.0, 0.5, 0.4)))
+		_invite_box.add_child(_b("Aceitar duelo", func() -> void:
+			_net_call("duel_accept")
+			game.set("duel_from", "")
+			_refresh_lists()))
 	if _invite_from != "":
 		_invite_box.add_child(UiTheme.label("%s te convidou para o grupo  " % _invite_from, 15, Color(0.55, 1.0, 0.6)))
 		_invite_box.add_child(_b("Aceitar", func() -> void:

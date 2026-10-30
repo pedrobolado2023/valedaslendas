@@ -17,6 +17,7 @@ signal pets_pressed
 signal rewards_pressed
 signal settings_pressed
 signal social_pressed
+signal ranking_pressed
 
 var player: Player
 var root: Control
@@ -272,7 +273,8 @@ func _build_buttons() -> void:
 	_menu_btn(v, "Equipamento (I)", gear_pressed)
 	_menu_btn(v, "Pets (P)", pets_pressed)
 	_menu_btn(v, "Recompensas (O)", rewards_pressed)
-	_menu_btn(v, "Social: grupo e amigos (G)", social_pressed)
+	_menu_btn(v, "Social: grupo, amigos, duelo (G)", social_pressed)
+	_menu_btn(v, "Ranking geral (N)", ranking_pressed)
 	_menu_btn(v, "Loja (L)", shop_pressed)
 	_menu_btn(v, "Mapa (M)", map_pressed)
 	_menu_btn(v, "Música", music_pressed)
