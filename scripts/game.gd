@@ -432,7 +432,13 @@ func _build_map(id: String, with_zones: bool) -> void:
 		royal.npc_name = "%s, %s" % [String(GameData.CHARACTERS[rk]["name"]), String(GameData.CHARACTERS[rk]["title"])]
 		royal.model_name = "npc_" + rk
 		royal.set_meta("who", rk)
-		royal.position = Vector3(-world.npc_pos.z, 0, world.npc_pos.x).normalized() * 5.5
+		var best_d := -1.0   # na praça, o ponto mais longe do NPC, do quadro e do portal
+		for i in 24:
+			var cand := Vector3(cos(i * TAU / 24.0), 0, sin(i * TAU / 24.0)) * 5.5
+			var dmin := minf(minf(cand.distance_to(world.npc_pos), cand.distance_to(world.well_pos)), minf(cand.distance_to(world.board_pos), cand.distance_to(world.portal_pos)))
+			if dmin > best_d:
+				best_d = dmin
+				royal.position = cand
 		add_child(royal)
 	_prop_label(world.portal_pos + Vector3(0, 5.6, 0), "Portal de Viagem", Color(0.55, 0.9, 1.0))
 	_prop_label(world.board_pos + Vector3(0, 3.6, 0), "Quadro de Missões", Color(1.0, 0.85, 0.45))

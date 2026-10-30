@@ -26,6 +26,7 @@ var obstacles: StaticBody3D
 var npc_pos := Vector3(4, 0, 7)
 var portal_pos := Vector3(-9, 0, -2)
 var board_pos := Vector3(8, 0, -2)
+var well_pos := Vector3(999, 0, 999)   # poço da praça (só alguns mapas); o soberano fica longe dele
 var spawn_pos := Vector3(0, 0, 10)
 var lake_c := Vector2.ZERO
 var lake_r := Vector2.ONE
@@ -468,6 +469,7 @@ func _build_hub() -> void:
 	if map_id == "vale" or map_id == "gelo":
 		var a2 := _free_angle(9.0)
 		var wp := Vector3(cos(a2), 0, sin(a2)) * 5.5
+		well_pos = wp
 		_place("well", wp, 0.4)
 		_solid(wp, 1.2)
 	for i in 6:

@@ -249,7 +249,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Retratos dos 7 em `textures/portraits/<chave>.png` (recortados da imagem da pág. 4 do PDF); `GameData.CHARACTERS`,
   `speaker_for(texto, reino)` (1º citado no texto, senão o soberano); `dialog.portrait = chave` antes de `open`.
   Modelos 3D dos 7: `blender/make_sete.py` (MPFB2, reaproveita Druida/Assassino; vestido = cone preso à bacia, cabelo
-  curto = `head_shell`, solto = lâmina nos ossos de cabelo) → `models/npc_<chave>.glb` (só idle). No jogo:
+  curto = `head_shell` + `tufts` (mechas deitadas, uma malha só), solto = lâmina ondulada nos ossos de cabelo;
+  rosto por personagem em `FACES` (alvos do MPFB), `brows`; corpo com Decimate 0,5; texturas 128/256 px no .import) → `models/npc_<chave>.glb` (só idle). No jogo:
   `GameData.royal_of(mapa)` põe o soberano na capital do reino (`game.royal`, interação "royal", fala em `CHARACTER_LINES`). Rhaegar = nome parecido com Game of Thrones (avisado).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa

@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import mpfb_kit as K  # noqa: E402
 import make_druid_mpfb as D  # noqa: E402
 import make_assassin_mpfb as A  # noqa: E402
+import make_mechanic_mpfb as Mc  # noqa: E402
 
 OUT = D.OUT
 K.MH_DATA = os.environ.get("MH_DATA", K.MH_DATA)
@@ -39,18 +40,93 @@ def mat(name, col, metal=0.0, rough=0.7, glow=0.0):
     return K.color_mat("sete_" + name, col, metal=metal, rough=rough, glow=glow) if glow else K.color_mat("sete_" + name, col, metal=metal, rough=rough)
 
 
+## Rosto de cada um (alvos do MPFB, ver data/targets): queixo, maçãs, formato da cabeça, sobrancelhas, boca.
+FACES = {
+    "kaeldryn": {"head/head-rectangular": 0.45, "chin/chin-prominent-incr": 0.4, "cheek/l-cheek-bones-incr": 0.45, "cheek/r-cheek-bones-incr": 0.45,
+                 "eyebrows/eyebrows-angle-down": 0.35, "mouth/mouth-scale-horiz-decr": 0.15},
+    "darius": {"head/head-square": 0.5, "chin/chin-width-incr": 0.4, "nose/nose-hump-incr": 0.35, "mouth/mouth-angles-up": 0.2,
+               "eyebrows/eyebrows-angle-up": 0.2},
+    "rhaegar": {"head/head-oval": 0.3, "chin/chin-prominent-incr": 0.55, "cheek/l-cheek-bones-incr": 0.5, "cheek/r-cheek-bones-incr": 0.5,
+                "nose/nose-scale-vert-incr": 0.2},
+    "nyx": {"head/head-diamond": 0.4, "cheek/l-cheek-bones-incr": 0.55, "cheek/r-cheek-bones-incr": 0.55, "chin/chin-triangle": 0.3,
+            "eyebrows/eyebrows-angle-down": 0.45, "mouth/mouth-angles-up": 0.25},
+    "lysara": {"head/head-oval": 0.5, "cheek/l-cheek-bones-incr": 0.4, "cheek/r-cheek-bones-incr": 0.4, "chin/chin-triangle": 0.3,
+               "mouth/mouth-lowerlip-volume-incr": 0.35, "eyebrows/eyebrows-angle-up": 0.2},
+    "emberlyn": {"head/head-oval": 0.3, "chin/chin-width-incr": 0.2, "mouth/mouth-angles-up": 0.3, "nose/nose-point-up": 0.3},
+    "selene": {"head/head-oval": 0.6, "nose/nose-scale-horiz-decr": 0.3, "mouth/mouth-scale-horiz-decr": 0.2, "eyebrows/eyebrows-trans-up": 0.25},
+}
+
+
 def body(woman, skin, key):
-    c = A.base(WOMAN if woman else MAN, FACE_W if woman else FACE_M, "sete_" + key, skin)
+    t = dict(FACE_W if woman else FACE_M)
+    t.update(FACES.get(key, {}))
+    c = A.base(WOMAN if woman else MAN, t, "sete_" + key, skin)
+    c.key = key
     return c
+
+
+def brows(c, m, thick=1.0, angle=0.0):
+    """Sobrancelhas (dão expressão ao rosto de longe). angle > 0 = cara fechada."""
+    s = (c.head_top - c.head).length
+    cy, rx, ry = Mc.head_ring(c, c.eye_z + s * 0.18)
+    for side in (-1, 1):
+        b = prim("sphere", "Sobrancelha", m, Vector((side * rx * 0.4, cy - ry + 0.004, c.eye_z + s * 0.19)),
+                 (0.042, 0.006, 0.008 * thick), rot=(0, side * (0.12 + angle), 0))
+        rigid(c, b, "head")
+
+
+def _join(objs, name):
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in objs:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = objs[0]
+    bpy.ops.object.join()
+    o = bpy.context.active_object
+    o.name = name
+    return o
+
+
+def tufts(c, m, n=46, length=0.09, radius=0.03, fringe=0.0, droop=0.6, seed=1, nape=0.0):
+    """Mechas: cones finos espalhados pelo couro cabeludo, apontando para trás/baixo (dão volume e textura).
+    Tudo vira uma malha só (uma chamada de desenho) presa ao osso da cabeça."""
+    import random
+    rnd = random.Random(seed)
+    s = (c.head_top - c.head).length
+    center = c.head.lerp(c.head_top, 0.45)
+    R = s * 0.62
+    objs = []
+    for i in range(n):
+        az = rnd.uniform(-math.pi, math.pi)
+        el = rnd.uniform(0.15, 1.35)
+        d = Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))   # +Y = nuca
+        if d.y < -0.35 and el < 1.0 and rnd.random() > fringe:   # testa e rosto ficam livres
+            continue
+        base = center + d * R * 0.97
+        flow = Vector((d.x * 0.6, 0.55, -droop))          # o cabelo "escorre" do topo para a nuca e para os lados
+        grow = (flow - d * flow.dot(d)).normalized()       # deitado sobre a cabeça (tangente), não espetado
+        grow = (grow + d * 0.18).normalized()
+        L = length * rnd.uniform(0.7, 1.3) * (1.0 + nape * max(0.0, d.y))
+        bpy.ops.mesh.primitive_cone_add(vertices=6, radius1=radius * rnd.uniform(0.8, 1.2), radius2=0.0, depth=L,
+                                        location=base + grow * L * 0.4)
+        o = bpy.context.active_object
+        o.rotation_mode = "QUATERNION"
+        o.rotation_quaternion = grow.to_track_quat("Z", "Y")
+        objs.append(o)
+    o = _join(objs, "Mechas")
+    bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+    bpy.ops.object.shade_smooth()
+    o.data.materials.append(m)
+    rigid(c, o, "head")
+    return o
 
 
 def hair_shell(c, m, extra=0.012, nape=0.0):
     """Cabelo curto e liso: casca da cabeça (como os elmos) cobrindo o alto e a parte de trás, com a testa livre.
     nape > 0 desce mais na nuca."""
     h, s = c.head, (c.head_top - c.head).length
-    brow = c.eye_z + s * 0.48
+    brow = c.eye_z + s * 0.5
     o = D.head_shell(c, "Cabelo", m, extra,
-                     lambda p: p.z > brow or (p.y > h.y + s * 0.05 and p.z > c.eye_z - s * (0.35 + nape)) or (abs(p.x) > s * 0.55 and p.z > c.eye_z - s * 0.1),
+                     lambda p: p.z > brow - abs(p.x) * 0.55 or (p.y > h.y + s * 0.05 and p.z > c.eye_z - s * (0.35 + nape)) or (abs(p.x) > s * 0.55 and p.z > c.eye_z - s * 0.1),
                      0.012, 2)
     return o
 
@@ -60,18 +136,19 @@ def long_hair(c, m, length=0.75, spread=0.1):
     presa aos ossos de cabelo (balança ao andar)."""
     hair_shell(c, m, 0.014)
     h, s = c.head, (c.head_top - c.head).length
-    r0 = s * 0.62 + 0.02
+    r0 = s * 0.58 + 0.015
     bpy.ops.mesh.primitive_grid_add(x_subdivisions=16, y_subdivisions=16, size=1.0)
     o = bpy.context.active_object
     o.name = "Cabelo"
     for v in o.data.vertices:
         x, y = v.co.x, v.co.y            # y: 0.5 topo .. -0.5 base
         t = 0.5 - y
-        ang = x * (3.3 - 0.6 * t)        # envolve a nuca (abre um pouco embaixo)
+        ang = x * (3.9 - 0.9 * t)        # envolve a nuca e emoldura o rosto (abre um pouco embaixo)
         r = r0 * (1.0 + 0.35 * t) + spread * t
         back = 0.04 * t * t              # cai um pouco para trás nas costas
+        r += 0.012 * math.sin(ang * 7.0) * (0.3 + t) + 0.01 * math.sin(t * 9.0)   # sulcos de mechas e ondas
         v.co = Vector((math.sin(ang) * r, math.cos(ang) * r * 0.85 + back, -t * length))
-    o.location = Vector((0, h.y, c.eye_z + s * 0.55))
+    o.location = Vector((0, h.y, c.eye_z + s * 0.38))
     bpy.ops.object.shade_smooth()
     o.data.materials.append(m)
     md = o.modifiers.new("Esp", "SOLIDIFY")
@@ -85,14 +162,17 @@ def long_hair(c, m, length=0.75, spread=0.1):
     K.bind_chain(o, c.arm, K.HAIR, top.z, bottom.z)
     o["capa"] = True
     c.parts.append(o)
+    tufts(c, m, 30, 0.07, 0.03, droop=0.9, seed=7)
 
 
-def short_hair(c, m):
-    hair_shell(c, m, 0.016)
+def short_hair(c, m, seed=1, length=0.09, fringe=0.0, nape=0.0):
+    hair_shell(c, m, 0.012)
+    tufts(c, m, 52, length, 0.032, fringe=fringe, droop=0.5, seed=seed, nape=nape)
 
 
 def braid(c, m, length=0.8):
     hair_shell(c, m, 0.012)
+    tufts(c, m, 36, 0.06, 0.028, droop=0.9, seed=5)
     h, s = c.head, (c.head_top - c.head).length
     D.ponytail(c, m, h + Vector((0, s * 0.62, s * 0.1)), length, s * 0.2)
 
@@ -156,7 +236,9 @@ def kaeldryn():
     ice = mat("k_gelo", (0.55, 0.85, 1.0), glow=3.0)
     armor(c, coat, steel, mat("k_calca", (0.05, 0.05, 0.06)), mat("k_bota", (0.04, 0.04, 0.05), rough=0.5), coat)
     shoulders(c, steel, 0.16)
-    short_hair(c, mat("k_cabelo", (0.04, 0.035, 0.035), rough=0.6))
+    kh = mat("k_cabelo", (0.04, 0.035, 0.035), rough=0.6)
+    short_hair(c, kh, seed=2, length=0.1, fringe=0.15)
+    brows(c, kh, 1.2, 0.12)
     belt(c, steel, c.hip_z + 0.06, buckle=ice)
     D.cape(c, mat("k_capa", (0.05, 0.07, 0.12), rough=0.8), 1.15, 0.5, steel)
     return c
@@ -166,7 +248,9 @@ def lysara():
     c = body(True, FAIR, "lysara")
     silver = mat("l_prata", (0.78, 0.82, 0.95), metal=0.45, rough=0.3)
     gown(c, silver, mat("l_saia", (0.68, 0.74, 0.9), metal=0.3, rough=0.35), sleeves=False)
-    long_hair(c, mat("l_cabelo", (0.12, 0.07, 0.05), rough=0.6), 0.75, 0.1)
+    lh = mat("l_cabelo", (0.12, 0.07, 0.05), rough=0.6)
+    long_hair(c, lh, 0.75, 0.1)
+    brows(c, lh, 0.8, -0.05)
     earrings(c, mat("l_joia", (0.85, 0.9, 1.0), metal=0.9, rough=0.2))
     return c
 
@@ -177,7 +261,9 @@ def darius():
     steel = mat("d_aco", (0.12, 0.08, 0.08), metal=0.6, rough=0.4)
     red = mat("d_capa", (0.5, 0.04, 0.06), rough=0.7)
     armor(c, leather, steel, mat("d_calca", (0.05, 0.04, 0.04)), mat("d_bota", (0.05, 0.03, 0.03)))
-    short_hair(c, mat("d_cabelo", (0.05, 0.035, 0.03), rough=0.6))
+    dh = mat("d_cabelo", (0.05, 0.035, 0.03), rough=0.6)
+    short_hair(c, dh, seed=3, length=0.11, fringe=0.3)
+    brows(c, dh, 1.3, -0.05)
     neck = K.bone_head(c.arm, "neck_01")
     sash = prim("torus", "Gola", red, neck + Vector((0, 0.0, -0.04)), (0.3, 0.26, 0.6), rot=(0.15, 0, 0.25))
     rigid(c, sash, "spine_03")
@@ -194,6 +280,7 @@ def emberlyn():
     shoulders(c, leather, 0.13)
     hair = mat("e_cabelo", (0.3, 0.18, 0.1), rough=0.6)
     braid(c, hair, 0.8)   # trança longa
+    brows(c, hair, 0.9, 0.0)
     earrings(c, gold)
     belt(c, gold, c.hip_z + 0.06, buckle=gold)
     return c
@@ -204,7 +291,9 @@ def rhaegar():
     steel = mat("r_aco", (0.1, 0.1, 0.12), metal=0.65, rough=0.4)
     fur = mat("r_pele", (0.86, 0.85, 0.82), rough=0.95)
     armor(c, mat("r_casaco", (0.07, 0.07, 0.08)), steel, mat("r_calca", (0.06, 0.06, 0.07)), mat("r_bota", (0.05, 0.05, 0.05)))
-    short_hair(c, mat("r_cabelo", (0.86, 0.7, 0.42), rough=0.55))
+    rh = mat("r_cabelo", (0.86, 0.7, 0.42), rough=0.55)
+    short_hair(c, rh, seed=4, length=0.1, fringe=0.1)
+    brows(c, mat("r_sobr", (0.6, 0.45, 0.25)), 1.0, 0.05)
     neck = K.bone_head(c.arm, "neck_01")
     for k in range(2):   # gola de pele
         f = prim("torus", "Gola", fur, neck + Vector((0, 0.015, -0.035 - k * 0.035)), (0.3 + k * 0.05, 0.27 + k * 0.04, 0.55), rot=(0.12, 0, 0), minor=0.14)
@@ -218,7 +307,9 @@ def selene():
     c = body(True, FAIR, "selene")
     gold = mat("s_ouro", (0.86, 0.66, 0.3), metal=0.6, rough=0.35)
     gown(c, gold, mat("s_saia", (0.8, 0.62, 0.32), metal=0.4, rough=0.4), sleeves=True)
-    long_hair(c, mat("s_cabelo", (0.1, 0.06, 0.045), rough=0.6), 0.7, 0.12)
+    sh = mat("s_cabelo", (0.1, 0.06, 0.045), rough=0.6)
+    long_hair(c, sh, 0.7, 0.12)
+    brows(c, sh, 0.8, -0.03)
     jewel = mat("s_joia", (1.0, 0.85, 0.45), metal=0.95, rough=0.2)
     tiara(c, jewel, mat("s_gema", (1.0, 0.7, 0.3), glow=3.0))
     earrings(c, jewel)
@@ -231,7 +322,9 @@ def nyx():
     black = mat("n_preto", (0.03, 0.03, 0.04), rough=0.5)
     armor(c, black, mat("n_peito", (0.06, 0.05, 0.08), metal=0.5, rough=0.35), mat("n_calca", (0.03, 0.03, 0.035)), mat("n_bota", (0.03, 0.03, 0.03)), black)
     shoulders(c, black, 0.15)
-    hair_shell(c, mat("n_cabelo", (0.03, 0.03, 0.035), rough=0.6), 0.03, nape=0.25)   # cabelo bagunçado até a nuca
+    nh = mat("n_cabelo", (0.03, 0.03, 0.035), rough=0.6)
+    short_hair(c, nh, seed=6, length=0.14, fringe=0.45, nape=1.5)   # cabelo bagunçado até a nuca
+    brows(c, nh, 1.1, 0.18)
     D.cape(c, mat("n_capa", (0.04, 0.03, 0.06), rough=0.8), 1.25, 0.52)
     belt(c, black, c.hip_z + 0.06, buckle=mat("n_fivela", (0.55, 0.35, 0.9), glow=1.5))
     return c
@@ -245,11 +338,11 @@ CHARS = {"kaeldryn": kaeldryn, "lysara": lysara, "darius": darius, "emberlyn": e
 def base_pose():
     """Em pé, braços soltos ao lado do corpo, mãos relaxadas."""
     pose = {"spine_03": [(X, -0.02)], "neck_01": [(X, 0.03)],
-            "upperarm_l": [(Y, 0.82), (X, 0.04)], "lowerarm_l": [(X, -0.08)],
-            "upperarm_r": [(Y, -0.82), (X, 0.04)], "lowerarm_r": [(X, -0.08)],
+            "upperarm_l": [(Y, 0.86)], "lowerarm_l": [(X, -0.05)],
+            "upperarm_r": [(Y, -0.86)], "lowerarm_r": [(X, -0.05)],
             "thigh_l": [(Y, 0.02)], "thigh_r": [(Y, -0.02)]}
     for side in ("l", "r"):
-        for b, ops in D.fist(side, 0.3).items():
+        for b, ops in D.fist(side, 0.15).items():
             pose.setdefault(b, []).extend(ops)
     return pose
 
@@ -267,6 +360,13 @@ def finalize(c, key):
     for o in [c.body] + c.parts:
         if o.type == "MESH":
             K.apply_modifiers(o)
+    bpy.ops.object.select_all(action="DESELECT")   # corpo com metade dos triângulos (NPC parado, visto de longe)
+    c.body.select_set(True)
+    bpy.context.view_layer.objects.active = c.body
+    md = c.body.modifiers.new("Leve", "DECIMATE")
+    md.ratio = 0.5
+    bpy.ops.object.modifier_move_to_index(modifier=md.name, index=0)
+    bpy.ops.object.modifier_apply(modifier=md.name)
     pose = base_pose()
     K.apply_pose(c.arm, pose)
     K.write_actions(c.arm, {"idle": (64, idle, True)}, pose)
