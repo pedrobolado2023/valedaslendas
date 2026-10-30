@@ -9,6 +9,8 @@ extends Node
 signal connected
 signal loaded(save: Dictionary)
 signal boss_hp(hp: int, max_hp: int)
+signal boss_rank(top: Array)            # [[nome, dano], ...] top 6
+signal boss_reward(rank: int, last_hit: bool, item: String)
 signal boss_scheduled(delay: float, minutes: int)
 # monstros do servidor (cliente)
 signal enemies(map: String, snap: Dictionary)
@@ -29,7 +31,9 @@ var others: Dictionary = {}     # cliente: id -> {name, cls, gear, map, pos, rot
 
 # servidor
 var _players: Dictionary = {}   # peer -> {uid, name, cls, gear, map, pos, rot, moving, save}
-var _boss := {"key": "", "hp": 0, "max": 0}
+var _boss := {"key": "", "hp": 0, "max": 0, "hits": {}, "atk": {}, "base": 0, "dead": false}
+var _rank_t := 0.0
+var _boss_dirty := false
 var _boss_at := 0.0   # boss invocado pelo admin: começa neste horário Unix do servidor
 var _t := 0.0
 var _save_t := 0.0
@@ -79,6 +83,11 @@ func _process(delta: float) -> void:
 	if _t >= 1.0 / SNAP_HZ:
 		_t = 0.0
 		_broadcast()
+	_rank_t += delta
+	if _rank_t >= 0.25 and _boss_dirty:
+		_rank_t = 0.0
+		_boss_dirty = false
+		_boss_all()
 	_save_t += delta
 	if _save_t > 60.0:   # grava os saves de todos a cada minuto (e sempre que alguém sai)
 		_save_t = 0.0
@@ -208,7 +217,7 @@ func admin_boss(delay: float) -> void:
 		return
 	delay = clampf(delay, 0.0, 3600.0)
 	_boss_at = Time.get_unix_time_from_system() + delay
-	_boss = {"key": "", "hp": 0, "max": 0}
+	_boss = {"key": "", "hp": 0, "max": 0, "hits": {}, "atk": {}, "base": 0, "dead": false}
 	print("[servidor] boss global invocado por ", _players[id]["name"], " para daqui a ", int(delay), " s")
 	for pid in _players:
 		_boss_call.rpc_id(int(pid), delay, int(GameData.GLOBAL_BOSS["minutes"]))
@@ -220,15 +229,84 @@ func _boss_call(delay: float, minutes: int) -> void:
 
 
 ## Boss global: todos batem na mesma vida, que fica no servidor.
+## Jogador chegou no boss: entra na conta da vida (ataque × dps_k × target_secs; nunca menos que base × hp_mult).
 @rpc("any_peer", "reliable")
-func boss_hit(key: String, dmg: int, max_hp: int) -> void:
+func boss_join(key: String, atk: float, base_hp: int) -> void:
 	var id := multiplayer.get_remote_sender_id()
 	if not is_server or not _players.has(id):
 		return
+	_boss_window(key, base_hp)
+	if bool(_boss["dead"]):
+		_boss_send(id)
+		return
+	_boss["atk"][id] = clampf(atk, 1.0, 1.0e9)
+	var cfg: Dictionary = GameData.GLOBAL_BOSS
+	var want := 0.0
+	for pid in _boss["atk"]:
+		want += float(_boss["atk"][pid]) * float(cfg["dps_k"]) * float(cfg["target_secs"])
+	var new_max := maxi(int(_boss["base"]) * int(cfg["hp_mult"]), int(want))
+	if new_max > int(_boss["max"]):   # chegou mais gente: a vida cresce junto (sem curar o que já foi tirado)
+		_boss["hp"] = int(_boss["hp"]) + new_max - int(_boss["max"])
+		_boss["max"] = new_max
+	_boss_all()
+
+
+func _boss_window(key: String, base_hp: int) -> void:
+	# evento invocado/forçado: cada jogo gera a chave com o próprio relógio; no servidor é um evento só
+	if not key.is_valid_int() and not key.contains("-") or key.begins_with("invocado") or key.begins_with("teste"):
+		key = "evento-%d" % int(_boss_at)
 	if String(_boss["key"]) != key:
-		_boss = {"key": key, "hp": max_hp, "max": max_hp}
-	# trava: no máximo 5% da vida do boss por golpe
-	_boss["hp"] = maxi(0, int(_boss["hp"]) - clampi(dmg, 0, int(_boss["max"] * 0.05) + 1))
+		var m := base_hp * int(GameData.GLOBAL_BOSS["hp_mult"])
+		_boss = {"key": key, "hp": m, "max": m, "hits": {}, "atk": {}, "base": base_hp, "dead": false}
+
+
+@rpc("any_peer", "reliable")
+func boss_hit(key: String, dmg: int, base_hp: int) -> void:
+	var id := multiplayer.get_remote_sender_id()
+	if not is_server or not _players.has(id):
+		return
+	_boss_window(key, base_hp)
+	if bool(_boss["dead"]):
+		return
+	# trava: no máximo 2% da vida do boss por golpe
+	dmg = clampi(dmg, 0, int(_boss["max"] * 0.02) + 1)
+	dmg = mini(dmg, int(_boss["hp"]))
+	_boss["hp"] = int(_boss["hp"]) - dmg
+	_boss["hits"][id] = int(_boss["hits"].get(id, 0)) + dmg
+	if int(_boss["hp"]) <= 0:
+		_boss_dead(id)
+		_boss_all()
+	else:
+		_boss_dirty = true   # manda vida e ranking 4x por segundo (não a cada golpe)
+
+
+func _boss_dead(last: int) -> void:
+	_boss["dead"] = true
+	var order: Array = _boss["hits"].keys()
+	order.sort_custom(func(a, b) -> bool: return int(_boss["hits"][a]) > int(_boss["hits"][b]))
+	var odds: Dictionary = GameData.GLOBAL_BOSS["last_item"]
+	for i in order.size():
+		var pid := int(order[i])
+		if not _players.has(pid):
+			continue
+		var item := ""
+		if pid == last:
+			var r := randf()
+			item = "lendaria" if r < float(odds["lendaria"]) else ("epica" if r < float(odds["lendaria"]) + float(odds["epica"]) else "rara")
+		_boss_reward.rpc_id(pid, i + 1, pid == last, item)
+	print("[servidor] boss global derrotado · último golpe: ", _players.get(last, {}).get("name", "?"), " · ", order.size(), " participantes")
+
+
+func _boss_top() -> Array:
+	var order: Array = _boss["hits"].keys()
+	order.sort_custom(func(a, b) -> bool: return int(_boss["hits"][a]) > int(_boss["hits"][b]))
+	var top: Array = []
+	for pid in order.slice(0, 6):
+		top.append([String(_players.get(pid, {}).get("name", "?")), int(_boss["hits"][pid])])
+	return top
+
+
+func _boss_all() -> void:
 	for pid in _players:
 		if String(_players[pid].get("map", "")) == String(GameData.GLOBAL_BOSS["map"]):
 			_boss_send(int(pid))
@@ -236,7 +314,7 @@ func boss_hit(key: String, dmg: int, max_hp: int) -> void:
 
 func _boss_send(id: int) -> void:
 	if String(_boss["key"]) != "":
-		_boss_state.rpc_id(id, String(_boss["key"]), int(_boss["hp"]), int(_boss["max"]))
+		_boss_state.rpc_id(id, String(_boss["key"]), int(_boss["hp"]), int(_boss["max"]), _boss_top())
 
 
 ## Chamada ao Supabase (com a chave secreta, ou com o token do jogador).
@@ -331,9 +409,15 @@ func _hurt(dmg: int, id: int) -> void:
 	hurt.emit(dmg, id)
 
 
-@rpc("authority", "reliable")
-func _boss_state(key: String, hp: int, max_hp: int) -> void:
+@rpc("authority", "unreliable_ordered")
+func _boss_state(key: String, hp: int, max_hp: int, top: Array) -> void:
 	boss_hp.emit(hp, max_hp)
+	boss_rank.emit(top)
+
+
+@rpc("authority", "reliable")
+func _boss_reward(rank: int, last_hit: bool, item: String) -> void:
+	boss_reward.emit(rank, last_hit, item)
 
 
 func send_state(map: String, p: Player) -> void:

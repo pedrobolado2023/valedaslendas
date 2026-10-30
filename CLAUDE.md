@@ -123,6 +123,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - **Boss global — aviso e janela:** `WorldEvents.schedule(delay, min)` (admin F1 "Invocar boss global" = começa em
   5 min; online vai pelo servidor `Net.admin_boss`, só conta admin, e todos recebem `_boss_call`, inclusive quem entra
   depois). 5 min antes e no começo abre `ui/boss_call.gd` (contagem + "Ir para o Boss agora").
+- **Boss global — vida, ranking e prêmios:** vida = máx(hp × `hp_mult` 100, Σ ataque × `dps_k` × `target_secs` 300)
+  — online o servidor soma cada jogador que chega (`Net.boss_join`) e a vida cresce junto. Servidor guarda o dano de
+  cada um (`_boss.hits`), manda o top 6 4x/s (`boss_rank`, `ui/boss_rank.gd`) e, na morte, `_boss_reward(posição,
+  último golpe, item)`: top 3 = `top_gems/top_gold`, último golpe = `last_gems/last_gold` + item (1% lendário, 2%
+  épico, resto raro). Evento invocado usa uma chave só no servidor (`evento-<_boss_at>`). Trava: 2% da vida por golpe.
 - **Portal (`ui/portal_panel.gd`):** todos os mapas em grade de 4 colunas com rolagem + boss global e masmorra no topo.
 - **Dragão de Lava (boss global, modelo do Gemini `dragon_boss.html`):** malha extraída com Node
   (`tools/dragon_extract/gen.mjs`, precisa `npm i three@0.160.0`) → `blender/make_lava_dragon.py` (reduz, posição de

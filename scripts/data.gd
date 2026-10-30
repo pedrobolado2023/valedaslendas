@@ -216,7 +216,12 @@ const BASE_ENEMIES := {
 ## Pensado para vários jogadores (a vida vai crescer com o multiplayer); por enquanto é fraco para testar.
 const GLOBAL_BOSS := {
 	"enemy": "dragon_global", "map": "covil", "hours": [10, 16, 22], "minutes": 15, "warn_minutes": 5,
-	"reward_gold": 3000, "reward_gems": 25, "reward_xp_levels": 0.5, "loot_rarity": "epica", "legendary_chance": 0.25,
+	"reward_gold": 3000, "reward_gems": 25, "reward_xp_levels": 0.5, "loot_rarity": "rara", "legendary_chance": 0.0,
+	# vida: nunca menos que hp × hp_mult; com jogadores, soma (ataque × dps_k) de cada um × target_secs (~5 min batendo)
+	"hp_mult": 100, "dps_k": 6.0, "target_secs": 300.0,
+	# ranking de dano: prêmio extra do top 3 e de quem der o último golpe (item: 1% lendário, 2% épico, resto raro)
+	"top_gems": [60, 40, 25], "top_gold": [15000, 9000, 6000], "last_gems": 80, "last_gold": 20000,
+	"last_item": {"lendaria": 0.01, "epica": 0.02},
 	# mecânicas (tempos em segundos, dano relativo ao "dmg" do boss)
 	"breath_len": 16.0, "breath_half": 0.45, "breath_dur": 1.8, "breath_mult": 0.25,
 	"meteor_count": 6, "meteor_blast": 3.5, "meteor_mult": 1.2,

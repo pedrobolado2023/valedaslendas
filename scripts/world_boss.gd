@@ -2,6 +2,7 @@ class_name WorldBoss
 extends Enemy
 
 var net_key := ""   # janela do boss (Net: todos na mesma vida)
+var my_dmg := 0     # dano que este jogador deu (ranking)
 ## Boss global (Dragão Ancestral). Além da mordida normal do Enemy, a cada poucos segundos faz uma mecânica:
 ##   fase 1 (100%-60%): sopro de fogo em cone e chuva de meteoros (com aviso no chão);
 ##   fase 2 (60%-30%): + voo e queda em cima de um jogador, e chama dragonetes;

@@ -369,11 +369,15 @@ func take_damage(n: int, from: Vector3, crit: bool = false, tint: Color = Color(
 		return
 	if _vuln > 0.0:
 		n = int(round(n * (1.0 + _vuln)))
-	if self is WorldBoss and get_node("/root/Net").online and not crit_from_server:   # online: a vida do boss é do servidor
-		get_node("/root/Net").boss_hit.rpc_id(1, (self as WorldBoss).net_key, n, max_hp)
+	if self is WorldBoss and not crit_from_server:
+		(self as WorldBoss).my_dmg += mini(n, hp)
+		if get_node("/root/Net").online:   # online: a vida do boss é do servidor
+			get_node("/root/Net").boss_hit.rpc_id(1, (self as WorldBoss).net_key, n, int(data["hp"]))
 	if net_id > 0:   # online: o servidor decide a vida e a morte
 		get_node("/root/Net").enemy_hit.rpc_id(1, net_id, n)
 		hp = maxi(1, hp - n)
+	elif self is WorldBoss and get_node("/root/Net").online and not crit_from_server:
+		hp = maxi(1, hp - n)   # boss global online: só morre quando o servidor mandar
 	else:
 		hp -= n
 	aggro = true

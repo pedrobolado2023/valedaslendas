@@ -16,7 +16,43 @@ var _started := ""
 var _tick := 0.0
 
 
+var rank_ui: BossRank
+var _last_top: Array = []
+
+
+func _ready() -> void:
+	var net := get_node("/root/Net")
+	# online: a vida que vale é a do servidor (todos batem no mesmo dragão); ranking e prêmios vêm de lá
+	net.boss_hp.connect(_on_net_hp)
+	net.boss_rank.connect(func(top: Array) -> void:
+		_last_top = top
+		if rank_ui != null and is_instance_valid(rank_ui):
+			rank_ui.show_top(top))
+	net.boss_reward.connect(func(rank: int, last_hit: bool, item: String) -> void: _rank_reward(rank, last_hit, item))
+
+
+func _on_net_hp(hp: int, mx: int) -> void:
+	if boss == null or not is_instance_valid(boss) or not boss.alive:
+		return
+	if mx != boss.max_hp:
+		boss.max_hp = mx
+	if hp < boss.hp:
+		boss.crit_from_server = true
+		boss.take_damage(boss.hp - hp, boss.global_position)
+		boss.crit_from_server = false
+	elif hp > boss.hp:
+		boss.hp = hp
+	boss._update_bar()
+
+
+## Vida do boss sozinho (offline): ataque × dps_k × target_secs, nunca menos que hp × hp_mult.
+func boss_hp_for(atk_total: float, base_hp: int) -> int:
+	return maxi(base_hp * int(cfg["hp_mult"]), int(atk_total * float(cfg["dps_k"]) * float(cfg["target_secs"])))
+
+
 func _process(delta: float) -> void:
+	if rank_ui != null and is_instance_valid(rank_ui) and boss != null and is_instance_valid(boss) and not get_node("/root/Net").online:
+		rank_ui.show_top([["Você", boss.my_dmg]])
 	_tick -= delta
 	if _tick > 0.0:
 		return
@@ -107,6 +143,44 @@ func schedule(delay: float, minutes: int) -> void:
 	_tick = 0.0
 
 
+func _roll_last_item() -> String:
+	var odds: Dictionary = cfg["last_item"]
+	var r := randf()
+	return "lendaria" if r < float(odds["lendaria"]) else ("epica" if r < float(odds["lendaria"]) + float(odds["epica"]) else "rara")
+
+
+## Prêmio do ranking (top 3) e do último golpe (ouro, gemas e um item: 1% lendário, 2% épico, resto raro).
+func _rank_reward(rank: int, last_hit: bool, item: String) -> void:
+	var p = game.player
+	if p == null:
+		return
+	var gems := 0
+	var gold := 0
+	var parts: Array = []
+	if rank >= 1 and rank <= 3:
+		gems += int(cfg["top_gems"][rank - 1])
+		gold += int(cfg["top_gold"][rank - 1])
+		parts.append("Top %d no dano" % rank)
+	if last_hit:
+		gems += int(cfg["last_gems"])
+		gold += int(cfg["last_gold"])
+		parts.append("Último golpe!")
+	if gems > 0:
+		Shop.credit_gems(p, gems, "boss_global_rank")
+	p.gold += gold
+	if item != "":
+		var it: Dictionary = p.new_item(String(Player.ITEM_SLOTS.pick_random()), item)
+		p.add_item(it)
+		parts.append("%s (%s)" % [GameData.item_name(it), String(GameData.RARITY[item]["name"])])
+	if not parts.is_empty():
+		Sfx.play("legendary", -2.0)
+		game.hud.banner(" · ".join(parts), "+%d gemas   +%d de ouro%s" % [gems, gold, "   · item no inventário (I)" if item != "" else ""], 6.0)
+	p.stats_changed.emit()
+	if rank_ui != null and is_instance_valid(rank_ui):
+		rank_ui.finish(rank, last_hit)
+	game.save_now()
+
+
 ## Admin: começa um evento agora, durando `minutes` minutos.
 func force(minutes: int) -> void:
 	schedule(0.0, minutes)
@@ -132,12 +206,17 @@ func _spawn() -> void:
 	boss.net_key = window_key()
 	game.actors.add_child(boss)
 	boss.died.connect(_on_boss_died)
-	# online: a vida que vale é a do servidor (todos os jogadores batem no mesmo boss)
-	get_node("/root/Net").boss_hp.connect(func(hp: int, _mx: int) -> void:
-		if boss != null and is_instance_valid(boss) and boss.alive and hp < boss.hp:
-			boss.crit_from_server = true
-			boss.take_damage(boss.hp - hp, boss.global_position)
-			boss.crit_from_server = false)
+	var base := int(boss.data["hp"])
+	boss.max_hp = boss_hp_for(game.player.atk, base)
+	boss.hp = boss.max_hp
+	boss._update_bar()
+	var net := get_node("/root/Net")
+	if net.online:
+		net.boss_join.rpc_id(1, boss.net_key, game.player.atk, base)
+	if rank_ui != null and is_instance_valid(rank_ui):
+		rank_ui.queue_free()
+	rank_ui = BossRank.new()
+	game.add_child(rank_ui)
 	boss.phase_changed.connect(func(p: int) -> void:
 		var txt := {2: "O dragão levanta voo e chama os filhotes!", 3: "Fúria final: o chão pega fogo!"}
 		game.hud.banner("Dragão de Lava — fase %d" % p, String(txt.get(p, "")), 3.0))
@@ -155,6 +234,8 @@ func _on_boss_died(e: Enemy) -> void:
 	game._drop_item(String(cfg["loot_rarity"]), at + Vector3(2, 0, 0))
 	if randf() < float(cfg["legendary_chance"]):
 		game._drop_item("lendaria", at + Vector3(-2, 0, 0))
+	if not get_node("/root/Net").online:   # sozinho: você é o top 1 e deu o último golpe
+		_rank_reward(1, true, _roll_last_item())
 	for k in 8:
 		game._drop("gold", int(cfg["reward_gold"]) / 20, "Ouro", at + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4)))
 	Vfx.explosion(game.actors, at, 8.0)
