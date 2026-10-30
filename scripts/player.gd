@@ -138,6 +138,10 @@ func _ready() -> void:
 
 
 func recalc() -> void:
+	if cdata.is_empty():   # chamado antes do _ready (carregando o save): pega os dados da classe aqui
+		if not GameData.CLASSES.has(class_key):
+			return
+		cdata = GameData.CLASSES[class_key]
 	var k := float(level - 1)
 	max_hp = int(float(cdata["hp"]) * (1.0 + 0.12 * k))
 	max_mp = int(float(cdata["mp"]) * (1.0 + 0.08 * k))
