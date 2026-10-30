@@ -41,7 +41,7 @@ void vertex() {
 
 void fragment() {
 	vec3 v = vor(rest * crack_scale);
-	float edge = v.y - v.x;
+	float edge = max(v.y - v.x, 0.0);
 	float plate = smoothstep(0.0, 0.38, edge);
 	float crack = 1.0 - smoothstep(0.0, 0.05, edge);
 	vec3 base = albedo.rgb * (use_vertex_color ? COLOR.rgb : vec3(1.0));
@@ -50,6 +50,7 @@ void fragment() {
 	ALBEDO = mix(base, vec3(1.0), flash);
 	ROUGHNESS = 0.75;
 	float pulse = 0.75 + 0.25 * sin(TIME * 1.7 + v.z * 12.0);
-	vec3 hot = mix(vec3(1.0, 0.2, 0.02), vec3(1.0, 0.6, 0.12), smoothstep(0.02, 0.0, edge));
-	EMISSION = (hot * crack * pulse * 1.3 + vec3(1.0, 0.3, 0.05) * fill * (0.4 + 0.6 * v.z) * pulse) * glow * mat_glow;
+	vec3 hot = mix(vec3(1.0, 0.2, 0.02), vec3(1.0, 0.6, 0.12), 1.0 - smoothstep(0.0, 0.02, edge));   // limites sempre crescentes: invertido dá NaN no navegador (ANGLE)
+	vec3 em = (hot * crack * pulse * 1.3 + vec3(1.0, 0.3, 0.05) * fill * (0.4 + 0.6 * v.z) * pulse) * glow * clamp(mat_glow, 0.0, 1.0);
+	EMISSION = clamp(em, vec3(0.0), vec3(4.0));   // nunca NaN/infinito (com glow, um ponto assim pinta a tela de preto)
 }
