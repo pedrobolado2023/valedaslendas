@@ -225,6 +225,15 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - **Ícones da loja/materiais:** `tools/make_shop_icons.py` → `textures/shop/<id>.png` (`ShopPanel.icon_of`). Mercadinho
   vende lotes de material (`market_sell_mat`). Download web: olhos 128 px, roupas 256 px, música QOA, imagens dos
   modelos inteiros fora do preset Web (pck ~51 MB; wasm vai com gzip do nginx).
+- **Painel admin separado (`/admin`, `admin/index.html`):** login Supabase (só `app_metadata.admin`), grava em
+  `admin_commands`; o servidor lê a cada 3 s (`Net._admin_poll` → `_admin_run`: anuncio, boss, evento, dar, expulsar,
+  banir/desbanir, config, salvar) e grava `server_status` a cada 10 s. Config (`game_config`: xp/ouro/drop ×, motd,
+  manutenção) → `GameData.XP_MULT/GOLD_MULT/DROP_MULT` nos clientes. Tabelas em `supabase/admin_painel.sql` (dono roda).
+  `deploy/admin_config.sh` gera `admin/config.js` no build do front.
+- **Masmorra/boss da guilda online = instância no servidor:** `Net.dungeon_enter` (grupo no mesmo mapa vai junto,
+  limites em `_dg_limits`), `ServerWorld.start_dungeon/_dg_tick/_dg_end` (chave `mapa#n`, `Net.map_key`), prêmios
+  sorteados no servidor e creditados (`credit_gems/items`); cliente em `Dungeon._on_net`. Offline continua local.
+  Empurrão/puxão vão por `Net.enemy_move`. Heróis: `VERT_CAP` em `mpfb_kit.py` pela metade (pacote web ~38 MB).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

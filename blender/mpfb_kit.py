@@ -692,8 +692,8 @@ def paint_clothes(objs):
 
 
 ## Limite de vértices por peça (deixa os arquivos leves sem mudar o visual na distância da câmera do jogo).
-VERT_CAP = {"Luva": 2500, "Mascara": 4000, "Barba": 4000, "Capuz": 6000, "Cabelo": 5000}
-VERT_CAP_DEFAULT = 7000
+VERT_CAP = {"Luva": 1500, "Mascara": 2500, "Barba": 2500, "Capuz": 3500, "Cabelo": 3000}
+VERT_CAP_DEFAULT = 3500
 
 
 def lighten(objs):
