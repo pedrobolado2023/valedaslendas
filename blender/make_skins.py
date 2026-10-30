@@ -293,13 +293,74 @@ def sk_areias(c):
     D.cape(c, veil, 1.25, 0.42, gold)
 
 
+def sk_ninfa(c):
+    """Ninfa das Cachoeiras (Thalyss): vestido azul-água em camadas, escamas turquesa nos braços e ombros, gotas de
+    água brilhando no cabelo solto azul-escuro, conchas no cinto e tiara de conchas."""
+    water = K.color_mat("skn_agua", (0.3, 0.68, 0.82), rough=0.35)
+    deep = K.color_mat("skn_fundo", (0.18, 0.45, 0.66), rough=0.45)
+    scale = K.color_mat("skn_escama", (0.25, 0.85, 0.75), metal=0.5, rough=0.25)
+    drop = K.color_mat("skn_gota", (0.6, 0.95, 1.0), glow=1.3)
+    shell = K.color_mat("skn_concha", (0.98, 0.86, 0.8), rough=0.4)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, deep, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, water, offset=0.012, zmin=c.hip_z - 0.04)
+    long_skirt(c, deep, c.hip_z + 0.06, c.ankle_z + 0.06, 0.32, 0.2)
+    piece(c, c.tights, "Bota", FEET, shell, offset=0.012, thresh=0.3, zmax=c.ankle_z + 0.05)
+    D.gloves(c, K.color_mat("skn_pele_luva", (0.86, 0.68, 0.56), rough=0.6), offset=0.003)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.12, 0.32, 0.5), 1.6)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.1, 0.22, 0.35), 1.0)
+    # escamas em fileiras nos braços (de ombro a cotovelo) e nos ombros
+    for side, up_b in ((1, "upperarm_l"), (-1, "upperarm_r")):
+        sh = K.bone_head(c.arm, up_b)
+        el = K.bone_head(c.arm, "lowerarm_" + ("l" if side == 1 else "r"))
+        for k in range(6):
+            t = k / 6
+            p = sh.lerp(el, t) + Vector((side * 0.045, -0.02, 0.0))
+            sc = leaf("Ombreira", scale, p, 0.1, 0.085, (0.0, side * 1.4, 0.0))
+            rigid(c, sc, up_b)
+    # segunda saia (camada de "cascata") mais curta, azul escuro, com gotas na barra
+    long_skirt(c, water, c.hip_z + 0.07, c.knee_z - 0.02, 0.27, 0.205)
+    for k in range(10):
+        a = k / 10 * math.tau
+        z = c.knee_z - 0.04
+        r = 0.205 + (0.27 - 0.205) * ((c.hip_z + 0.07 - z) / (c.hip_z + 0.07 - (c.knee_z - 0.02))) + 0.008
+        py = K.bone_head(c.arm, "pelvis").y + 0.01
+        dp = prim("sphere", "Barra", drop, Vector((math.sin(a) * r, py - math.cos(a) * r * 0.82, z)), (0.02, 0.02, 0.03))
+        rigid(c, dp, "pelvis")
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", scale, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.4), minor=0.05)
+    rigid(c, band, "spine_01")
+    for k in range(5):   # conchas no cinto
+        a = (k - 2) * 0.45
+        cs = prim("sphere", "CintoFivela", shell, Vector((math.sin(a) * (rx + 0.015), cy - math.cos(a) * (ry + 0.015), zb)), (0.03, 0.012, 0.03))
+        rigid(c, cs, "spine_01")
+    # tiara de conchas e gotas no cabelo
+    h, s2 = c.head, (c.head_top - c.head).length
+    ring = prim("torus", "Coroa", shell, Vector((0, h.y + s2 * 0.02, c.eye_z + s2 * 0.42)), (s2 * 1.14, s2 * 1.24, 0.25), rot=(0.18, 0, 0), minor=0.05)
+    rigid(c, ring, "head")
+    for k in range(3):
+        ang = (k - 1) * 0.5
+        cs = prim("sphere", "Joia", shell, Vector((math.sin(ang) * 0.06, h.y - s2 * 0.58 + abs(k - 1) * 0.02, c.eye_z + s2 * 0.5)), (0.035, 0.012, 0.03), rot=(0, 0, ang))
+        rigid(c, cs, "head")
+    import random
+    rnd = random.Random(3)
+    for k in range(9):   # gotas espalhadas no cabelo
+        az = rnd.uniform(0.6, math.pi * 2 - 0.6)
+        el = rnd.uniform(-0.2, 0.9)
+        d = Vector((math.sin(az) * math.cos(el), -math.cos(az) * math.cos(el), math.sin(el)))
+        dp = prim("sphere", "Joia", drop, c.head.lerp(c.head_top, 0.45) + d * s2 * 0.7, (0.016, 0.016, 0.024))
+        rigid(c, dp, "head")
+    D.cape(c, K.color_mat("skn_veu", (0.55, 0.85, 0.92), rough=0.3), 1.2, 0.48, scale)
+
+
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
-         "sk_areias": ("druida", D, sk_areias)}
+         "sk_areias": ("druida", D, sk_areias), "sk_ninfa": ("druida", D, sk_ninfa)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
           "sk_inverno": [("hair/bob02/bob02.mhclo", "Hair"), ("eyebrows/eyebrow003/eyebrow003.mhclo", "Eyebrows")],
-          "sk_areias": [("hair/ponytail01/ponytail01.mhclo", "Hair"), ("eyebrows/eyebrow010/eyebrow010.mhclo", "Eyebrows")]}
+          "sk_areias": [("hair/ponytail01/ponytail01.mhclo", "Hair"), ("eyebrows/eyebrow010/eyebrow010.mhclo", "Eyebrows")],
+          "sk_ninfa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")]}
 
 
 def main():
