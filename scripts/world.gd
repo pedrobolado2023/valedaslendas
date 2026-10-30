@@ -63,6 +63,7 @@ func build(id: String) -> void:
 	_build_lake()
 	_build_vegetation()
 	_build_zone_markers()
+	_build_weather()
 
 
 func zone_ids() -> Array:
@@ -592,9 +593,40 @@ func _card_mesh(w: float, h: float, planes: int) -> ArrayMesh:
 	return st.commit()
 
 
-func _add_instances(mesh: Mesh, xforms: Array, colors: Array = [], customs: Array = [], shadow: bool = true, chunk: float = 40.0) -> void:
+## Pedaços do mapa (lotes de vegetação) e quem está perto do herói: só esses são desenhados.
+## No navegador o raio é menor e os pedaços são maiores (menos lotes = menos trabalho para o WebGL).
+var _chunks: Array = []        # [MultiMeshInstance3D, centro Vector2]
+var _cull_t := 0.0
+static var CHUNK := 64.0 if OS.has_feature("web") else 48.0
+static var DRAW_R := 62.0 if OS.has_feature("web") else 90.0
+
+
+func _process(delta: float) -> void:
+	_cull_t -= delta
+	if _cull_t > 0.0:
+		return
+	_cull_t = 0.3
+	var p := get_tree().get_first_node_in_group("player") as Node3D
+	if p == null:
+		return
+	var at := Vector2(p.global_position.x, p.global_position.z)
+	# raio pelo zoom da câmera (o que a tela mostra) + folga do tamanho do pedaço
+	var cam := get_viewport().get_camera_3d()
+	var r := minf(DRAW_R, (cam.size * 1.25 if cam != null and cam.projection == Camera3D.PROJECTION_ORTHOGONAL else DRAW_R)) + CHUNK * 0.75
+	for c in _chunks:
+		var mmi: MultiMeshInstance3D = c[0]
+		var near := at.distance_to(c[1]) < r
+		var show := near and not mmi.has_meta("q_off")
+		if mmi.visible != show:
+			mmi.visible = show
+	if _weather_holder != null:
+		_weather_holder.global_position = Vector3(p.global_position.x, 0.0, p.global_position.z)
+
+
+func _add_instances(mesh: Mesh, xforms: Array, colors: Array = [], customs: Array = [], shadow: bool = true, chunk: float = -1.0) -> void:
 	if mesh == null or xforms.is_empty():
 		return
+	chunk = CHUNK if chunk < 0.0 else maxf(chunk, CHUNK * 0.75)
 	var buckets := {}
 	for i in xforms.size():
 		var t: Transform3D = xforms[i]
@@ -604,6 +636,7 @@ func _add_instances(mesh: Mesh, xforms: Array, colors: Array = [], customs: Arra
 		(buckets[key] as Array).append(i)
 	for key in buckets:
 		var idx: Array = buckets[key]
+		var center := Vector2((key.x + 0.5) * chunk, (key.y + 0.5) * chunk)
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.use_colors = not colors.is_empty()
@@ -612,16 +645,97 @@ func _add_instances(mesh: Mesh, xforms: Array, colors: Array = [], customs: Arra
 		mm.instance_count = idx.size()
 		for j in idx.size():
 			var i: int = idx[j]
-			mm.set_instance_transform(j, xforms[i])
+			var tr: Transform3D = xforms[i]
+			tr.origin -= Vector3(center.x, 0.0, center.y)   # lote no centro do pedaço
+			mm.set_instance_transform(j, tr)
 			if mm.use_colors:
 				mm.set_instance_color(j, colors[i])
 			if mm.use_custom_data:
 				mm.set_instance_custom_data(j, customs[i])
 		var mmi := MultiMeshInstance3D.new()
 		mmi.multimesh = mm
+		mmi.position = Vector3(center.x, 0.0, center.y)
 		if not shadow:
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		add_child(mmi)
+		_chunks.append([mmi, center])
+
+
+## Liga o vento nos materiais de um modelo de vegetação (árvore/arbusto); 0 = parado (pedras).
+func _windy(mesh: Mesh, amount: float) -> Mesh:
+	if mesh == null or amount <= 0.0:
+		return mesh
+	for s in mesh.get_surface_count():
+		var m := mesh.surface_get_material(s) as ShaderMaterial
+		if m != null:
+			m.set_shader_parameter("wind", amount)
+			if m.next_pass is ShaderMaterial:
+				(m.next_pass as ShaderMaterial).set_shader_parameter("wind", amount)
+	return mesh
+
+
+## Clima do bioma: folhas, neve, cinzas ou areia passando com o vento (acompanha o herói).
+var _weather: CPUParticles3D
+
+
+func _build_weather() -> void:
+	var ground := String(theme["ground"])
+	var kind: String = {"snow": "neve", "ash": "cinza", "sand": "areia"}.get(ground, "folha")
+	if bool(GameData.MAPS[map_id].get("event", false)) and kind == "folha":
+		return
+	var p := CPUParticles3D.new()
+	p.amount = 28 if OS.has_feature("web") else 60
+	p.lifetime = 7.0
+	p.preprocess = 7.0
+	p.local_coords = false
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(38, 6, 30)
+	p.position = Vector3(0, 7, 0)
+	var q := QuadMesh.new()
+	q.size = Vector2(0.18, 0.18) if kind != "folha" else Vector2(0.28, 0.16)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = true
+	q.material = mat
+	p.mesh = q
+	match kind:
+		"neve":
+			p.color = Color(1, 1, 1, 0.85)
+			p.direction = Vector3(0.4, -1, 0.2)
+			p.initial_velocity_min = 1.2
+			p.initial_velocity_max = 2.2
+			p.gravity = Vector3(0.4, -0.6, 0)
+		"cinza":
+			p.color = Color(0.55, 0.5, 0.5, 0.7)
+			p.direction = Vector3(1, 0.2, 0.3)
+			p.initial_velocity_min = 1.0
+			p.initial_velocity_max = 2.5
+			p.gravity = Vector3(0.3, 0.15, 0)
+		"areia":
+			p.color = Color(0.9, 0.75, 0.5, 0.55)
+			p.direction = Vector3(1, 0.05, 0.2)
+			p.initial_velocity_min = 3.0
+			p.initial_velocity_max = 5.0
+			p.gravity = Vector3(0.6, -0.1, 0)
+		_:
+			p.color = (theme["forest_tint"] as Color).lerp(Color(0.9, 0.7, 0.3), 0.4)
+			p.direction = Vector3(1, -0.3, 0.4)
+			p.initial_velocity_min = 1.0
+			p.initial_velocity_max = 2.0
+			p.gravity = Vector3(0.5, -0.4, 0)
+			p.angular_velocity_min = -120.0
+			p.angular_velocity_max = 120.0
+	p.spread = 25.0
+	var holder := Node3D.new()
+	add_child(holder)
+	holder.add_child(p)
+	_weather = p
+	_weather_holder = holder
+
+
+var _weather_holder: Node3D
 
 
 func _xf(p: Vector2, s: float, rot: float = -1.0) -> Transform3D:
@@ -691,7 +805,7 @@ func _build_vegetation() -> void:
 		if not border:
 			_solid(Vector3(p.x, 0, p.y), 0.42 * s)
 	for t in trees:
-		_add_instances(ModelKit.static_mesh(String(t), 0.05), trees[t])
+		_add_instances(_windy(ModelKit.static_mesh(String(t), 0.05), 0.012), trees[t])
 
 	var props := {}
 	var glow: Array = []
@@ -713,7 +827,7 @@ func _build_vegetation() -> void:
 		if k.begins_with("rock") and s2 > 1.2:
 			_solid(Vector3(p2.x, 0, p2.y), 0.5 * s2)
 	for k in props:
-		_add_instances(ModelKit.static_mesh(String(k), 0.04), props[k])
+		_add_instances(_windy(ModelKit.static_mesh(String(k), 0.04), 0.03 if String(k).begins_with("bush") else 0.0), props[k])
 	_add_instances(ModelKit.static_mesh(String(theme["glow_prop"]), 0.03), glow, [], [], false)
 	for i in mini(10, glow.size()):
 		var t2: Transform3D = glow[i * glow.size() / mini(10, glow.size())]

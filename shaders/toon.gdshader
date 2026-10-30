@@ -18,6 +18,20 @@ uniform float tint_amount : hint_range(0.0, 1.0) = 0.0;
 // personagens: cor por vértice escurece as barras das roupas (desligado no resto, onde COLOR é cor de instância)
 uniform bool use_vertex_color = false;
 
+
+// Vento (árvores e arbustos): balança mais no alto do modelo; fase pela posição no mundo. 0 = parado.
+uniform float wind = 0.0;
+vec3 wind_offset(vec3 v, mat4 model, float t) {
+	if (wind <= 0.0) {
+		return vec3(0.0);
+	}
+	vec3 wp = (model * vec4(v, 1.0)).xyz;
+	float h = max(v.y, 0.0);
+	float bend = h * h * wind;
+	float ph = wp.x * 0.35 + wp.z * 0.27;
+	return vec3(sin(t * 1.6 + ph) * bend, 0.0, cos(t * 1.2 + ph * 1.3) * bend * 0.6);
+}
+
 varying vec3 lpos;
 varying vec3 lnrm;
 varying vec3 vcol;
@@ -32,6 +46,7 @@ vec3 safe_n(vec3 n) {
 void vertex() {
 	NORMAL = safe_n(NORMAL);
 	lpos = VERTEX;
+	VERTEX += wind_offset(VERTEX, MODEL_MATRIX, TIME);
 	lnrm = NORMAL;
 	vcol = use_vertex_color ? COLOR.rgb : vec3(1.0);
 }

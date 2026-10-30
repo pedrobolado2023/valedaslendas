@@ -21,6 +21,10 @@ static func load_cfg() -> void:
 	if cf.load(PATH) == OK:
 		for k in data.keys():
 			data[k] = cf.get_value("opcoes", k, data[k])
+	elif OS.has_feature("web"):   # primeira vez no navegador: qualidade média (celular: baixa e resolução menor)
+		var touch := DisplayServer.is_touchscreen_available()
+		data["quality"] = 0 if touch else 1
+		data["render_scale"] = 0.75 if touch else 1.0
 
 
 static func save_cfg() -> void:
@@ -74,7 +78,12 @@ static func apply_world(world: Node) -> void:
 		elif n is WorldEnvironment:
 			(n as WorldEnvironment).environment.glow_enabled = q >= 1
 		elif n is MultiMeshInstance3D:
-			(n as MultiMeshInstance3D).visible = q >= 1 or (n as MultiMeshInstance3D).cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var off := not (q >= 1 or (n as MultiMeshInstance3D).cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+			if off:
+				n.set_meta("q_off", true)
+				(n as MultiMeshInstance3D).visible = false
+			elif n.has_meta("q_off"):
+				n.remove_meta("q_off")
 
 
 static func _ensure_buses() -> void:

@@ -145,6 +145,7 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
 - **Ranking geral (N, `ui/ranking_panel.gd`, `Net.ranking`: top 20 por nível do banco) e duelo 1x1** (Social: desafiar
   pelo nome no mesmo mapa; `PvpProxy` = alvo invisível que segue o adversário, golpes vão por `Net.pvp_hit` com 25%
   do dano; quem cair perde, `duel_ended`).
+- **Mapa leve:** vegetação em pedaços (`World.CHUNK`); só os perto do herói (raio pelo zoom da câmera) são desenhados (`World._process`; qualidade baixa marca `q_off`). Vento nos shaders toon/outline (`wind`, ligado em árvores e arbustos por `_windy`). Clima por bioma (`_build_weather`: folhas, neve, cinza, areia). Navegador começa em qualidade média (celular: baixa, 75%).
 - **Celular:** `ui/touch_controls.gd` (só em tela de toque): joystick (`Player.touch_dir`) e botão Atacar (`touch_attack`).
 - **Mercadinho do Jogo (B, `ui/market_panel.gd`):** jogadores anunciam itens por gemas; só itens com `"sell": true`
   (os que caem: `_drop_item`, boss) — iniciais e da loja não. Imposto `GameData.market_tax` (20% até nv 59, 10% 60-79,

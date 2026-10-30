@@ -27,7 +27,7 @@ func _ready() -> void:
 	_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_panel.offset_left = 96
 	_panel.offset_right = 96 + 460
-	_panel.offset_bottom = -16
+	_panel.offset_bottom = -120   # acima da barra de skills
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_theme_stylebox_override("panel", Toon.ui_box(Color(0.03, 0.02, 0.03, 0.55), Color(0.4, 0.3, 0.2, 0.6), 10, 6, 1))
 	root.add_child(_panel)
