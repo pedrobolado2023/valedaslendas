@@ -53,6 +53,9 @@ func setup(p: Player) -> void:
 	scroll.add_child(grid)
 	for it in GameData.SHOP:
 		grid.add_child(_card(it))
+	for sk in GameData.SKINS:   # skins da classe do herói que já têm modelo
+		if String(sk["cls"]) == player.class_key and GameData.skin_ready(sk):
+			grid.add_child(_card(Shop.item(String(sk["id"]))))
 	_msg = UiTheme.label("Gemas: 5 por nível, recompensa do boss global e, em breve, pacotes de gemas.", 14, Color(0.8, 0.75, 0.65))
 	v.add_child(_msg)
 	visible = false
@@ -77,6 +80,11 @@ func _card(it: Dictionary) -> Control:
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = ShopPanel.icon_of(String(it["id"]))
+	if String(it["kind"]) == "skin":   # foto do herói com a skin (blender/make_skins.py)
+		var sp := "res://textures/skins/%s.png" % String(it["id"])
+		if ResourceLoader.exists(sp):
+			icon.texture = load(sp)
+		icon.custom_minimum_size = Vector2(96, 128)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hb.add_child(icon)
 	var v := VBoxContainer.new()
@@ -142,6 +150,18 @@ func refresh() -> void:
 			b.pressed.connect(func() -> void:
 				player.mount = id
 				player.set_riding(true)
+				refresh())
+		if String(it["kind"]) == "skin" and id in player.skins_owned:
+			var why_use := Shop.skin_why(player, it["skin"])
+			b.text = "Tirar skin" if player.skin == id else ("Usar" if why_use == "" else why_use)
+			b.disabled = player.skin != id and why_use != ""
+			info = "Em uso" if player.skin == id else "Comprada"
+			(c["info"] as Label).text = info
+			for conn in b.pressed.get_connections():
+				b.pressed.disconnect(conn["callable"])
+			b.pressed.connect(func() -> void:
+				player.skin = "" if player.skin == id else id
+				player.rebuild_visuals()
 				refresh())
 		if String(it["kind"]) == "pet" and n > 0 and player.pet != id:
 			b.text = "Usar"

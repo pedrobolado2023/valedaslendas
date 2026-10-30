@@ -631,6 +631,8 @@ func _apply_save(d: Dictionary) -> void:
 			if int(eq[k]) == int(item["uid"]):
 				player.gear[String(k)] = item
 	player.fragments = (d.get("fragments", []) as Array).duplicate()
+	player.skins_owned = (d.get("skins_owned", []) as Array).duplicate()
+	player.skin = String(d.get("skin", ""))
 	player.kingdom = String(d.get("kingdom", ""))
 	player.kingdom_t = float(d.get("kingdom_t", 0.0))
 	quest_index = -1
@@ -683,7 +685,7 @@ func save_now() -> void:
 		"xp_boost_until": player.xp_boost_until, "purchases": player.purchases, "tutorial_done": tutorial_done,
 		"skills": player.skill_levels, "points": player.skill_points, "inventory": player.inventory,
 		"gear": _gear_uids(),
-		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "fragments": player.fragments, "kingdom": player.kingdom, "kingdom_t": player.kingdom_t, "campaign_skip": campaign_skip, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
+		"map": return_map if bool(GameData.MAPS[map_id].get("event", false)) else map_id, "fragments": player.fragments, "skin": player.skin, "skins_owned": player.skins_owned, "kingdom": player.kingdom, "kingdom_t": player.kingdom_t, "campaign_skip": campaign_skip, "quest_index": quest_index, "quest_id": String(current_quest().get("id", "fim")), "quest_state": quest_state, "quest_kills": quest_kills,
 		"missions": missions.to_dict(), "saved_at": Time.get_datetime_string_from_system(),
 	}
 	SaveGame.write(data)
@@ -1327,6 +1329,13 @@ func apply_fragments() -> void:
 			if player.fragments.size() < fragment_slots():
 				player.fragments.append(kg)
 	_frag_lv = lv
+	player.set_meta("frag_count", lv.size())
+	if player.skin != "":   # skin que deixou de cumprir os requisitos (ex.: trocou de reino) sai até cumprir de novo
+		var sk := GameData.skin(player.skin)
+		if sk.is_empty() or not GameData.skin_ready(sk) or Shop.skin_why(player, sk) != "":
+			player.skin = ""
+			if player.is_inside_tree():
+				player.rebuild_visuals()
 	var keep: Array = []
 	for kg in player.fragments:
 		if int(lv.get(String(kg), 0)) > 0 and keep.size() < fragment_slots():

@@ -729,6 +729,99 @@ const CHARACTERS := {
 }
 
 
+## Skins (só aparência: troca elmo, peitoral, calças, luvas e botas; os atributos continuam vindo do equipamento).
+## Vendidas na loja (L) por gemas; as mais raras pedem requisitos para comprar E para usar. Modelo de cada uma:
+## blender/make_skins.py → models/hero_<classe>_<id>_<encaixe>.glb; foto da loja em textures/skins/<id>.png.
+## Só aparecem na loja as que já têm modelo.
+const SKIN_RARITY := {
+	"rara": {"name": "Rara", "price": 400, "level": 10, "color": Color(0.35, 0.62, 1.0)},
+	"epica": {"name": "Épica", "price": 1000, "level": 40, "color": Color(0.72, 0.42, 1.0)},
+	"lendaria": {"name": "Lendária", "price": 2500, "level": 100, "loyal": true, "color": Color(1.0, 0.76, 0.26)},
+	"mitica": {"name": "Mítica", "price": 6000, "level": 250, "loyal": true, "fragments": 4, "color": Color(1.0, 0.35, 0.45)},
+}
+## Reino da skin: com "loyal" na raridade, só quem jurou lealdade a esse reino compra/usa. Sem reino = sem essa exigência.
+const SKINS := [
+	{"id": "sk_eloreth", "cls": "druida", "name": "Guardiã de Eloreth", "rarity": "epica", "kingdom": "eloreth", "desc": "Vestes prateadas com folhas de cristal e uma coroa de galhos que brilha."},
+	{"id": "sk_cinzas", "cls": "druida", "name": "Xamã das Cinzas", "rarity": "rara", "kingdom": "drakaris", "desc": "Pele de dragão, chifres de obsidiana e brasas nas mãos."},
+	{"id": "sk_inverno", "cls": "druida", "name": "Druida do Inverno", "rarity": "rara", "kingdom": "valdrath", "desc": "Manto de pele branca e cajado de gelo."},
+	{"id": "sk_areias", "cls": "druida", "name": "Oráculo das Areias", "rarity": "epica", "kingdom": "seryth", "desc": "Túnica dourada com hieróglifos e véu."},
+	{"id": "sk_ninfa", "cls": "druida", "name": "Ninfa das Cachoeiras", "rarity": "rara", "kingdom": "thalyss", "desc": "Roupa azul-água, cabelo com gotas e escamas nos braços."},
+	{"id": "sk_bruxa", "cls": "druida", "name": "Bruxa do Pântano Sombrio", "rarity": "epica", "kingdom": "sombras", "desc": "Capuz rasgado, cogumelos brilhantes e olhos roxos."},
+	{"id": "sk_primavera", "cls": "druida", "name": "Avatar da Primavera", "rarity": "lendaria", "kingdom": "", "desc": "Vestido de pétalas com borboletas em volta."},
+	{"id": "sk_estelar_dr", "cls": "druida", "name": "Druida Estelar", "rarity": "mitica", "kingdom": "", "desc": "Manto de céu noturno com constelações que piscam."},
+	{"id": "sk_corrompida", "cls": "druida", "name": "Rainha Corrompida", "rarity": "mitica", "kingdom": "", "desc": "Metade viva, metade podre, com veias roxas d'A Origem."},
+	{"id": "sk_colheita", "cls": "druida", "name": "Colheita Dourada", "rarity": "lendaria", "kingdom": "", "desc": "Chapéu de palha, lanterna de abóbora e folhas de outono."},
+	{"id": "sk_corvo", "cls": "assassino", "name": "Lâmina das Sombras", "rarity": "epica", "kingdom": "sombras", "desc": "Couraça preta, máscara de corvo e fumaça roxa."},
+	{"id": "sk_ninja_deserto", "cls": "assassino", "name": "Ninja do Deserto", "rarity": "rara", "kingdom": "seryth", "desc": "Turbante, lenço vermelho e adagas curvas."},
+	{"id": "sk_cacador", "cls": "assassino", "name": "Caçador de Valdrath", "rarity": "rara", "kingdom": "valdrath", "desc": "Capa de lobo branco e lâminas de gelo."},
+	{"id": "sk_escamas", "cls": "assassino", "name": "Escamas de Dragão", "rarity": "epica", "kingdom": "drakaris", "desc": "Armadura de escamas vermelhas e adagas como dentes."},
+	{"id": "sk_ladrao", "cls": "assassino", "name": "Ladrão de Thalyss", "rarity": "rara", "kingdom": "thalyss", "desc": "Pirata elegante: chapéu de pena e brinco de ouro."},
+	{"id": "sk_ordem", "cls": "assassino", "name": "Espectro da Ordem", "rarity": "lendaria", "kingdom": "", "desc": "Túnica branca manchada, máscara de porcelana e runas de sangue."},
+	{"id": "sk_samurai", "cls": "assassino", "name": "Samurai da Lua", "rarity": "epica", "kingdom": "vyndara", "desc": "Armadura laminada azul-marinho com meia-lua nas costas."},
+	{"id": "sk_arlequim", "cls": "assassino", "name": "Arlequim", "rarity": "lendaria", "kingdom": "", "desc": "Losangos pretos e vermelhos, máscara sorridente e guizos."},
+	{"id": "sk_cosmico", "cls": "assassino", "name": "Assassino Cósmico", "rarity": "mitica", "kingdom": "", "desc": "Corpo escuro com nebulosa por dentro e lâminas de luz."},
+	{"id": "sk_ceifador", "cls": "assassino", "name": "Ceifador", "rarity": "mitica", "kingdom": "", "desc": "Capuz, foice dupla e caveira brilhante."},
+	{"id": "sk_engenheiro", "cls": "mecanico", "name": "Engenheiro de Drakaris", "rarity": "epica", "kingdom": "drakaris", "desc": "Armadura de bronze com caldeira acesa nas costas."},
+	{"id": "sk_inventor", "cls": "mecanico", "name": "Inventor de Seryth", "rarity": "rara", "kingdom": "seryth", "desc": "Óculos de latão, mochila de pergaminhos e engrenagens douradas."},
+	{"id": "sk_exotraje", "cls": "mecanico", "name": "Exotraje de Valdrath", "rarity": "epica", "kingdom": "valdrath", "desc": "Armadura pesada branca e azul com vapor gelado."},
+	{"id": "sk_sucateiro", "cls": "mecanico", "name": "Sucateiro", "rarity": "rara", "kingdom": "", "desc": "Peças remendadas, ferrugem e um pequeno robô no ombro."},
+	{"id": "sk_mecha", "cls": "mecanico", "name": "Mecha Real de Vyndara", "rarity": "lendaria", "kingdom": "vyndara", "desc": "Cavaleiro mecânico com elmo de crista e escudo hidráulico."},
+	{"id": "sk_louco", "cls": "mecanico", "name": "Cientista Louco", "rarity": "epica", "kingdom": "sombras", "desc": "Jaleco rasgado, tanques de líquido verde e raios."},
+	{"id": "sk_piloto", "cls": "mecanico", "name": "Piloto de Dirigível", "rarity": "rara", "kingdom": "thalyss", "desc": "Jaqueta de couro, cachecol e hélice nas costas."},
+	{"id": "sk_ciborgue", "cls": "mecanico", "name": "Ciborgue da Origem", "rarity": "mitica", "kingdom": "", "desc": "Placas de cristal roxo e olho brilhando."},
+	{"id": "sk_golem_dourado", "cls": "mecanico", "name": "Golem Dourado", "rarity": "mitica", "kingdom": "", "desc": "Corpo de ouro polido com um núcleo de sol no peito."},
+	{"id": "sk_natal", "cls": "mecanico", "name": "Natal a Vapor", "rarity": "lendaria", "kingdom": "", "desc": "Gorro vermelho, renas de lata e neve mecânica."},
+	{"id": "sk_almirante", "cls": "nautico", "name": "Almirante de Thalyss", "rarity": "epica", "kingdom": "thalyss", "desc": "Casaca azul com dragonas de ouro e chapéu tricórnio."},
+	{"id": "sk_pirata", "cls": "nautico", "name": "Pirata das Sombras", "rarity": "epica", "kingdom": "sombras", "desc": "Tapa-olho, casaco preto e caveira roxa."},
+	{"id": "sk_baleeiro", "cls": "nautico", "name": "Baleeiro de Valdrath", "rarity": "rara", "kingdom": "valdrath", "desc": "Capa de pele de foca e barba congelada."},
+	{"id": "sk_mares", "cls": "nautico", "name": "Senhor das Marés", "rarity": "lendaria", "kingdom": "", "desc": "Armadura de coral e conchas, com um polvo no ombro."},
+	{"id": "sk_corsario", "cls": "nautico", "name": "Corsário do Deserto", "rarity": "rara", "kingdom": "seryth", "desc": "Marinheiro das dunas com lenço de areia e âncora dourada."},
+	{"id": "sk_kraken", "cls": "nautico", "name": "Kraken Desperto", "rarity": "mitica", "kingdom": "", "desc": "Tentáculos nas costas, pele azul-escura e olhos de abismo."},
+	{"id": "sk_fantasma", "cls": "nautico", "name": "Capitão Fantasma", "rarity": "lendaria", "kingdom": "", "desc": "Translúcido verde-azulado, com correntes e lanterna."},
+	{"id": "sk_tritao", "cls": "nautico", "name": "Tritão Dourado", "rarity": "mitica", "kingdom": "", "desc": "Escamas douradas e coroa de tridente."},
+	{"id": "sk_navegador", "cls": "nautico", "name": "Navegador Estelar", "rarity": "epica", "kingdom": "vyndara", "desc": "Casaco de astrolábio e bússola flutuante."},
+	{"id": "sk_surfista", "cls": "nautico", "name": "Surfista de Verão", "rarity": "rara", "kingdom": "", "desc": "Bermuda florida, prancha nas costas e óculos escuros."},
+]
+
+
+static func skin(id: String) -> Dictionary:
+	for s in SKINS:
+		if String(s["id"]) == id:
+			return s
+	return {}
+
+
+## A skin já tem modelo (só essas aparecem na loja).
+static func skin_ready(s: Dictionary) -> bool:
+	return ResourceLoader.exists("res://models/hero_%s_%s_chest.glb" % [String(s["cls"]), String(s["id"])])
+
+
+## Requisitos da skin ("" = cumpre). frag_count = quantos fragmentos o herói tem.
+static func skin_why_not(s: Dictionary, cls: String, level: int, kingdom: String, frag_count: int) -> String:
+	var r: Dictionary = SKIN_RARITY[String(s["rarity"])]
+	if String(s["cls"]) != cls:
+		return "Skin de outra classe"
+	if level < int(r["level"]):
+		return "Precisa do nível %d" % int(r["level"])
+	var kg := String(s.get("kingdom", ""))
+	if bool(r.get("loyal", false)) and kg != "" and kingdom != kg:
+		return "Precisa ser leal a %s" % String(KINGDOMS[kg]["name"])
+	if frag_count < int(r.get("fragments", 0)):
+		return "Precisa de %d fragmentos" % int(r["fragments"])
+	return ""
+
+
+static func skin_req_text(s: Dictionary) -> String:
+	var r: Dictionary = SKIN_RARITY[String(s["rarity"])]
+	var parts: Array = ["nível %d" % int(r["level"])]
+	var kg := String(s.get("kingdom", ""))
+	if bool(r.get("loyal", false)) and kg != "":
+		parts.append("lealdade a %s" % String(KINGDOMS[kg]["name"]))
+	if int(r.get("fragments", 0)) > 0:
+		parts.append("%d fragmentos" % int(r["fragments"]))
+	return "Requisitos: " + ", ".join(parts)
+
+
 ## Lealdade a um reino (tecla H): bônus da especialidade do reino; trocar custa gemas e só 1 vez a cada 7 dias.
 ## Guerra dos Reinos (online, semanal): pontos por monstro/chefe/masmorra/duelo; o 1º da semana ganha a Coroa (+XP).
 const KINGDOM_BONUS := {"eloreth": {"hp": 0.05}, "seryth": {"xp": 0.05}, "valdrath": {"def": 0.02}, "drakaris": {"atk": 0.05},

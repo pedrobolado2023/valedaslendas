@@ -209,6 +209,8 @@ func in_combat() -> bool:
 ## Quantas skills a classe tem (até GameData.MAX_SKILLS).
 ## Fragmentos dos reinos equipados (chaves de reino) e o bônus somado deles (o jogo calcula em game.apply_fragments).
 var fragments: Array = []
+var skin := ""           # skin em uso (GameData.SKINS); "" = aparência do equipamento
+var skins_owned: Array = []
 var kingdom := ""        # reino jurado (painel H)
 var kingdom_t := 0.0     # quando trocou de reino pela última vez (horário Unix)
 var frag_bonus := {}
@@ -875,7 +877,7 @@ func equip(item: Dictionary, key: String = "") -> void:
 func visual_rarities() -> Dictionary:
 	var out := {}
 	for k in ["helmet", "chest", "pants", "gloves", "boots"]:
-		out[k] = String(gear.get(k, {}).get("rarity", "comum"))
+		out[k] = skin if skin != "" else String(gear.get(k, {}).get("rarity", "comum"))
 	out["offhand"] = String(weapon.get("rarity", "comum"))
 	return out
 

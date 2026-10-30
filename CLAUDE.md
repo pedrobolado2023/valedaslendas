@@ -261,6 +261,12 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `KINGDOM_BONUS` somado em `apply_fragments`; save `kingdom`/`kingdom_t`. Servidor: `Net._war` (semana, pontos, coroa;
   tabela `kingdom_war` em `supabase/reinos.sql`), `kingdom_points` (monstro, chefe, masmorra, duelo contra outro reino,
   boss global), `_war_check` vira a semana e dá a Coroa (+XP, `GameData.CROWN`). Reino aparece em cima dos outros heróis.
+- **Skins (só aparência, loja L):** `GameData.SKINS` (40: 10 por classe) + `SKIN_RARITY` (Rara 400/nv 10, Épica 1000/nv 40,
+  Lendária 2500/nv 100 + lealdade ao reino da skin, Mítica 6000/nv 250 + lealdade + 4 fragmentos); requisitos valem para
+  comprar e usar (`skin_why_not`, `Shop.skin_why`). `player.skin` troca as peças em `visual_rarities` (arquivo
+  `hero_<cls>_<id>_<encaixe>.glb`, vai online junto). Modelos em `blender/make_skins.py` (uma função por skin; o modelo
+  inteiro só serve para a foto `textures/skins/<id>.png` e é apagado). Só aparece na loja quem tem modelo (`skin_ready`).
+  Feita: sk_eloreth (Guardiã de Eloreth). O dono valida uma por uma antes da próxima.
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

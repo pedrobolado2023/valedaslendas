@@ -9,7 +9,17 @@ static func item(id: String) -> Dictionary:
 	for it in GameData.SHOP:
 		if String(it["id"]) == id:
 			return it
+	var s := GameData.skin(id)   # skins viram itens da loja (kind "skin")
+	if not s.is_empty():
+		var r: Dictionary = GameData.SKIN_RARITY[String(s["rarity"])]
+		return {"id": id, "name": String(s["name"]), "desc": "Skin %s · %s\n%s" % [String(r["name"]), String(s["desc"]), GameData.skin_req_text(s)],
+			"price": int(r["price"]), "kind": "skin", "max": 1, "color": r["color"], "skin": s}
 	return {}
+
+
+## Requisito da skin para comprar e para usar ("" = cumpre).
+static func skin_why(p: Player, s: Dictionary) -> String:
+	return GameData.skin_why_not(s, p.class_key, p.level, p.kingdom, int(p.get_meta("frag_count", 0)))
 
 
 static func owned(p: Player, id: String) -> int:
@@ -26,6 +36,12 @@ static func why_not(p: Player, id: String) -> String:
 		return "Já tem o máximo"
 	if String(it["kind"]) == "level" and p.level >= GameData.MAX_LEVEL:
 		return "Nível máximo"
+	if String(it["kind"]) == "skin":
+		if id in p.skins_owned:
+			return "Já tem"
+		var req := skin_why(p, it["skin"])
+		if req != "":
+			return req
 	if p.gems < int(it["price"]):
 		return "Gemas insuficientes"
 	return ""
@@ -76,6 +92,10 @@ static func _apply(p: Player, it: Dictionary) -> void:
 			p.set_riding(true)
 		"pet":
 			p.pet = String(it["id"])
+			p.rebuild_visuals()
+		"skin":
+			p.skins_owned.append(String(it["id"]))
+			p.skin = String(it["id"])
 			p.rebuild_visuals()
 
 
