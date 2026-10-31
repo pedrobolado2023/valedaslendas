@@ -279,6 +279,15 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   juntas medidas na malha, pesa por distância, corta a ligação arma–corpo, gira a mão para a haste cair no nó Weapon,
   assa a malha na descanso do herói e exporta com TODAS as animações dele). Resultado: `models/hero_lanceiro_ia.glb`
   (esqueleto da Druida; fora do preset Web). No shader: `soft` 1 (luz suave em vez das faixas, uniform novo do toon), sem detalhe e `rim_strength` 0,05. Foto: `tools/shot_ai_rig.gd` (MODEL, ANIMS, T, YAW, OUT, RIM, SHOT).
+- **Gerar personagem de IA melhor (Hunyuan3D-2mini local do dono em `C:\Users\pedro\Downloads\Nova pasta (2)`):** Studio React
+  (`src/components/Hunyuan3DStudio.tsx`) + `Hunyuan3D-2/api_server.py` (porta 8080, `start_hunyuan_rtx2070.bat`). Modo
+  várias vistas: o Studio aceita lado esquerdo/costas/lado direito além da frente → `images` no `/generate` → servidor
+  carrega `Hunyuan3D-2mv` turbo na 1ª vez e troca de placa com o mini (8 GB). Imagem ideal: pose A, mãos vazias, capa
+  reta, fundo liso, mesma escala nas vistas; arma gerada sozinha. Pintura: `AI_LEFT/AI_BACK/AI_RIGHT=<png>` no
+  `ai_prep_glb.py` (cada face usa a vista mais de frente; "left" = vê o lado esquerdo, personagem olha para a esquerda).
+  Arma: `tools/ai_weapon.py arma.glb arma.png saida.glb comprimento [sinal] [cabo] [inverter]` (eixo pela forma, lado
+  fino = cabo; cajado da Druida ~3,5 sinal 1, tridente do Náutico ~4,4 sinal -1) → `models/<nome>.glb` e campo
+  `"weapon_model"` na classe (ModelKit.load_class prende no nó Weapon). Com arma à parte, rigar com `AI_NOWEAPON=1`.
 - **Classe Lanceiro (5ª, modelo de IA):** `CLASSES.lanceiro` com `"model": "hero_lanceiro_ia"` → `ModelKit.load_class`
   (usado no Player, RemotePlayers, menu de classes e equipamento) carrega o modelo inteiro em vez das peças; skills
   `la1..la10` com tipos existentes e campo `"anim"` (animação da Druida que a skill toca; `play_skill` usa `anim`).
