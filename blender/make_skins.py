@@ -803,10 +803,80 @@ def sk_corrompida(c):
     D.cape(c, plum, 1.25, 0.52, glow)
 
 
+def sk_colheita(c):
+    """Colheita Dourada (Lendária, outono): vestido cor de trigo com sobressaia de folhas de outono, xale vinho,
+    chapéu de palha de aba larga com fita e folhas, lanterna de abóbora acesa no cinto, trança ruiva."""
+    wheat = K.color_mat("skh_trigo", (0.86, 0.7, 0.42), rough=0.7)
+    orange = K.color_mat("skh_laranja", (0.95, 0.5, 0.15), rough=0.55)
+    red = K.color_mat("skh_vermelho", (0.75, 0.2, 0.12), rough=0.55)
+    yellow = K.color_mat("skh_amarelo", (0.98, 0.78, 0.25), rough=0.55)
+    wine = K.color_mat("skh_vinho", (0.45, 0.1, 0.12), rough=0.75)
+    straw = K.color_mat("skh_palha", (0.93, 0.78, 0.45), rough=0.85)
+    brown = K.color_mat("skh_marrom", (0.38, 0.22, 0.12), rough=0.75)
+    pumpkin = K.color_mat("skh_abobora", (1.0, 0.55, 0.12), rough=0.5)
+    flame = K.color_mat("skh_chama", (1.0, 0.75, 0.3), glow=1.6)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, wheat, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, brown, offset=0.012, zmin=c.hip_z - 0.04)
+    z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.04
+    long_skirt(c, wheat, z0s, z1s, 0.34, 0.2)
+    rz = lambda z: 0.2 + (0.34 - 0.2) * (z0s - z) / (z0s - z1s)
+    zk = c.knee_z - 0.04
+    petal_layer(c, red, z0s + 0.01, zk, rz(zk) + 0.04, rz(z0s) + 0.04, 9, 0.12, 0.0)
+    petal_layer(c, orange, z0s - 0.01, zk + 0.08, rz(zk + 0.08) + 0.052, rz(z0s) + 0.052, 8, 0.11, 0.5)
+    petal_layer(c, yellow, z0s - 0.03, zk + 0.18, rz(zk + 0.18) + 0.064, rz(z0s) + 0.064, 7, 0.1, 0.2)
+    piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, brown, offset=0.014, thresh=0.3, zmax=c.knee_z - 0.08)
+    D.gloves(c, brown, offset=0.006)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.72, 0.28, 0.12), 1.5)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.5, 0.2, 0.1), 1.0)
+    # xale vinho sobre os ombros
+    neck = K.bone_head(c.arm, "neck_01")
+    for k in range(2):
+        g = prim("torus", "Gola", wine, neck + Vector((0, 0.012, -0.04 - k * 0.035)), (0.3 + k * 0.06, 0.27 + k * 0.05, 0.5), rot=(0.25, 0, 0), minor=0.14)
+        rigid(c, g, "spine_03")
+    # folhas de outono nos ombros
+    for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):
+        sh = K.bone_head(c.arm, bone_n)
+        for k, m in enumerate((red, orange, yellow)):
+            lf = leaf("Ombreira", m, sh + Vector((side * (0.035 + k * 0.025), 0.0, 0.05 - k * 0.025)), 0.14, 0.08, (0.0, side * (1.15 + k * 0.2), 0.0))
+            rigid(c, lf, bone_n)
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", brown, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.4), minor=0.05)
+    rigid(c, band, "spine_01")
+    # lanterna de abóbora pendurada no lado esquerdo do cinto
+    lp = Vector((rz(zb - 0.15) + 0.12, cy - 0.04, zb - 0.15))   # para fora da sobressaia
+    cord = prim("cyl", "Bolsa", brown, lp + Vector((-0.04, 0, 0.09)), (0.008, 0.008, 0.12), rot=(0, -0.6, 0), seg=5)
+    rigid(c, cord, "pelvis")
+    for k in range(6):   # gomos da abóbora
+        ang = k / 6 * math.tau
+        g = prim("sphere", "Bolsa", pumpkin, lp + Vector((math.cos(ang) * 0.035, math.sin(ang) * 0.035, 0)), (0.07, 0.07, 0.1), seg=10)
+        rigid(c, g, "pelvis")
+    face = prim("sphere", "Bolsa", flame, lp + Vector((0, -0.075, 0.0)), (0.055, 0.012, 0.035))
+    rigid(c, face, "pelvis")
+    stem = prim("cyl", "Bolsa", K.color_mat("skh_talo", (0.3, 0.45, 0.2)), lp + Vector((0, 0, 0.06)), (0.016, 0.016, 0.04), seg=6)
+    rigid(c, stem, "pelvis")
+    # chapéu de palha: copa e aba larga, fita vinho e folhas
+    h, s2 = c.head, (c.head_top - c.head).length
+    hz = c.eye_z + s2 * 0.5
+    crown_ = prim("cyl", "Bone", straw, Vector((0, h.y + s2 * 0.04, hz + 0.04)), (s2 * 1.25, s2 * 1.3, 0.08), rot=(0.12, 0, 0), seg=24, r2=0)
+    rigid(c, crown_, "head")
+    top = prim("sphere", "Bone", straw, Vector((0, h.y + s2 * 0.05, hz + 0.075)), (s2 * 1.25, s2 * 1.3, 0.08), rot=(0.12, 0, 0), seg=20)
+    rigid(c, top, "head")
+    brim = prim("cyl", "Aba", straw, Vector((0, h.y + s2 * 0.02, hz + 0.005)), (s2 * 2.6, s2 * 2.6, 0.02), rot=(0.12, 0, 0), seg=32)
+    rigid(c, brim, "head")
+    ribbon = prim("cyl", "Aba", wine, Vector((0, h.y + s2 * 0.035, hz + 0.03)), (s2 * 1.28, s2 * 1.33, 0.03), rot=(0.12, 0, 0), seg=24)
+    rigid(c, ribbon, "head")
+    for k, m in enumerate((red, orange, yellow)):
+        lf = leaf("Galho", m, Vector((s2 * 0.5 + k * 0.02, h.y - s2 * 0.35 + k * 0.03, hz + 0.04)), 0.09, 0.05, (0.3, 0.9 + k * 0.4, 0.4))
+        rigid(c, lf, "head")
+    D.cape(c, K.color_mat("skh_capa", (0.55, 0.25, 0.1), rough=0.75), 1.15, 0.48, yellow)
+
+
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
          "sk_areias": ("druida", D, sk_areias), "sk_ninfa": ("druida", D, sk_ninfa),
          "sk_bruxa": ("druida", D, sk_bruxa), "sk_primavera": ("druida", D, sk_primavera),
-         "sk_estelar_dr": ("druida", D, sk_estelar_dr), "sk_corrompida": ("druida", D, sk_corrompida)}
+         "sk_estelar_dr": ("druida", D, sk_estelar_dr), "sk_corrompida": ("druida", D, sk_corrompida),
+         "sk_colheita": ("druida", D, sk_colheita)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
@@ -816,7 +886,8 @@ EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebro
           "sk_bruxa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")],
           "sk_primavera": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_estelar_dr": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")],
-          "sk_corrompida": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")]}
+          "sk_corrompida": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")],
+          "sk_colheita": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow004/eyebrow004.mhclo", "Eyebrows")]}
 
 
 def main():
