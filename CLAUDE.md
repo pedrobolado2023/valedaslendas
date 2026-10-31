@@ -274,12 +274,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `shaders/toon_hair.gdshader` (recorte de transparência, sem contorno, verso iluminado). Serve para heróis e NPCs.
   Foto de perto no Godot: `t_look.gd` (CLS, RAR, PERTO, SHOT) no scratchpad.
 - **Personagem de IA (teste do Lanceiro):** o dono gera a forma 3D com IA a partir da arte (`Assets/`, fora do git).
-  `tools/ai_prep_glb.py` (reduz para ~24 mil triângulos e pinta com a imagem de frente, cor por vértice) →
+  `tools/ai_prep_glb.py` (reduz para ~24 mil triângulos; TEXTURA projetada da imagem de frente nos UVs, atlas frente|costas — costas = imagem de costas opcional ou a frente borrada; tira o pergaminho; fundo escuro fica sem recorte) →
   `tools/ai_rig.py <hero_base.glb> <modelo.glb> <saida.glb> [lado_arma] [raio_arma]` (encaixa o esqueleto do herói nas
   juntas medidas na malha, pesa por distância, corta a ligação arma–corpo, gira a mão para a haste cair no nó Weapon,
   assa a malha na descanso do herói e exporta com TODAS as animações dele). Resultado: `models/hero_lanceiro_ia.glb`
-  (esqueleto da Druida; fora do preset Web). No shader: `use_vertex_color` e `rim_strength` ~0,08 (senão a armadura
-  escura fica bege). Foto: `tools/shot_ai_rig.gd` (MODEL, ANIMS, T, YAW, OUT, RIM, SHOT).
+  (esqueleto da Druida; fora do preset Web). No shader: `soft` 1 (luz suave em vez das faixas, uniform novo do toon), sem detalhe e `rim_strength` 0,05. Foto: `tools/shot_ai_rig.gd` (MODEL, ANIMS, T, YAW, OUT, RIM, SHOT).
 - **Classe Lanceiro (5ª, modelo de IA):** `CLASSES.lanceiro` com `"model": "hero_lanceiro_ia"` → `ModelKit.load_class`
   (usado no Player, RemotePlayers, menu de classes e equipamento) carrega o modelo inteiro em vez das peças; skills
   `la1..la10` com tipos existentes e campo `"anim"` (animação da Druida que a skill toca; `play_skill` usa `anim`).

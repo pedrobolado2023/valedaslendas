@@ -17,6 +17,8 @@ uniform vec4 tint : source_color = vec4(1.0);
 uniform float tint_amount : hint_range(0.0, 1.0) = 0.0;
 // personagens: cor por vértice escurece as barras das roupas (desligado no resto, onde COLOR é cor de instância)
 uniform bool use_vertex_color = false;
+// 0 = faixas do cartoon; 1 = luz suave e envolvente (textura já pintada com luz e sombra, como os heróis de IA)
+uniform float soft : hint_range(0.0, 1.0) = 0.0;
 
 
 // Vento (árvores e arbustos): balança mais no alto do modelo; fase pela posição no mundo. 0 = parado.
@@ -74,5 +76,6 @@ void light() {
 	float ndl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
 	float steps = float(bands);
 	float band = min(floor(ndl * steps) / (steps - 1.0), 1.0);
+	band = mix(band, clamp((dot(NORMAL, LIGHT) + 0.7) / 1.7, 0.0, 1.0), soft);
 	DIFFUSE_LIGHT += LIGHT_COLOR * ATTENUATION * band / PI;
 }

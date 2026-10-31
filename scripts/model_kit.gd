@@ -55,16 +55,17 @@ const HAIR_SHADER := preload("res://shaders/toon_hair.gdshader")
 
 
 ## Herói de uma classe: por peças (load_hero) ou, se a classe tem "model" (modelo inteiro feito por IA), esse modelo
-## com a cor por vértice ligada e pouco brilho de borda (armadura escura fica bege com o brilho normal).
+## com a textura pintada pela arte (tools/ai_prep_glb.py): luz suave (sem faixas), sem a textura de detalhe e pouco
+## brilho de borda (armadura escura fica bege com o brilho normal).
 static func load_class(cls: String, rarities: Dictionary, outline: float = 0.035) -> ModelKit:
 	var cd: Dictionary = GameData.CLASSES.get(cls, {})
 	if not cd.has("model"):
 		return load_hero(cls, rarities, outline)
-	var kit := load_kit(String(cd["model"]), outline * 0.6)
+	var kit := load_kit(String(cd["model"]), outline * 0.5, 0.0)
 	if kit != null:
 		for m in kit.mats:
-			m.set_shader_parameter("use_vertex_color", true)
-			m.set_shader_parameter("rim_strength", 0.08)
+			m.set_shader_parameter("soft", 1.0)
+			m.set_shader_parameter("rim_strength", 0.05)
 	return kit
 
 

@@ -22,7 +22,7 @@ func _initialize() -> void:
 		var kit := ModelKit.load_kit(OS.get_environment("MODEL"), float(OS.get_environment("OUT")))
 		sc.add_child(kit.root)
 		for m in kit.mats:
-			m.set_shader_parameter("use_vertex_color", true)
+			m.set_shader_parameter("soft", 1.0)
 			m.set_shader_parameter("rim_strength", float(OS.get_environment("RIM")))
 		kit.root.position = Vector3((i - (anims.size() - 1) / 2.0) * 1.7, 0, 0)
 		kit.root.rotation.y = PI + float(OS.get_environment("YAW"))
