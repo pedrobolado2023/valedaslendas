@@ -22,6 +22,8 @@ base_path, mesh_path, out_path = args[0], args[1], args[2]
 WSIDE = args[3] if len(args) > 3 else "r"
 SPEAR_R = float(args[4]) if len(args) > 4 else 0.08   # raio da faixa da arma (enfeites mais grossos que a haste)
 import os
+SMOOTH = int(os.environ.get("AI_SMOOTH", "12"))   # passadas de suavização dos pesos
+CAPE_AMP = float(os.environ.get("AI_CAPE", "0.35"))   # quanto do balanço da capa do herói base fica (0..1)
 # Opções por variável de ambiente (arma que não é haste em pé):
 #   AI_WTIP="x,y,z"  ponta da arma (mundo, modelo já virado para +Y); sem isto = topo da haste (z > 1,75)
 #   AI_TMIN=-1.1     até onde a arma vai para trás da mão (em comprimentos mão→ponta; espada ~ -0,15)
@@ -142,7 +144,13 @@ for name in order:
 # eixo do nó "Weapon" de A (onde o jogo põe a arma, em pé na pose parada)
 Wn = next((o for o in bpy.data.objects if o.name.startswith("Weapon")), None)
 _top = WTIP if WTIP is not None else box_mean(lambda v: v.z > 1.75 and v.x * S[WSIDE] > 0.3)
-WGRIP = Vector([float(x) for x in os.environ["AI_WGRIP"].split(",")]) if os.environ.get("AI_WGRIP") else None   # cabo
+# cabo: "x,y,z", ou "box" = pé da haste perto do chão (lança/cajado em pé, como o Lanceiro)
+_g = os.environ.get("AI_WGRIP", "")
+if _g == "box":
+    WGRIP = box_mean(lambda v: 0.15 < v.z < 0.3 and v.x * S[WSIDE] > 0.22 and v.y > FRONT_Y)
+    TMIN = max(TMIN, -0.15)
+else:
+    WGRIP = Vector([float(x) for x in _g.split(",")]) if _g else None
 _bot = WGRIP if WGRIP is not None else J["hand_" + WSIDE]
 if Wn is not None and _top is not None and not NOWEAPON:
     from mathutils import Matrix
@@ -228,6 +236,11 @@ bm.free()
 print("faces cortadas entre arma e corpo:", len(bad))
 groups = {n: M.vertex_groups.new(name=n) for n in segs}
 spear = cape = 0
+import numpy as np
+names = list(segs)
+col_of = {n: k for k, n in enumerate(names)}
+Wt = np.zeros((len(vs), len(names)), np.float32)
+pinned = np.zeros(len(vs), bool)
 for i, p in enumerate(vs):
     ws = {}
     on_spear = is_spear(p) or (top is not None and (p - hand_w).length < 0.07)
@@ -242,16 +255,37 @@ for i, p in enumerate(vs):
         cand = CAPE + ["spine_03", "spine_02"] if is_cape else MAIN
         if is_cape:
             cape += 1
-        dl = sorted(((seg_dist(p, *segs[n]), n) for n in cand if n in segs))[:3]
+        dl = sorted(((seg_dist(p, *segs[n]), n) for n in cand if n in segs))[:4]
         tot = 0.0
         for d, n in dl:
-            w = 1.0 / (d + 0.015) ** 4
+            w = 1.0 / (d + 0.03) ** 3
             ws[n] = w
             tot += w
         ws = {n: w / tot for n, w in ws.items()}
+    pinned[i] = lk is not None or on_spear   # arma e peças presas não entram na suavização
     for n, w in ws.items():
-        groups[n].add([i], w, "REPLACE")
-print("vertices", len(vs), "arma", spear, "capa", cape)
+        Wt[i, col_of[n]] = w
+
+# pesos suaves: média com os vizinhos da malha várias vezes (peso que muda de repente = pele/roupa esticando)
+ev = np.array([(e.vertices[0], e.vertices[1]) for e in M.data.edges], np.int64)
+deg = np.bincount(ev.ravel(), minlength=len(vs)).astype(np.float32)
+for _ in range(SMOOTH):
+    acc = np.zeros_like(Wt)
+    np.add.at(acc, ev[:, 0], Wt[ev[:, 1]])
+    np.add.at(acc, ev[:, 1], Wt[ev[:, 0]])
+    nb = deg > 0
+    new = Wt.copy()
+    new[nb] = 0.5 * Wt[nb] + 0.5 * acc[nb] / deg[nb][:, None]
+    new[pinned] = Wt[pinned]
+    Wt = new
+for i in range(len(vs)):
+    row = Wt[i]
+    top4 = np.argsort(row)[-4:]
+    tot = float(row[top4].sum())
+    for k in top4:
+        if row[k] > 1e-4:
+            groups[names[k]].add([i], float(row[k]) / tot, "REPLACE")
+print("vertices", len(vs), "arma", spear, "capa", cape, "suavizacao", SMOOTH)
 
 # ------------------------------------------------------------------ assa a malha na pose de descanso de A
 md = M.modifiers.new("Encaixe", "ARMATURE")
@@ -274,6 +308,28 @@ M.parent = A
 M.matrix_parent_inverse = AW.inverted()
 M.name = "Corpo"
 
+# balanço da capa do herói base é forte demais para roupa grudada no corpo: chega cada quadro perto do repouso
+from mathutils import Quaternion
+for act in bpy.data.actions:
+    fcs = []
+    for layer in getattr(act, "layers", []):
+        for strip in layer.strips:
+            for bag in getattr(strip, "channelbags", []):
+                fcs.extend(bag.fcurves)
+    if not fcs and hasattr(act, "fcurves"):
+        fcs = list(act.fcurves)
+    for bn in CAPE:
+        q = sorted((f for f in fcs if f.data_path == 'pose.bones["%s"].rotation_quaternion' % bn), key=lambda f: f.array_index)
+        if len(q) != 4:
+            continue
+        for k in range(len(q[0].keyframe_points)):
+            cur = Quaternion([q[j].keyframe_points[k].co[1] for j in range(4)])
+            r = Quaternion().slerp(cur, CAPE_AMP)
+            for j in range(4):
+                kp = q[j].keyframe_points[k]
+                kp.co[1] = kp.handle_left[1] = kp.handle_right[1] = r[j]
+        for f in q:
+            f.update()
 bpy.ops.object.select_all(action="DESELECT")
 for o in bpy.data.objects:
     o.select_set(True)

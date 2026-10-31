@@ -76,6 +76,21 @@ for act in bpy.data.actions:
             fcs[i].keyframe_points[k].handle_right[1] = q2[i]
     for fc in fcs:
         fc.update()
+# balanço da capa reduzido como no ai_rig.py (AI_CAPE)
+import os
+CAPE_AMP = float(os.environ.get("AI_CAPE", "0.35"))
+for act in bpy.data.actions:
+    for bn in ("cape_01", "cape_02", "cape_03"):
+        q = sorted((f for f in all_fcurves(act) if f.data_path == 'pose.bones["%s"].rotation_quaternion' % bn), key=lambda f: f.array_index)
+        if len(q) != 4:
+            continue
+        for k in range(len(q[0].keyframe_points)):
+            r = Quaternion().slerp(Quaternion([q[j].keyframe_points[k].co[1] for j in range(4)]), CAPE_AMP)
+            for j in range(4):
+                kp = q[j].keyframe_points[k]
+                kp.co[1] = kp.handle_left[1] = kp.handle_right[1] = r[j]
+        for f in q:
+            f.update()
 print("animacoes:", sorted(a.name for a in bpy.data.actions))
 A.animation_data_create()
 A.animation_data.action = bpy.data.actions.get("idle")
