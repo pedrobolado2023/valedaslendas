@@ -115,7 +115,9 @@ def clean(a):
     clear = (lum > 0.62) & (g_ > 0.86 * r_) & (r_ > b_ + 0.05)
     if paper[0] < paper[2] + 0.12:              # fundo branco/cinza (não é pergaminho): só a enchente pela borda
         clear[:] = False
-    near = (np.linalg.norm(rgb - paper, axis=-1) < 0.28) | clear
+    sat = rgb.max(-1) - rgb.min(-1)
+    # claro e sem cor = branco liso ou o xadrez falso de "transparência" das IAs de imagem (só ligado à borda)
+    near = (np.linalg.norm(rgb - paper, axis=-1) < 0.28) | clear | ((sat < 0.07) & (lum > 0.72))
     bg = near & ring
     for _ in range(2000):                      # enchente a partir da borda
         g = bg | (near & (shift(bg, 1, 0) | shift(bg, -1, 0) | shift(bg, 0, 1) | shift(bg, 0, -1)))

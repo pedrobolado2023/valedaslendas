@@ -24,6 +24,11 @@ func _initialize() -> void:
 		for m in kit.mats:
 			m.set_shader_parameter("soft", 1.0)
 			m.set_shader_parameter("rim_strength", float(OS.get_environment("RIM")))
+		if OS.get_environment("WEAPON") != "":   # arma à parte (tools/ai_weapon.py) no nó Weapon
+			var wk := ModelKit.load_kit(OS.get_environment("WEAPON"), 0.01)
+			var slot := Player.weapon_slot(kit)
+			if wk != null and slot != null:
+				slot.add_child(wk.root)
 		kit.root.position = Vector3((i - (anims.size() - 1) / 2.0) * 1.7, 0, 0)
 		kit.root.rotation.y = PI + float(OS.get_environment("YAW"))
 		kit.play(anims[i])

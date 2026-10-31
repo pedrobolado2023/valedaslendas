@@ -46,13 +46,14 @@ const CLASSES := {
 		"basic": "arrow", "range": 0.0, "dot": 0.0, "cd": 0.36,
 		"color": Color(0.45, 0.42, 0.38), "trim": Color(0.4, 0.8, 1.0),
 	},
-	## Lanceiro: modelo inteiro feito por IA ("model"; tools/ai_rig.py), com o esqueleto e as animações da Druida.
-	## Não troca peças por raridade (o equipamento só muda os números) e a lança já vem no modelo.
+	## Lanceiro: modelo inteiro feito por IA ("model"; tools/ai_rig.py) com o esqueleto e as animações do Náutico;
+	## a lança é um modelo à parte ("weapon_model", tools/ai_weapon.py) presa no nó Weapon da mão.
 	"lanceiro": {
 		"name": "Lanceiro", "desc": "Cavaleiro de Vyndara: alcance longo, saltos e estocadas que atravessam fileiras.",
 		"hp": 145, "mp": 130, "atk": 23.0, "speed": 7.5,
 		"basic": "thrust", "range": 4.2, "dot": 0.85, "cd": 0.44, "skill_power": 1.2,
 		"color": Color(0.22, 0.3, 0.45), "trim": Color(0.5, 0.75, 1.0), "model": "hero_lanceiro_ia",
+		"weapon_model": "weapon_lanceiro_ia",
 	},
 	## Mago, Guerreiro e Arqueira: modelos de IA como o Lanceiro (Mago/Arqueira com a base da Druida, Guerreiro com a do Náutico).
 	"mago": {

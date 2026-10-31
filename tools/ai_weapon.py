@@ -42,7 +42,9 @@ m = 12
 ring = np.zeros((H, W), bool)
 ring[m:m + 10, m:W - m] = ring[H - m - 10:H - m, m:W - m] = ring[m:H - m, m:m + 10] = ring[m:H - m, W - m - 10:W - m] = True
 paper = np.median(rgb[ring], axis=0)
-near = np.linalg.norm(rgb - paper, axis=-1) < 0.2
+# fundo: cor da borda, ou claro e sem cor (branco liso e o xadrez falso de "transparência" das IAs de imagem)
+sat = rgb.max(-1) - rgb.min(-1)
+near = (np.linalg.norm(rgb - paper, axis=-1) < 0.2) | ((sat < 0.07) & (rgb.mean(-1) > 0.72))
 bg = near & ring
 for _ in range(3000):
     g = bg.copy()
@@ -63,6 +65,9 @@ tex = rgb.copy()
 tex[bg] = np.median(rgb[~bg], axis=0)          # fundo = cor média da arma (a borda não fica branca)
 img = bpy.data.images.new("arma_tex", W, H, alpha=False)
 img.pixels[:] = np.concatenate([tex, np.ones((H, W, 1), np.float32)], -1).ravel()
+img.filepath_raw = out[:-4] + "_tex.png"     # imagem gerada só vai para o .glb depois de salva
+img.file_format = "PNG"
+img.save()
 img.pack()
 co = [v.co for v in me.vertices]
 mnx, mxx = min(c.x for c in co), max(c.x for c in co)
