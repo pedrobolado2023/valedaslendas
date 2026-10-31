@@ -297,6 +297,12 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   mpfb2, makehuman (só `data/eyes`), backup dos modelos antigos do Assassino em `backup_assassino\`.
   `MH_DATA=C:\Users\pedro\vale-tools\makehuman\makehuman\data`; `TIER=<raridade>` gera só uma raridade.
 
+- **Mago, Guerreiro e Arqueira (IA, como o Lanceiro):** `models/hero_<cls>_ia.glb` por `tools/ai_prep_glb.py` + `tools/ai_rig.py`
+  com opções por ambiente (`AI_WTIP` ponta, `AI_WGRIP` cabo, `AI_TMIN`, `AI_WSIGN`, `AI_NOWEAPON`, `AI_LOCK` = caixas presas a um osso,
+  ex. escudo/arco em `hand_l`). Mago e Arqueira com base/animações da Druida (skills `anim` dr*), Guerreiro com as do Náutico
+  (espada para frente e para baixo, `na*`). Ataque básico da Arqueira = `"bow"` (flecha). Skills ma1-10, gu1-10, ar1-10
+  reaproveitam tipos existentes; ícones = cópias tingidas. Menu de classes em grade 4x2 (skills no tooltip).
+
 ## Próximos passos combinados com o dono
 1. ~~Humanizar as 4 classes com MPFB2~~ — feito (Druida, Assassino, Mecânico, Náutico). Falta o dono testar jogando.
 2. Cabelo melhor (com balanço). Já feitos: capa com balanço, texturas de tecido/couro/metal e barras nas roupas.

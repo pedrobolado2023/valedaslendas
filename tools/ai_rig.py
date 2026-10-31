@@ -21,6 +21,21 @@ args = sys.argv[sys.argv.index("--") + 1:]
 base_path, mesh_path, out_path = args[0], args[1], args[2]
 WSIDE = args[3] if len(args) > 3 else "r"
 SPEAR_R = float(args[4]) if len(args) > 4 else 0.08   # raio da faixa da arma (enfeites mais grossos que a haste)
+import os
+# Opções por variável de ambiente (arma que não é haste em pé):
+#   AI_WTIP="x,y,z"  ponta da arma (mundo, modelo já virado para +Y); sem isto = topo da haste (z > 1,75)
+#   AI_TMIN=-1.1     até onde a arma vai para trás da mão (em comprimentos mão→ponta; espada ~ -0,15)
+#   AI_WSIGN=1       ponta da arma do herói base = +Z do nó Weapon (Druida) ou -1 = -Z (Assassino, Náutico)
+#   AI_NOWEAPON=1    não alinha nem separa arma (ex.: arco)
+#   AI_LOCK="osso:xmin,xmax,ymin,ymax,zmin,zmax;..."  vértices nessas caixas vão 100% para o osso (escudo, arco)
+WTIP = Vector([float(x) for x in os.environ["AI_WTIP"].split(",")]) if os.environ.get("AI_WTIP") else None
+TMIN = float(os.environ.get("AI_TMIN", "-1.1"))
+WSIGN = float(os.environ.get("AI_WSIGN", "1"))
+NOWEAPON = os.environ.get("AI_NOWEAPON", "") != ""
+LOCKS = []
+for part in filter(None, os.environ.get("AI_LOCK", "").split(";")):
+    bn, bx = part.split(":")
+    LOCKS.append((bn, [float(x) for x in bx.split(",")]))
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=base_path)
@@ -126,15 +141,16 @@ for name in order:
 # mão da arma (e dedos): orientação escolhida para que, ao assar na descanso de A, a haste da IA fique no
 # eixo do nó "Weapon" de A (onde o jogo põe a arma, em pé na pose parada)
 Wn = next((o for o in bpy.data.objects if o.name.startswith("Weapon")), None)
-_top = box_mean(lambda v: v.z > 1.75 and v.x * S[WSIDE] > 0.3)
-_bot = box_mean(lambda v: 0.15 < v.z < 0.3 and v.x * S[WSIDE] > 0.22 and v.y > FRONT_Y)
-if Wn is not None and _top is not None and _bot is not None:
+_top = WTIP if WTIP is not None else box_mean(lambda v: v.z > 1.75 and v.x * S[WSIDE] > 0.3)
+WGRIP = Vector([float(x) for x in os.environ["AI_WGRIP"].split(",")]) if os.environ.get("AI_WGRIP") else None   # cabo
+_bot = WGRIP if WGRIP is not None else J["hand_" + WSIDE]
+if Wn is not None and _top is not None and not NOWEAPON:
     from mathutils import Matrix
     A.data.pose_position = "REST"
     bpy.context.view_layer.update()
     WMa = AWi @ Wn.matrix_world                                  # nó Weapon no espaço do esqueleto
     A.data.pose_position = "POSE"
-    w_axis = (WMa.to_3x3() @ Vector((0, 0, 1))).normalized()
+    w_axis = (WMa.to_3x3() @ Vector((0, 0, WSIGN))).normalized()
     w_grip = WMa.translation
     ax = (AWi.to_3x3() @ (_top - _bot)).normalized()
     hw = AWi @ J["hand_" + WSIDE]
@@ -173,19 +189,27 @@ def seg_dist(p, a, b):
 
 # arma longa: reta pelo topo e pela base da haste do lado da arma
 sg = S[WSIDE]
-top = box_mean(lambda v: v.z > 1.75 and v.x * sg > 0.3)
-bot = box_mean(lambda v: 0.15 < v.z < 0.3 and v.x * sg > 0.22 and v.y > FRONT_Y)
-print("arma topo", top, "base", bot, "frente_y", FRONT_Y)
 hand_w = J["hand_" + WSIDE]
+top = None if NOWEAPON else (WTIP if WTIP is not None else box_mean(lambda v: v.z > 1.75 and v.x * sg > 0.3))
+bot = WGRIP if WGRIP is not None else hand_w
+print("arma ponta", top, "mao", bot, "frente_y", FRONT_Y)
 back_y = box_mean(lambda v: 1.2 < v.z < 1.45 and abs(v.x) < 0.12)
 
 
 def is_spear(p):
     if top is None or bot is None:
         return False
-    t = (p.z - bot.z) / max(top.z - bot.z, 1e-6)
-    sx = bot.lerp(top, t)
-    return -0.15 < t < 1.25 and Vector((p.x - sx.x, p.y - sx.y, 0)).length < SPEAR_R
+    ax = top - bot
+    L = ax.length
+    t = (p - bot).dot(ax) / (L * L)
+    return TMIN < t < 1.12 and (p - (bot + ax * t)).length < SPEAR_R
+
+
+def lock_bone(p):
+    for bn, b in LOCKS:
+        if b[0] < p.x < b[1] and b[2] < p.y < b[3] and b[4] < p.z < b[5]:
+            return bn
+    return None
 
 
 # ------------------------------------------------------------------ arma longa: corta as faces que ligam a haste ao corpo
@@ -195,6 +219,9 @@ bm.from_mesh(M.data)
 sp_set = {v.index for v in bm.verts if is_spear(v.co)}
 near_hand = {v.index for v in bm.verts if (Vector(v.co) - hand_w).length < 0.1}
 bad = [f for f in bm.faces if any(v.index in sp_set for v in f.verts) and any(v.index not in sp_set and v.index not in near_hand for v in f.verts)]
+lk_of = {v.index: lock_bone(v.co) for v in bm.verts} if LOCKS else {}
+if LOCKS:                                  # peças presas (escudo, arco): solta das partes que não vão junto
+    bad += [f for f in bm.faces if f not in bad and len({lk_of[v.index] for v in f.verts}) > 1]
 bmesh.ops.delete(bm, geom=bad, context="FACES_ONLY")
 bm.to_mesh(M.data)
 bm.free()
@@ -203,8 +230,11 @@ groups = {n: M.vertex_groups.new(name=n) for n in segs}
 spear = cape = 0
 for i, p in enumerate(vs):
     ws = {}
-    on_spear = is_spear(p) or (p - hand_w).length < 0.07
-    if on_spear:
+    on_spear = is_spear(p) or (top is not None and (p - hand_w).length < 0.07)
+    lk = lock_bone(p)
+    if lk is not None:
+        ws = {lk: 1.0}
+    elif on_spear:
         ws = {"hand_" + WSIDE: 1.0}
         spear += 1
     else:

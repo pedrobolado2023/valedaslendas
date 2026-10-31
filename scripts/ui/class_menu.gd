@@ -75,8 +75,11 @@ func _ready() -> void:
 	_msg = UiTheme.label("", 16, Color(1.0, 0.55, 0.45))
 	_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_msg)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
+	var row := GridContainer.new()   # 8 classes: duas fileiras de 4
+	row.columns = 4
+	row.add_theme_constant_override("h_separation", 14)
+	row.add_theme_constant_override("v_separation", 10)
+	row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(row)
 	var i := 1
 	for key in GameData.CLASS_ORDER:
@@ -109,7 +112,7 @@ func _choose(key: String) -> void:
 func _card(key: String, i: int) -> Control:
 	var d: Dictionary = GameData.CLASSES[key]
 	var b := Button.new()
-	b.custom_minimum_size = Vector2(280, 500)
+	b.custom_minimum_size = Vector2(300, 292)
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_stylebox_override("normal", Toon.ui_box(Color(0.1, 0.05, 0.07, 0.95), Color(0.4, 0.27, 0.15), 14, 10))
 	b.add_theme_stylebox_override("hover", Toon.ui_box(Color(0.18, 0.09, 0.1, 0.98), UiTheme.GOLD, 14, 10, 3))
@@ -127,11 +130,11 @@ func _card(key: String, i: int) -> Control:
 	var prev := _preview(key)
 	if prev != null:
 		col.add_child(prev)
-	var name_l := UiTheme.title("[%d]  %s" % [i, String(d["name"])], 24)
+	var name_l := UiTheme.title("[%d]  %s" % [i, String(d["name"])], 22)
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_l)
-	var desc := UiTheme.label(String(d["desc"]), 15)
+	var desc := UiTheme.label(String(d["desc"]), 13)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -139,11 +142,7 @@ func _card(key: String, i: int) -> Control:
 	var names := []
 	for sk in GameData.SKILLS[key]:
 		names.append(String(sk["name"]))
-	var sks := UiTheme.label("Skills: " + ", ".join(names), 13, Color(0.8, 0.72, 0.55))
-	sks.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	sks.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sks.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(sks)
+	b.tooltip_text = "Skills: " + ", ".join(names)
 	return b
 
 
@@ -160,11 +159,11 @@ func _preview(key: String) -> Control:
 	var box := SubViewportContainer.new()
 	box.stretch = true
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.custom_minimum_size = Vector2(250, 270)
+	box.custom_minimum_size = Vector2(250, 190)
 	var vp := SubViewport.new()
 	vp.own_world_3d = true
 	vp.transparent_bg = true
-	vp.size = Vector2i(250, 270)
+	vp.size = Vector2i(250, 190)
 	vp.msaa_3d = Viewport.MSAA_2X
 	box.add_child(vp)
 	var env := Environment.new()

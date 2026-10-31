@@ -338,6 +338,9 @@ func basic_attack(point: Vector3) -> void:
 		"arrow":
 			Sfx.play("arrow", -5.0)
 			_shoot(dir, "bolt", 30.0, 0.75, trim)
+		"bow":
+			Sfx.play("arrow", -5.0)
+			_shoot(dir, "arrow", 34.0, 0.75, trim)
 		_:
 			Sfx.play("sk_magic", -9.0, 1.4)
 			var pr := _shoot(dir, "orb", 18.0, 0.8, trim)
