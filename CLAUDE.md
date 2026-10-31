@@ -288,6 +288,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Arma: `tools/ai_weapon.py arma.glb arma.png saida.glb comprimento [sinal] [cabo] [inverter]` (eixo pela forma, lado
   fino = cabo; cajado da Druida ~3,5 sinal 1, tridente do Náutico ~4,4 sinal -1) → `models/<nome>.glb` e campo
   `"weapon_model"` na classe (ModelKit.load_class prende no nó Weapon). Com arma à parte, rigar com `AI_NOWEAPON=1`.
+  Pesos no `ai_rig.py`: bone heat do Blender numa cópia refeita em voxels (`AI_HEAT`, `AI_VOXEL` 0,02; tenta 1,6x e 2,5x se
+  falhar) e transferido para a malha; braços misturam com os pesos por distância (na pose da IA o braço encosta no tronco).
 - **Classe Lanceiro (5ª, modelo de IA):** `CLASSES.lanceiro` com `"model": "hero_lanceiro_ia"` → `ModelKit.load_class`
   (usado no Player, RemotePlayers, menu de classes e equipamento) carrega o modelo inteiro em vez das peças; skills
   `la1..la10` com tipos existentes e campo `"anim"` (animação da Druida que a skill toca; `play_skill` usa `anim`).

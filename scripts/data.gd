@@ -60,19 +60,19 @@ const CLASSES := {
 		"name": "Mago", "desc": "Mestre arcano: dano em área enorme à distância, gelo, raios e fogo.",
 		"hp": 105, "mp": 170, "atk": 24.0, "speed": 7.2,
 		"basic": "magic", "range": 0.0, "dot": 0.0, "cd": 0.55, "skill_power": 1.15,
-		"color": Color(0.3, 0.3, 0.5), "trim": Color(0.6, 0.7, 1.0), "model": "hero_mago_ia",
+		"color": Color(0.3, 0.3, 0.5), "trim": Color(0.6, 0.7, 1.0), "model": "hero_mago_ia", "weapon_model": "weapon_mago_ia",
 	},
 	"guerreiro": {
 		"name": "Guerreiro", "desc": "Cavaleiro do Dragão: espada e escudo, muita vida e golpes em área.",
 		"hp": 170, "mp": 110, "atk": 21.0, "speed": 7.3,
 		"basic": "melee", "range": 3.2, "dot": 0.3, "cd": 0.42, "skill_power": 1.3,
-		"color": Color(0.32, 0.3, 0.28), "trim": Color(0.6, 0.85, 1.0), "model": "hero_guerreiro_ia",
+		"color": Color(0.32, 0.3, 0.28), "trim": Color(0.6, 0.85, 1.0), "model": "hero_guerreiro_ia", "weapon_model": "weapon_guerreiro_ia",
 	},
 	"arqueira": {
 		"name": "Arqueira", "desc": "Caçadora da floresta: flechas rápidas, armadilhas e muita mobilidade.",
 		"hp": 115, "mp": 140, "atk": 22.0, "speed": 8.0,
 		"basic": "bow", "range": 0.0, "dot": 0.0, "cd": 0.38, "skill_power": 1.15,
-		"color": Color(0.4, 0.32, 0.22), "trim": Color(0.95, 0.85, 0.5), "model": "hero_arqueira_ia",
+		"color": Color(0.4, 0.32, 0.22), "trim": Color(0.95, 0.85, 0.5), "model": "hero_arqueira_ia", "weapon_model": "weapon_arqueira_ia",
 	},
 	"druida": {
 		"name": "Druida", "desc": "Controle de grupo, cura e suporte da natureza.",
