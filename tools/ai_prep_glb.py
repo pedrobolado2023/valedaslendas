@@ -1,8 +1,9 @@
-# Modelo de IA (só forma) → modelo leve com TEXTURA pintada pela imagem de frente (projeção de frente nos UVs).
+# Modelo de IA (só forma) → modelo leve com TEXTURA pintada pelas imagens (projeção de cada vista nos UVs).
 #   blender -b -P tools/ai_prep_glb.py -- forma.glb frente.png saida.glb [triangulos] [costas.png]
-# Textura = atlas com 2 metades: esquerda = imagem de frente (pergaminho trocado pela cor do personagem mais perto),
-# direita = costas: a imagem de costas se existir, senão a de frente borrada e escurecida (só as cores das roupas).
-# Faces viradas para trás (normal +Y no modelo original, que olha -Y) usam a metade direita.
+#   vistas extras por ambiente: AI_LEFT=lado_esq.png AI_BACK=costas.png AI_RIGHT=lado_dir.png
+#   (lado esquerdo = vê o lado esquerdo do personagem, ele olha para a esquerda da imagem; mesma pose e escala)
+# Textura = atlas com uma faixa por vista (fundo liso ou pergaminho trocado pela cor do personagem em volta). Cada
+# face usa a vista que olha mais de frente para ela. Sem foto de costas, as costas usam a frente borrada e escura.
 import os
 import sys
 
@@ -13,6 +14,9 @@ args = sys.argv[sys.argv.index("--") + 1:]
 src, img_path, out = args[0], args[1], args[2]
 target = int(args[3]) if len(args) > 3 and args[3].isdigit() else 24000
 back_path = args[4] if len(args) > 4 and args[4].lower().endswith((".png", ".jpg", ".jpeg")) else None
+back_path = os.environ.get("AI_BACK") or back_path
+side_l = os.environ.get("AI_LEFT")              # vista do lado esquerdo do personagem (olha para a esquerda)
+side_r = os.environ.get("AI_RIGHT")             # vista do lado direito (olha para a direita)
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=src)
 o = [x for x in bpy.data.objects if x.type == "MESH"][0]
@@ -26,8 +30,10 @@ bpy.ops.object.modifier_apply(modifier=md.name)
 print("triangulos", n, "->", len(o.data.polygons))
 
 
-def load(path):
+def load(path, size=None):
     im = bpy.data.images.load(path)
+    if size is not None and tuple(im.size) != tuple(size):
+        im.scale(size[0], size[1])            # todas as vistas no tamanho da frente (atlas lado a lado)
     w, h = im.size
     a = np.array(im.pixels[:], dtype=np.float32).reshape(h, w, 4)   # linha 0 = embaixo
     bpy.data.images.remove(im)
@@ -61,6 +67,8 @@ def clean(a):
     # papel claro em qualquer lugar (também dentro do arco, entre as pernas): claro, creme (verde perto do vermelho,
     # pele tem verde bem menor) e quente; manchas mais escuras do papel só quando ligadas à borda
     clear = (lum > 0.62) & (g_ > 0.86 * r_) & (r_ > b_ + 0.05)
+    if paper[0] < paper[2] + 0.12:              # fundo branco/cinza (não é pergaminho): só a enchente pela borda
+        clear[:] = False
     near = (np.linalg.norm(rgb - paper, axis=-1) < 0.28) | clear
     bg = near & ring
     for _ in range(2000):                      # enchente a partir da borda
@@ -104,16 +112,21 @@ def blur(a, r):
     return a
 
 
+# vistas: (nome, imagem, caixa, direção da câmera em relação ao modelo original, que olha -Y; esquerda do
+# personagem = +X). "left" = câmera do lado esquerdo do personagem (ele olha para a esquerda da imagem).
 front, fbox = clean(load(img_path))
 H, W = front.shape[:2]
-if back_path:
-    back, bbox = clean(load(back_path))
-    if back.shape != front.shape:
-        back, bbox = front.copy(), fbox
-else:
-    back, bbox = blur(front, 22) * 0.62, fbox
-atlas = np.concatenate([front, back], axis=1)
-AW = 2 * W
+VIEWS = [("front", front, fbox, (0.0, -1.0, 0.0), True)]
+for key, path, d in (("left", side_l, (1.0, 0.0, 0.0)), ("back", back_path, (0.0, 1.0, 0.0)), ("right", side_r, (-1.0, 0.0, 0.0))):
+    if path:
+        a, b = clean(load(path, (W, H)))
+        VIEWS.append((key, a, b, d, True))
+if not back_path:
+    # sem foto de costas: a frente borrada e escurecida (só as cores das roupas), só para faces bem viradas para trás
+    VIEWS.append(("back", blur(front, 22) * 0.62, fbox, (0.0, 1.0, 0.0), False))
+N = len(VIEWS)
+atlas = np.concatenate([v[1] for v in VIEWS], axis=1)
+AW = N * W
 img = bpy.data.images.new("ia_tex", AW, H, alpha=False)
 img.pixels[:] = np.concatenate([atlas, np.ones((H, AW, 1), np.float32)], -1).ravel()
 tex_path = os.path.splitext(out)[0] + "_tex.png"
@@ -121,24 +134,46 @@ img.filepath_raw = tex_path
 img.file_format = "PNG"
 img.save()
 img.pack()
+print("vistas:", [v[0] + ("" if v[4] else " (borrada)") for v in VIEWS])
 
 me = o.data
-xs = [v.co.x for v in me.vertices]
-zs = [v.co.z for v in me.vertices]
-mnx, mxx, mnz, mxz = min(xs), max(xs), min(zs), max(zs)
+co = [v.co for v in me.vertices]
+mnx, mxx = min(c.x for c in co), max(c.x for c in co)
+mny, mxy = min(c.y for c in co), max(c.y for c in co)
+mnz, mxz = min(c.z for c in co), max(c.z for c in co)
+
+
+def horiz(key, c):
+    """Posição horizontal 0..1 do ponto na imagem da vista (esquerda → direita da imagem)."""
+    if key == "front":
+        return (c.x - mnx) / (mxx - mnx)
+    if key == "back":
+        return (mxx - c.x) / (mxx - mnx)
+    if key == "left":
+        return (c.y - mny) / (mxy - mny)
+    return (mxy - c.y) / (mxy - mny)
+
+
+for old in list(me.uv_layers):               # UVs antigos (se a forma vier com algum) atrapalham a exportação
+    me.uv_layers.remove(old)
 uv = me.uv_layers.new(name="UV")
 for poly in me.polygons:
-    is_back = poly.normal.y > 0.35            # frente do modelo original = -Y
-    bx = bbox if is_back else fbox
+    n = poly.normal
+    best, score = 0, -9.0
+    for k, (key, _a, _b, d, real) in enumerate(VIEWS):
+        dot = n.x * d[0] + n.y * d[1] + n.z * d[2]
+        if not real and dot < 0.35:          # costas inventadas só onde a face olha mesmo para trás
+            continue
+        if dot > score:
+            best, score = k, dot
+    key, _a, bx, _d, real = VIEWS[best]
+    if not real:
+        key = "front"                           # a frente borrada usa o mesmo mapeamento da frente
     for li in poly.loop_indices:
-        v = me.vertices[me.loops[li].vertex_index].co
-        u = (v.x - mnx) / (mxx - mnx)
-        t = (v.z - mnz) / (mxz - mnz)
-        px = bx[0] + u * (bx[1] - bx[0])
-        if is_back and back_path:              # a foto de costas está espelhada em relação à frente
-            px = bx[0] + (1.0 - u) * (bx[1] - bx[0])
-        py = bx[2] + t * (bx[3] - bx[2])
-        uv.data[li].uv = ((px / W) * 0.5 + (0.5 if is_back else 0.0), py / H)
+        c = me.vertices[me.loops[li].vertex_index].co
+        px = bx[0] + horiz(key, c) * (bx[1] - bx[0])
+        py = bx[2] + (c.z - mnz) / (mxz - mnz) * (bx[3] - bx[2])
+        uv.data[li].uv = ((best + px / W) / N, py / H)
 me.uv_layers.active = uv
 for a in list(me.color_attributes):
     me.color_attributes.remove(a)

@@ -66,6 +66,16 @@ static func load_class(cls: String, rarities: Dictionary, outline: float = 0.035
 		for m in kit.mats:
 			m.set_shader_parameter("soft", 1.0)
 			m.set_shader_parameter("rim_strength", 0.05)
+		# arma feita à parte (tools/ai_weapon.py) presa no nó "Weapon" da mão: não deforma com o corpo
+		if cd.has("weapon_model"):
+			var slot := Player.weapon_slot(kit)
+			var wk := load_kit(String(cd["weapon_model"]), outline * 0.5, 0.0)
+			if slot != null and wk != null:
+				slot.add_child(wk.root)
+				for m in wk.mats:
+					m.set_shader_parameter("soft", 1.0)
+					m.set_shader_parameter("rim_strength", 0.05)
+					kit.mats.append(m)
 	return kit
 
 
