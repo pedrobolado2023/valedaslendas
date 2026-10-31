@@ -573,9 +573,117 @@ def sk_primavera(c):
     butterfly(sh + Vector((-0.07, 0.0, 0.11)), 0.06, "upperarm_r", K.color_mat("skp_bt2", (0.5, 0.8, 1.0), glow=0.9), -0.3)
 
 
+def sk_estelar_dr(c):
+    """Druida Estelar (Mítica): vestido longo azul-noite salpicado de estrelas que brilham, constelações em linhas
+    douradas, tiara de lua crescente, auréola de estrelas atrás da cabeça, ombreiras de lua e cabelo prateado."""
+    import random
+    night = K.color_mat("skx_noite", (0.08, 0.1, 0.28), rough=0.5)
+    deep = K.color_mat("skx_fundo", (0.14, 0.12, 0.4), rough=0.5)
+    star = K.color_mat("skx_estrela", (1.0, 0.95, 0.75), glow=1.6)
+    star2 = K.color_mat("skx_estrela2", (0.7, 0.85, 1.0), glow=1.4)
+    gold = K.color_mat("skx_ouro", (1.0, 0.85, 0.45), metal=0.8, rough=0.25)
+    silver = K.color_mat("skx_prata", (0.85, 0.88, 0.96), metal=0.75, rough=0.25)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, deep, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, night, offset=0.012, zmin=c.hip_z - 0.04)
+    z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.03
+    long_skirt(c, night, z0s, z1s, 0.34, 0.2)
+    petal_layer(c, deep, c.knee_z - 0.18, z1s + 0.005, 0.355, 0.3, 14, 0.04, 0.0)
+    piece(c, c.tights, "Bota", FEET, silver, offset=0.012, thresh=0.3, zmax=c.ankle_z + 0.05)
+    D.gloves(c, deep, offset=0.004)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.88, 0.9, 0.98), 1.6)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.7, 0.72, 0.8), 1.0)
+    py = K.bone_head(c.arm, "pelvis").y + 0.01
+    rz = lambda z: (0.2 + (0.34 - 0.2) * (z0s - z) / (z0s - z1s)) + 0.004
+    rnd = random.Random(11)
+    pts = []
+    for k in range(64):   # estrelas espalhadas na saia
+        a = rnd.uniform(0, math.tau)
+        z = rnd.uniform(z1s + 0.05, z0s - 0.04)
+        r = rz(z)
+        p_ = Vector((math.sin(a) * r, py - math.cos(a) * r * 0.82, z))
+        sz = rnd.choice((0.014, 0.018, 0.024, 0.032))
+        st = prim("sphere", "SaiaFolha", star if k % 3 else star2, p_, (sz, sz, sz), seg=6)
+        rigid(c, st, "pelvis")
+        if math.cos(a) > 0.4:
+            pts.append(p_)
+    # constelação (linhas finas douradas ligando estrelas da frente)
+    pts.sort(key=lambda v: v.z)
+    for i in range(0, min(len(pts) - 1, 8)):
+        a_, b_ = pts[i], pts[i + 1]
+        d = b_ - a_
+        if d.length > 0.25:
+            continue
+        mid = (a_ + b_) / 2
+        ln = prim("cyl", "SaiaFolha", gold, mid, (0.004, 0.004, d.length), seg=4)
+        ln.rotation_mode = "QUATERNION"
+        ln.rotation_quaternion = d.normalized().to_track_quat("Z", "Y")
+        rigid(c, ln, "pelvis")
+    # estrelas no corpete
+    zb = c.hip_z + 0.07
+    for k in range(10):
+        z = rnd.uniform(zb + 0.04, K.bone_head(c.arm, "spine_03").z)
+        cy, rx, ry = Mc.torso_size(c, z)
+        a = rnd.uniform(-1.2, 1.2)
+        st = prim("sphere", "Peitilho", star, Vector((math.sin(a) * (rx + 0.008), cy - math.cos(a) * (ry + 0.008), z)), (0.02,) * 3, seg=6)
+        rigid(c, st, "spine_02")
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", gold, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.3), minor=0.045)
+    rigid(c, band, "spine_01")
+    ms = prim("sphere", "CintoFivela", star2, Vector((0, cy - ry - 0.015, zb)), (0.035, 0.014, 0.035))
+    rigid(c, ms, "spine_01")
+
+    def crescent(pos, size, bone_n, m, rot=(0, 0, 0)):
+        """Lua crescente: anel de toro cortado (só um lado)."""
+        o = prim("torus", "Joia", m, Vector((0, 0, 0)), (size, size * 0.4, size), rot=(math.pi / 2, 0, 0), minor=0.18)
+        import bpy
+        bpy.ops.object.select_all(action="DESELECT")
+        o.select_set(True)
+        bpy.context.view_layer.objects.active = o
+        bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        keep = [v.index for v in o.data.vertices if v.co.x > -size * 0.15]
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="DESELECT")
+        bpy.ops.object.mode_set(mode="OBJECT")
+        for v in o.data.vertices:
+            v.select = v.index not in keep
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.delete(type="VERT")
+        bpy.ops.object.mode_set(mode="OBJECT")
+        o.location = pos
+        o.rotation_euler = rot
+        rigid(c, o, bone_n)
+        return o
+
+    for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):   # ombreiras de lua prateada
+        sh = K.bone_head(c.arm, bone_n)
+        pad = leaf("Ombreira", silver, sh + Vector((side * 0.045, 0.0, 0.035)), 0.18, 0.13, (0.0, side * 1.25, 0.0))
+        rigid(c, pad, bone_n)
+        crescent(sh + Vector((side * 0.075, -0.02, 0.07)), 0.05, bone_n, gold, (0, side * 0.6, 0.4 * side))
+    # tiara de lua crescente e auréola de estrelas
+    h, s2 = c.head, (c.head_top - c.head).length
+    ring = prim("torus", "Coroa", silver, Vector((0, h.y + s2 * 0.02, c.eye_z + s2 * 0.42)), (s2 * 1.14, s2 * 1.24, 0.25), rot=(0.18, 0, 0), minor=0.05)
+    rigid(c, ring, "head")
+    for k in range(4):   # estrela de 4 pontas na testa
+        ray = prim("cone", "Joia", star, Vector((0, h.y - s2 * 0.64, c.eye_z + s2 * 0.55)), (0.02, 0.012, 0.09 if k % 2 == 0 else 0.06), rot=(math.pi / 2, k * math.pi / 2, 0), seg=4)
+        ray.rotation_euler = (math.pi / 2 + 0.0, 0, 0)
+        ray.rotation_mode = "XYZ"
+        ray.rotation_euler = (0, k * math.pi / 2, 0)
+        rigid(c, ray, "head")
+    core = prim("sphere", "Joia", star2, Vector((0, h.y - s2 * 0.66, c.eye_z + s2 * 0.55)), (0.028, 0.016, 0.028))
+    rigid(c, core, "head")
+    cen = Vector((0, h.y + s2 * 0.75, c.eye_z + s2 * 0.4))
+    for k in range(12):
+        a = k / 12 * math.tau
+        sz = 0.03 if k % 3 == 0 else 0.02
+        st = prim("sphere", "Joia", star if k % 2 else star2, cen + Vector((math.cos(a) * s2 * 0.95, 0, math.sin(a) * s2 * 0.95)), (sz,) * 3, seg=6)
+        rigid(c, st, "head")
+    D.cape(c, night, 1.25, 0.5, star2)
+
+
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
          "sk_areias": ("druida", D, sk_areias), "sk_ninfa": ("druida", D, sk_ninfa),
-         "sk_bruxa": ("druida", D, sk_bruxa), "sk_primavera": ("druida", D, sk_primavera)}
+         "sk_bruxa": ("druida", D, sk_bruxa), "sk_primavera": ("druida", D, sk_primavera),
+         "sk_estelar_dr": ("druida", D, sk_estelar_dr)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
@@ -583,7 +691,8 @@ EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebro
           "sk_areias": [("hair/ponytail01/ponytail01.mhclo", "Hair"), ("eyebrows/eyebrow010/eyebrow010.mhclo", "Eyebrows")],
           "sk_ninfa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")],
           "sk_bruxa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")],
-          "sk_primavera": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")]}
+          "sk_primavera": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
+          "sk_estelar_dr": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")]}
 
 
 def main():
