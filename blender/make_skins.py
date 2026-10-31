@@ -804,50 +804,48 @@ def sk_corrompida(c):
 
 
 def sk_colheita(c):
-    """Colheita Dourada (Lendária, outono): vestido cor de trigo com sobressaia de folhas de outono, xale vinho,
-    chapéu de palha de aba larga com fita e folhas, lanterna de abóbora acesa no cinto, trança ruiva."""
-    wheat = K.color_mat("skh_trigo", (0.86, 0.7, 0.42), rough=0.7)
-    orange = K.color_mat("skh_laranja", (0.95, 0.5, 0.15), rough=0.55)
-    red = K.color_mat("skh_vermelho", (0.75, 0.2, 0.12), rough=0.55)
-    yellow = K.color_mat("skh_amarelo", (0.98, 0.78, 0.25), rough=0.55)
-    wine = K.color_mat("skh_vinho", (0.45, 0.1, 0.12), rough=0.75)
-    straw = K.color_mat("skh_palha", (0.93, 0.78, 0.45), rough=0.85)
-    brown = K.color_mat("skh_marrom", (0.38, 0.22, 0.12), rough=0.75)
+    """Colheita Dourada (Lendária, outono): vestido ferrugem mais justo, sobressaia curta de folhas douradas e laranja,
+    barra de folhas vermelhas, gola de folhas, chapéu de palha com girassol, feixe de trigo nas costas e lanterna de
+    abóbora acesa no cinto, trança ruiva."""
+    rust = K.color_mat("skh_ferrugem", (0.55, 0.22, 0.1), rough=0.6)
+    cream = K.color_mat("skh_creme", (0.95, 0.88, 0.72), rough=0.65)
+    orange = K.color_mat("skh_laranja", (0.95, 0.52, 0.15), rough=0.5)
+    red = K.color_mat("skh_vermelho", (0.78, 0.2, 0.12), rough=0.5)
+    gold = K.color_mat("skh_dourado", (0.98, 0.76, 0.25), metal=0.4, rough=0.4)
+    straw = K.color_mat("skh_palha", (0.93, 0.8, 0.5), rough=0.85)
+    brown = K.color_mat("skh_marrom", (0.32, 0.19, 0.1), rough=0.7)
     pumpkin = K.color_mat("skh_abobora", (1.0, 0.55, 0.12), rough=0.5)
     flame = K.color_mat("skh_chama", (1.0, 0.75, 0.3), glow=1.6)
-    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, wheat, offset=0.005, zmin=c.ankle_z + 0.05)
-    piece(c, c.tights, "Tunica", TORSO, brown, offset=0.012, zmin=c.hip_z - 0.04)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, cream, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, rust, offset=0.012, zmin=c.hip_z - 0.04)
     z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.04
-    long_skirt(c, wheat, z0s, z1s, 0.34, 0.2)
-    rz = lambda z: 0.2 + (0.34 - 0.2) * (z0s - z) / (z0s - z1s)
-    zk = c.knee_z - 0.04
-    petal_layer(c, red, z0s + 0.01, zk, rz(zk) + 0.04, rz(z0s) + 0.04, 9, 0.12, 0.0)
-    petal_layer(c, orange, z0s - 0.01, zk + 0.08, rz(zk + 0.08) + 0.052, rz(z0s) + 0.052, 8, 0.11, 0.5)
-    petal_layer(c, yellow, z0s - 0.03, zk + 0.18, rz(zk + 0.18) + 0.064, rz(z0s) + 0.064, 7, 0.1, 0.2)
+    long_skirt(c, rust, z0s, z1s, 0.29, 0.2)
+    rz = lambda z: 0.2 + (0.29 - 0.2) * (z0s - z) / (z0s - z1s)
+    zm = c.hip_z - 0.22
+    petal_layer(c, orange, z0s + 0.01, zm, rz(zm) + 0.03, rz(z0s) + 0.03, 10, 0.1, 0.0)
+    petal_layer(c, gold, z0s - 0.01, zm + 0.08, rz(zm + 0.08) + 0.042, rz(z0s) + 0.042, 9, 0.09, 0.5)
+    petal_layer(c, red, z1s + 0.12, z1s - 0.005, rz(z1s) + 0.012, rz(z1s + 0.12) + 0.012, 14, 0.06, 0.2)
     piece(c, c.tights, "Bota", ["calf_l", "calf_r"] + FEET, brown, offset=0.014, thresh=0.3, zmax=c.knee_z - 0.08)
     D.gloves(c, brown, offset=0.006)
-    K.card_asset(c, c.extra[0], "Cabelo", (0.72, 0.28, 0.12), 1.5)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.75, 0.3, 0.12), 1.5)
     K.card_asset(c, c.extra[1], "Sobrancelha", (0.5, 0.2, 0.1), 1.0)
-    # xale vinho sobre os ombros
+    # gola de folhas de outono em volta do pescoço (no lugar do xale)
     neck = K.bone_head(c.arm, "neck_01")
-    for k in range(2):
-        g = prim("torus", "Gola", wine, neck + Vector((0, 0.012, -0.04 - k * 0.035)), (0.3 + k * 0.06, 0.27 + k * 0.05, 0.5), rot=(0.25, 0, 0), minor=0.14)
-        rigid(c, g, "spine_03")
-    # folhas de outono nos ombros
-    for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):
-        sh = K.bone_head(c.arm, bone_n)
-        for k, m in enumerate((red, orange, yellow)):
-            lf = leaf("Ombreira", m, sh + Vector((side * (0.035 + k * 0.025), 0.0, 0.05 - k * 0.025)), 0.14, 0.08, (0.0, side * (1.15 + k * 0.2), 0.0))
-            rigid(c, lf, bone_n)
+    cy, rx, ry = Mc.torso_size(c, neck.z - 0.05)
+    for k in range(14):
+        an = k / 14 * math.tau
+        pos = Vector((math.sin(an) * (rx + 0.01), cy - math.cos(an) * (ry + 0.012), neck.z - 0.05))
+        lf = leaf("Gorjal", (red, orange, gold)[k % 3], pos + Vector((0, 0, -0.03)), 0.1, 0.06, (math.pi + 0.5 * math.cos(an), -0.5 * math.sin(an), an))
+        rigid(c, lf, "spine_03")
     zb = c.hip_z + 0.07
     cy, rx, ry = Mc.torso_size(c, zb)
     band = prim("torus", "Cinto", brown, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.4), minor=0.05)
     rigid(c, band, "spine_01")
-    # lanterna de abóbora pendurada no lado esquerdo do cinto
-    lp = Vector((rz(zb - 0.15) + 0.12, cy - 0.04, zb - 0.15))   # para fora da sobressaia
+    # lanterna de abóbora pendurada no cinto (para fora da sobressaia)
+    lp = Vector((rz(zb - 0.15) + 0.1, cy - 0.04, zb - 0.15))
     cord = prim("cyl", "Bolsa", brown, lp + Vector((-0.04, 0, 0.09)), (0.008, 0.008, 0.12), rot=(0, -0.6, 0), seg=5)
     rigid(c, cord, "pelvis")
-    for k in range(6):   # gomos da abóbora
+    for k in range(6):
         ang = k / 6 * math.tau
         g = prim("sphere", "Bolsa", pumpkin, lp + Vector((math.cos(ang) * 0.035, math.sin(ang) * 0.035, 0)), (0.07, 0.07, 0.1), seg=10)
         rigid(c, g, "pelvis")
@@ -855,21 +853,38 @@ def sk_colheita(c):
     rigid(c, face, "pelvis")
     stem = prim("cyl", "Bolsa", K.color_mat("skh_talo", (0.3, 0.45, 0.2)), lp + Vector((0, 0, 0.06)), (0.016, 0.016, 0.04), seg=6)
     rigid(c, stem, "pelvis")
-    # chapéu de palha: copa e aba larga, fita vinho e folhas
+    # feixe de trigo nas costas (na diagonal), amarrado com fita
+    sp = K.bone_head(c.arm, "spine_02")
+    cy3, rx3, ry3 = Mc.torso_size(c, sp.z)
+    back = Vector((0, cy3 + ry3 + 0.05, sp.z + 0.12))
+    tilt = 0.45
+    for k in range(9):
+        off = Vector(((k - 4) * 0.016, (k % 2) * 0.012, 0))
+        st = prim("cyl", "Mochila", straw, back + off, (0.016, 0.016, 0.75), rot=(0, tilt, 0), seg=5)
+        rigid(c, st, "spine_02")
+        ear_p = back + off + Vector((math.sin(tilt) * 0.4, 0, math.cos(tilt) * 0.4))
+        ear = prim("sphere", "Mochila", gold, ear_p + Vector((math.sin(tilt) * 0.05, 0, math.cos(tilt) * 0.05)), (0.036, 0.036, 0.12), rot=(0, tilt, 0), seg=8)
+        rigid(c, ear, "spine_02")
+    tie = prim("torus", "Mochila", red, back, (0.18, 0.1, 0.5), rot=(0, tilt + math.pi / 2, 0), minor=0.16)
+    rigid(c, tie, "spine_02")
+    # chapéu de palha com fita e girassol
     h, s2 = c.head, (c.head_top - c.head).length
     hz = c.eye_z + s2 * 0.5
-    crown_ = prim("cyl", "Bone", straw, Vector((0, h.y + s2 * 0.04, hz + 0.04)), (s2 * 1.25, s2 * 1.3, 0.08), rot=(0.12, 0, 0), seg=24, r2=0)
+    crown_ = prim("cyl", "Bone", straw, Vector((0, h.y + s2 * 0.04, hz + 0.04)), (s2 * 1.25, s2 * 1.3, 0.08), rot=(0.12, 0, 0), seg=24)
     rigid(c, crown_, "head")
     top = prim("sphere", "Bone", straw, Vector((0, h.y + s2 * 0.05, hz + 0.075)), (s2 * 1.25, s2 * 1.3, 0.08), rot=(0.12, 0, 0), seg=20)
     rigid(c, top, "head")
-    brim = prim("cyl", "Aba", straw, Vector((0, h.y + s2 * 0.02, hz + 0.005)), (s2 * 2.6, s2 * 2.6, 0.02), rot=(0.12, 0, 0), seg=32)
+    brim = prim("cyl", "Aba", straw, Vector((0, h.y + s2 * 0.02, hz + 0.005)), (s2 * 2.5, s2 * 2.5, 0.02), rot=(0.12, 0, 0), seg=32)
     rigid(c, brim, "head")
-    ribbon = prim("cyl", "Aba", wine, Vector((0, h.y + s2 * 0.035, hz + 0.03)), (s2 * 1.28, s2 * 1.33, 0.03), rot=(0.12, 0, 0), seg=24)
+    ribbon = prim("cyl", "Aba", red, Vector((0, h.y + s2 * 0.035, hz + 0.03)), (s2 * 1.28, s2 * 1.33, 0.03), rot=(0.12, 0, 0), seg=24)
     rigid(c, ribbon, "head")
-    for k, m in enumerate((red, orange, yellow)):
-        lf = leaf("Galho", m, Vector((s2 * 0.5 + k * 0.02, h.y - s2 * 0.35 + k * 0.03, hz + 0.04)), 0.09, 0.05, (0.3, 0.9 + k * 0.4, 0.4))
-        rigid(c, lf, "head")
-    D.cape(c, K.color_mat("skh_capa", (0.55, 0.25, 0.1), rough=0.75), 1.15, 0.48, yellow)
+    fc = Vector((s2 * 0.52, h.y - s2 * 0.4, hz + 0.04))   # girassol na frente-lado do chapéu
+    for j in range(10):
+        ang = j / 10 * math.tau
+        pe = prim("sphere", "Joia", gold, fc + Vector((math.cos(ang) * 0.035, -0.004, math.sin(ang) * 0.035)), (0.035, 0.008, 0.016), rot=(0, ang, 0))
+        rigid(c, pe, "head")
+    ce = prim("sphere", "Joia", brown, fc + Vector((0, -0.01, 0)), (0.03, 0.014, 0.03))
+    rigid(c, ce, "head")
 
 
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
