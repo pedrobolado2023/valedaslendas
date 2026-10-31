@@ -30,6 +30,52 @@ bpy.ops.object.modifier_apply(modifier=md.name)
 print("triangulos", n, "->", len(o.data.polygons))
 
 
+def drop_floaters(obj):
+    """Tira os pedaços soltos que a IA cria em volta do corpo (restos do fundo): ilhas pequenas (< 5% dos vértices)
+    afastadas do corpo principal, e migalhas (< 0,6%) em qualquer lugar. Peças encostadas no corpo ficam."""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
+    seen, islands = set(), []
+    for v in bm.verts:
+        if v.index in seen:
+            continue
+        stack, comp = [v], []
+        seen.add(v.index)
+        while stack:
+            x = stack.pop()
+            comp.append(x)
+            for e in x.link_edges:
+                y = e.other_vert(x)
+                if y.index not in seen:
+                    seen.add(y.index)
+                    stack.append(y)
+        islands.append(comp)
+    islands.sort(key=len, reverse=True)
+    main = islands[0]
+    from mathutils import kdtree
+    kd = kdtree.KDTree(len(main))
+    for k, v in enumerate(main):
+        kd.insert(v.co, k)
+    kd.balance()
+    zs = [v.co.z for v in main]
+    gap = 0.02 * (max(zs) - min(zs))            # longe do corpo = mais de 2% da altura
+    total = len(bm.verts)
+    kill = []
+    for comp in islands[1:]:
+        near = min(kd.find(v.co)[2] for v in comp[:: max(1, len(comp) // 40)])
+        if (len(comp) < 0.05 * total and near > gap) or len(comp) < 0.006 * total:   # solto no ar, ou migalha
+            kill.extend(comp)
+    bmesh.ops.delete(bm, geom=kill, context="VERTS")
+    bm.to_mesh(obj.data)
+    bm.free()
+    print("pedacos soltos removidos:", len(kill), "vertices de", total, "(ilhas:", len(islands), ")")
+
+
+drop_floaters(o)
+
+
 def load(path, size=None):
     im = bpy.data.images.load(path)
     if size is not None and tuple(im.size) != tuple(size):
