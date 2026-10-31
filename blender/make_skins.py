@@ -463,80 +463,114 @@ def sk_bruxa(c):
     D.cape(c, robe, 1.2, 0.48, moss)
 
 
+def wing(name, m, pts, thick=0.006):
+    """Asa plana (borboleta/fada): polígono pelos pontos do contorno (x, z) num plano, com espessura."""
+    import bpy
+    verts = [(0.0, 0.0, 0.0)] + [(x, 0.0, z) for x, z in pts]
+    faces = [(0, i, i + 1) for i in range(1, len(pts))]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    o.data.materials.append(m)
+    bpy.context.view_layer.objects.active = o
+    md = o.modifiers.new("Esp", "SOLIDIFY")
+    md.thickness = thick
+    K.apply_modifiers(o, keep=())
+    return o
+
+
+def wing_shape(upper, lower, n=14):
+    """Contorno de asa de borboleta (lado +x): lóbulo de cima e lóbulo de baixo."""
+    pts = []
+    for i in range(n + 1):
+        t = math.radians(100 - 110 * i / n)
+        r = upper * (0.75 + 0.25 * math.sin(t * 2))
+        pts.append((math.cos(t) * r, math.sin(t) * r * 0.85))
+    for i in range(1, n + 1):
+        t = math.radians(-10 - 85 * i / n)
+        r = lower * (0.8 + 0.2 * math.sin(-t * 2))
+        pts.append((math.cos(t) * r, math.sin(t) * r))
+    return pts
+
+
 def sk_primavera(c):
-    """Avatar da Primavera (Lendária): vestido de pétalas cor-de-rosa e brancas em três camadas, corpete verde-folha,
-    coroa de flores, borboletas em volta (presas aos ombros e ao cabelo), cabelo longo dourado-claro, asas de pétala."""
-    leafg = K.color_mat("skp_folha", (0.45, 0.72, 0.35), rough=0.5)
-    pink = K.color_mat("skp_rosa", (0.98, 0.62, 0.74), rough=0.45)
-    white = K.color_mat("skp_branco", (0.99, 0.94, 0.95), rough=0.45)
-    gold = K.color_mat("skp_ouro", (1.0, 0.82, 0.35), metal=0.7, rough=0.3)
-    wing_a = K.color_mat("skp_asa", (1.0, 0.7, 0.3), glow=1.0)
-    wing_b = K.color_mat("skp_asa2", (0.55, 0.85, 1.0), glow=1.0)
-    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, K.color_mat("skp_meia", (0.9, 0.82, 0.78), rough=0.6), offset=0.005, zmin=c.ankle_z + 0.05)
-    piece(c, c.tights, "Tunica", TORSO, leafg, offset=0.012, zmin=c.hip_z - 0.04)
-    long_skirt(c, white, c.hip_z + 0.06, c.ankle_z + 0.06, 0.3, 0.2)
-    piece(c, c.tights, "Bota", FEET, leafg, offset=0.012, thresh=0.3, zmax=c.ankle_z + 0.05)
-    D.gloves(c, K.color_mat("skp_pele_luva", (0.92, 0.74, 0.62), rough=0.6), offset=0.003)
-    K.card_asset(c, c.extra[0], "Cabelo", (0.95, 0.8, 0.5), 1.4)
+    """Avatar da Primavera (Lendária): vestido longo branco com sobressaia de pétalas rosadas, corpete rosa com folhas
+    douradas, grandes asas de fada (borboleta) nas costas, coroa de flores e borboletas pousadas, cabelo dourado."""
+    white = K.color_mat("skp_branco", (0.98, 0.95, 0.96), rough=0.45)
+    pink = K.color_mat("skp_rosa", (0.97, 0.66, 0.78), rough=0.45)
+    rose = K.color_mat("skp_rosa2", (0.92, 0.45, 0.62), rough=0.45)
+    gold = K.color_mat("skp_ouro", (1.0, 0.82, 0.35), metal=0.75, rough=0.28)
+    leafg = K.color_mat("skp_folha", (0.55, 0.8, 0.42), rough=0.5)
+    wing_m = K.color_mat("skp_asa", (0.82, 0.95, 1.0), glow=0.55)
+    wing_e = K.color_mat("skp_asa_borda", (1.0, 0.72, 0.35), glow=0.9)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, white, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, pink, offset=0.012, zmin=c.hip_z - 0.04)
+    long_skirt(c, K.color_mat("skp_rosa3", (0.99, 0.84, 0.88), rough=0.45), c.hip_z + 0.06, c.ankle_z + 0.03, 0.34, 0.2)
+    z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.03
+    rz = lambda z: 0.2 + (0.34 - 0.2) * (z0s - z) / (z0s - z1s)
+    zk = c.knee_z + 0.02    # sobressaia de pétalas rosadas até o joelho (duas camadas) e barra de pétalas no pé
+    petal_layer(c, pink, z0s + 0.01, zk, rz(zk) + 0.03, rz(z0s) + 0.03, 10, 0.12, 0.0)
+    petal_layer(c, rose, z0s - 0.02, zk + 0.1, rz(zk + 0.1) + 0.045, rz(z0s) + 0.045, 8, 0.1, 0.6)
+    petal_layer(c, white, zk + 0.02, z1s + 0.02, rz(z1s) + 0.02, rz(zk) + 0.02, 14, 0.07, 0.3)
+    piece(c, c.tights, "Bota", FEET, gold, offset=0.012, thresh=0.3, zmax=c.ankle_z + 0.05)
+    D.gloves(c, white, offset=0.004)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.98, 0.84, 0.55), 1.5)
     K.card_asset(c, c.extra[1], "Sobrancelha", (0.7, 0.55, 0.35), 1.0)
-    # vestido de pétalas: três fileiras (rosa / branca / rosa) caindo sobre a saia
-    py = K.bone_head(c.arm, "pelvis").y + 0.01
-    z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.06
-    rz = lambda z: 0.2 + (0.3 - 0.2) * (z0s - z) / (z0s - z1s)
-    span = z0s - z1s
-    for row, (f0, f1, m) in enumerate(((0.0, 0.42, pink), (0.24, 0.66, white), (0.48, 0.88, pink), (0.72, 1.02, white))):
-        za, zb_ = z0s - span * f0, z0s - span * f1
-        off = 0.012 + (3 - row) * 0.012   # camada de cima por fora: as pontas de cada fileira aparecem sobre a de baixo
-        petal_layer(c, m, za, zb_, rz(zb_) + off, rz(za) + off, 12 + row * 2, 0.07, row * 0.4)
-    # ombros: folhas e uma flor
-    def flower(pos, size, bone_n, m=pink):
+    def flower(pos, size, bone_n, m):
         for j in range(5):
             ang = j / 5 * math.tau
-            pe = prim("sphere", "Joia", m, pos + Vector((math.cos(ang) * size * 0.6, 0, math.sin(ang) * size * 0.6)), (size * 0.7, size * 0.25, size * 0.45), rot=(0, ang, 0))
+            pe = prim("sphere", "Joia", m, pos + Vector((math.cos(ang) * size * 0.55, 0, math.sin(ang) * size * 0.55)), (size * 0.62, size * 0.2, size * 0.42), rot=(0, ang, 0))
             rigid(c, pe, bone_n)
-        ce = prim("sphere", "Joia", gold, pos + Vector((0, -size * 0.1, 0)), (size * 0.45, size * 0.3, size * 0.45))
+        ce = prim("sphere", "Joia", gold, pos + Vector((0, -size * 0.12, 0)), (size * 0.4, size * 0.25, size * 0.4))
         rigid(c, ce, bone_n)
+
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", gold, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.3), minor=0.045)
+    rigid(c, band, "spine_01")
+    flower(Vector((0, cy - ry - 0.02, zb)), 0.05, "spine_01", white)
 
     for side, bone_n in ((1, "upperarm_l"), (-1, "upperarm_r")):
         sh = K.bone_head(c.arm, bone_n)
-        for k in range(3):
-            lf = leaf("Ombreira", leafg, sh + Vector((side * (0.03 + k * 0.025), 0.0, 0.05 - k * 0.025)), 0.15, 0.08, (0.0, side * (1.15 + k * 0.2), 0.0))
+        for k in range(2):
+            lf = leaf("Ombreira", leafg, sh + Vector((side * (0.035 + k * 0.025), 0.0, 0.045 - k * 0.02)), 0.12, 0.06, (0.0, side * (1.2 + k * 0.25), 0.0))
             rigid(c, lf, bone_n)
-        flower(sh + Vector((side * 0.06, -0.04, 0.06)), 0.05, bone_n, white)
-    # coroa de flores
+        flower(sh + Vector((side * 0.05, -0.05, 0.06)), 0.045, bone_n, pink)
     h, s2 = c.head, (c.head_top - c.head).length
-    ring = prim("torus", "Coroa", leafg, Vector((0, h.y + s2 * 0.02, c.eye_z + s2 * 0.42)), (s2 * 1.14, s2 * 1.24, 0.3), rot=(0.18, 0, 0), minor=0.06)
+    ring = prim("torus", "Coroa", leafg, Vector((0, h.y + s2 * 0.02, c.eye_z + s2 * 0.42)), (s2 * 1.14, s2 * 1.24, 0.3), rot=(0.18, 0, 0), minor=0.05)
     rigid(c, ring, "head")
-    for k in range(7):
-        ang = (k - 3) * 0.5
+    for k in range(9):
+        ang = (k - 4) * 0.42
         pos = Vector((math.sin(ang) * s2 * 0.6, h.y - math.cos(ang) * s2 * 0.6 + 0.01, c.eye_z + s2 * 0.47))
-        flower(pos, 0.032, "head", pink if k % 2 == 0 else white)
+        flower(pos, 0.034 if k % 2 == 0 else 0.026, "head", pink if k % 3 else white)
+    # asas de fada grandes nas costas (com borda dourada)
+    sp = K.bone_head(c.arm, "spine_03")
+    cy3, rx3, ry3 = Mc.torso_size(c, sp.z)
+    root = Vector((0, cy3 + ry3 + 0.03, sp.z - 0.02))
+    for side in (-1, 1):
+        pts = [(side * x, z) for x, z in wing_shape(0.42, 0.26)]
+        w = wing("Capa", wing_m, pts)
+        w.location = root + Vector((side * 0.02, 0, 0.04))
+        w.rotation_euler = (0.12, 0, side * -0.3)
+        rigid(c, w, "spine_03")
+        edge = wing("Capa", wing_e, [(side * x * 1.06, z * 1.06) for x, z in wing_shape(0.42, 0.26)], 0.004)
+        edge.location = root + Vector((side * 0.02, 0.008, 0.04))
+        edge.rotation_euler = (0.12, 0, side * -0.3)
+        rigid(c, edge, "spine_03")
 
-    # borboletas: duas asas (cada asa = 2 lóbulos) presas ao cabelo e aos ombros
-    def butterfly(pos, size, bone_n, m):
+    def butterfly(pos, size, bone_n, m, yaw=0.0):
         for side in (-1, 1):
-            up = prim("sphere", "Joia", m, pos + Vector((side * size * 0.55, 0, size * 0.25)), (size * 0.9, size * 0.08, size * 0.75), rot=(0, side * 0.3, 0))
-            rigid(c, up, bone_n)
-            lo = prim("sphere", "Joia", m, pos + Vector((side * size * 0.45, 0, -size * 0.35)), (size * 0.6, size * 0.08, size * 0.5), rot=(0, side * -0.3, 0))
-            rigid(c, lo, bone_n)
-        bd = prim("sphere", "Joia", K.color_mat("skp_corpo", (0.15, 0.1, 0.08)), pos, (size * 0.18, size * 0.18, size * 0.9))
+            bw = wing("Joia", m, [(side * x, z) for x, z in wing_shape(size, size * 0.7, 8)], 0.003)
+            bw.location = pos
+            bw.rotation_euler = (0.2, 0, yaw + side * -0.5)
+            rigid(c, bw, bone_n)
+        bd = prim("sphere", "Joia", K.color_mat("skp_corpo", (0.2, 0.12, 0.1)), pos, (size * 0.15, size * 0.15, size * 0.8))
         rigid(c, bd, bone_n)
 
-    butterfly(Vector((s2 * 0.7, h.y + s2 * 0.15, c.eye_z + s2 * 0.95)), 0.08, "head", wing_a)
-    butterfly(Vector((-s2 * 0.85, h.y - s2 * 0.05, c.eye_z + s2 * 0.35)), 0.065, "head", wing_b)
-    sh = K.bone_head(c.arm, "upperarm_l")
-    butterfly(sh + Vector((0.16, -0.02, 0.22)), 0.07, "upperarm_l", wing_b)
-    # asas de pétala nas costas (presas ao tronco)
-    sp = K.bone_head(c.arm, "spine_03")
-    for side in (-1, 1):
-        for k, (ln, wd, rz2) in enumerate(((0.45, 0.2, 0.55), (0.32, 0.15, 1.15))):
-            wg = leaf("Capa", wing_a if k == 0 else wing_b, sp + Vector((side * 0.16, 0.16 + k * 0.01, 0.05 - k * 0.12)), ln, wd, (0.3, side * rz2, 0))
-            rigid(c, wg, "spine_03")
-    zb = c.hip_z + 0.07
-    cy, rx, ry = Mc.torso_size(c, zb)
-    band = prim("torus", "Cinto", gold, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.3), minor=0.04)
-    rigid(c, band, "spine_01")
-    flower(Vector((0, cy - ry - 0.02, zb)), 0.04, "spine_01", pink)
+    butterfly(Vector((s2 * 0.55, h.y + s2 * 0.1, c.eye_z + s2 * 0.75)), 0.07, "head", K.color_mat("skp_bt1", (1.0, 0.6, 0.25), glow=0.9), 0.4)
+    sh = K.bone_head(c.arm, "upperarm_r")
+    butterfly(sh + Vector((-0.07, 0.0, 0.11)), 0.06, "upperarm_r", K.color_mat("skp_bt2", (0.5, 0.8, 1.0), glow=0.9), -0.3)
 
 
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
