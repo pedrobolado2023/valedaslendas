@@ -93,6 +93,38 @@ def petal_layer(c, m, z0, z1, r_bottom, r_top, n, tip, phase=0.0):
     return o
 
 
+def half_skirt(c, m, z0, z1, r_bottom, r_top, a0=0.0, a1=math.pi, name="Saia"):
+    """Pedaço de saia em cone só entre os ângulos a0..a1 (0 = frente, +π/2 = esquerda da personagem)."""
+    import bpy
+    segs, rings = 24, 6
+    py = K.bone_head(c.arm, "pelvis").y + 0.01
+    verts, faces = [], []
+    for i in range(rings + 1):
+        t = i / rings
+        r = r_top + (r_bottom - r_top) * t
+        z = z0 + (z1 - z0) * t
+        for j in range(segs + 1):
+            a = a0 + (a1 - a0) * j / segs
+            verts.append((math.sin(a) * r, py - math.cos(a) * r * 0.82, z))
+    for i in range(rings):
+        for j in range(segs):
+            a_, b_ = i * (segs + 1) + j, i * (segs + 1) + j + 1
+            faces.append((a_, b_, b_ + segs + 1, a_ + segs + 1))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    for f in o.data.polygons:
+        f.use_smooth = True
+    o.data.materials.append(m)
+    bpy.context.view_layer.objects.active = o
+    md = o.modifiers.new("Esp", "SOLIDIFY")
+    md.thickness = 0.01
+    K.apply_modifiers(o, keep=())
+    rigid(c, o, "pelvis")
+    return o
+
+
 def long_skirt(c, m, z0, z1, r_bottom, r_top):
     """Saia longa em cone presa à bacia (até os pés)."""
     import bpy
@@ -680,10 +712,109 @@ def sk_estelar_dr(c):
     D.cape(c, night, 1.25, 0.5, star2)
 
 
+def sk_corrompida(c):
+    """Rainha Corrompida (Mítica): metade viva (lado esquerdo: folhas verdes, ouro, flor) e metade tomada pela
+    corrupção d'A Origem (lado direito: preto-arroxeado, espinhos, cristais roxos e veias brilhando)."""
+    import random
+    rnd = random.Random(21)
+    dark = K.color_mat("skr_corrupto", (0.12, 0.06, 0.14), rough=0.55)
+    robe = K.color_mat("skr_manto", (0.24, 0.12, 0.26), rough=0.6)
+    green = K.color_mat("skr_verde", (0.35, 0.68, 0.32), rough=0.5)
+    gold = K.color_mat("skr_ouro", (1.0, 0.8, 0.35), metal=0.8, rough=0.25)
+    vein = K.color_mat("skr_veia", (0.82, 0.3, 1.0), glow=1.6)
+    crys = K.color_mat("skr_cristal", (0.6, 0.2, 0.9), glow=0.9)
+    thorn = K.color_mat("skr_espinho", (0.08, 0.05, 0.08), metal=0.5, rough=0.3)
+    piece(c, c.tights, "Traje", TORSO + UPPER + LOWER + ["pelvis"] + LEGS, dark, offset=0.005, zmin=c.ankle_z + 0.05)
+    piece(c, c.tights, "Tunica", TORSO, robe, offset=0.012, zmin=c.hip_z - 0.04)
+    z0s, z1s = c.hip_z + 0.06, c.ankle_z + 0.03
+    long_skirt(c, robe, z0s, z1s, 0.34, 0.2)
+    piece(c, c.tights, "Bota", FEET, thorn, offset=0.012, thresh=0.3, zmax=c.ankle_z + 0.05)
+    D.gloves(c, dark, offset=0.004)
+    K.card_asset(c, c.extra[0], "Cabelo", (0.32, 0.14, 0.36), 1.6)
+    K.card_asset(c, c.extra[1], "Sobrancelha", (0.2, 0.1, 0.22), 1.0)
+    py = K.bone_head(c.arm, "pelvis").y + 0.01
+    rz = lambda z: (0.2 + (0.34 - 0.2) * (z0s - z) / (z0s - z1s)) + 0.01
+    # lado vivo: meia saia verde-clara por cima (esquerda da personagem), com barra dourada
+    life = K.color_mat("skr_vida", (0.55, 0.8, 0.5), rough=0.5)
+    half_skirt(c, life, z0s - 0.01, z1s, 0.352, 0.212, 0.05, math.pi - 0.05)
+    half_skirt(c, gold, z1s + 0.03, z1s - 0.002, 0.356, 0.343, 0.05, math.pi - 0.05, "Barra")
+    # lado vivo (x > 0 = esquerda da personagem): folhas verdes caindo pela saia
+    for k in range(22):
+        a = rnd.uniform(0.15, math.pi - 0.15)
+        z = rnd.uniform(z1s + 0.1, z0s - 0.05)
+        r = rz(z)
+        lf = leaf("SaiaFolha", green if k % 3 else gold, Vector((math.sin(a) * (r + 0.012), py - math.cos(a) * (r + 0.012) * 0.82, z)), 0.11, 0.05,
+                  (math.pi + 0.2 * math.cos(a), -0.2 * math.sin(a), a))
+        rigid(c, lf, "pelvis")
+    # lado corrompido (x < 0): veias roxas brilhando e cristais saindo da saia
+    for k in range(9):
+        a = -rnd.uniform(0.25, math.pi - 0.25)
+        z = rnd.uniform(z1s + 0.05, z0s - 0.1)
+        ln = rnd.uniform(0.12, 0.25)
+        r = rz(z) + 0.002
+        v = prim("cyl", "SaiaFolha", vein, Vector((math.sin(a) * r, py - math.cos(a) * r * 0.82, z)), (0.007, 0.007, ln), rot=(0, rnd.uniform(-0.6, 0.6), a), seg=5)
+        rigid(c, v, "pelvis")
+    for k in range(5):
+        a = -rnd.uniform(0.4, math.pi - 0.4)
+        z = rnd.uniform(z1s + 0.05, c.knee_z)
+        r = rz(z)
+        cr = prim("cone", "SaiaFolha", crys, Vector((math.sin(a) * r, py - math.cos(a) * r * 0.82, z)), (0.035, 0.035, 0.11), rot=(math.pi / 2 - 0.3, 0, a + math.pi), seg=5)
+        rigid(c, cr, "pelvis")
+    # ombros: esquerdo vivo (folhas + flor dourada), direito corrompido (espinhos e cristais)
+    shl = K.bone_head(c.arm, "upperarm_l")
+    for k in range(3):
+        lf = leaf("Ombreira", green, shl + Vector((0.035 + k * 0.025, 0.0, 0.05 - k * 0.025)), 0.15, 0.08, (0.0, 1.15 + k * 0.2, 0.0))
+        rigid(c, lf, "upperarm_l")
+    for j in range(5):
+        ang = j / 5 * math.tau
+        pe = prim("sphere", "Joia", gold, shl + Vector((0.06 + math.cos(ang) * 0.025, -0.05, 0.07 + math.sin(ang) * 0.025)), (0.03, 0.01, 0.02), rot=(0, ang, 0))
+        rigid(c, pe, "upperarm_l")
+    shr = K.bone_head(c.arm, "upperarm_r")
+    pad = leaf("Ombreira", thorn, shr + Vector((-0.045, 0.0, 0.035)), 0.17, 0.13, (0.0, -1.25, 0.0))
+    rigid(c, pad, "upperarm_r")
+    for k in range(5):
+        cr = prim("cone", "Espinho", crys if k % 2 == 0 else thorn, shr + Vector((-0.04 - k * 0.012, rnd.uniform(-0.04, 0.04), 0.08)),
+                  (0.03, 0.03, 0.09 + 0.03 * (k % 2)), rot=(rnd.uniform(-0.4, 0.4), -0.5 - k * 0.12, 0), seg=5)
+        rigid(c, cr, "upperarm_r")
+    # veias roxas subindo pelo braço direito e pelo lado direito do corpete
+    elr = K.bone_head(c.arm, "lowerarm_r")
+    for k in range(4):
+        p0 = shr.lerp(elr, (k + 0.5) / 4) + Vector((-0.03, -0.03, 0))
+        v = prim("cyl", "Faixas", vein, p0, (0.007, 0.007, 0.08), rot=(rnd.uniform(-0.5, 0.5), 0, rnd.uniform(-0.5, 0.5)), seg=5)
+        rigid(c, v, "upperarm_r")
+    for k in range(5):
+        z = rnd.uniform(c.hip_z + 0.1, K.bone_head(c.arm, "spine_03").z)
+        cy, rx, ry = Mc.torso_size(c, z)
+        a = -rnd.uniform(0.3, 1.3)
+        v = prim("cyl", "Peitilho", vein, Vector((math.sin(a) * (rx + 0.006), cy - math.cos(a) * (ry + 0.006), z)), (0.007, 0.007, 0.09), rot=(0, rnd.uniform(-0.7, 0.7), a), seg=5)
+        rigid(c, v, "spine_02")
+    zb = c.hip_z + 0.07
+    cy, rx, ry = Mc.torso_size(c, zb)
+    band = prim("torus", "Cinto", gold, Vector((0, cy, zb)), (2 * rx + 0.01, 2 * ry + 0.01, 0.3), minor=0.045)
+    rigid(c, band, "spine_01")
+    gm = prim("sphere", "CintoFivela", vein, Vector((0, cy - ry - 0.015, zb)), (0.035, 0.014, 0.04))
+    rigid(c, gm, "spine_01")
+    # coroa partida: metade de folhas douradas (esquerda), metade de espinhos negros com cristal (direita)
+    h, s2 = c.head, (c.head_top - c.head).length
+    ring = prim("torus", "Coroa", gold, Vector((0, h.y + s2 * 0.02, c.eye_z + s2 * 0.42)), (s2 * 1.14, s2 * 1.24, 0.3), rot=(0.18, 0, 0), minor=0.06)
+    rigid(c, ring, "head")
+    for k in range(9):
+        ang = (k - 4) * 0.38
+        base_p = Vector((math.sin(ang) * s2 * 0.6, h.y - math.cos(ang) * s2 * 0.6, c.eye_z + s2 * 0.48))
+        if ang > 0.05:
+            lf = leaf("Galho", gold, base_p + Vector((0, 0, 0.04)), 0.09, 0.04, (0.25, ang * 0.5, 0))
+        else:
+            lf = prim("cone", "Chifre", thorn if k % 2 else crys, base_p + Vector((0, 0, 0.05 + 0.02 * (k % 2))), (0.03, 0.03, 0.1 + 0.04 * (k % 2)), rot=(0.25, -0.3, 0), seg=5)
+        rigid(c, lf, "head")
+    gem = prim("sphere", "Joia", vein, Vector((0, h.y - s2 * 0.62, c.eye_z + s2 * 0.5)), (0.024, 0.012, 0.03))
+    rigid(c, gem, "head")
+    D.cape(c, dark, 1.2, 0.48, vein)
+
+
 SKINS = {"sk_eloreth": ("druida", D, sk_eloreth), "sk_cinzas": ("druida", D, sk_cinzas), "sk_inverno": ("druida", D, sk_inverno),
          "sk_areias": ("druida", D, sk_areias), "sk_ninfa": ("druida", D, sk_ninfa),
          "sk_bruxa": ("druida", D, sk_bruxa), "sk_primavera": ("druida", D, sk_primavera),
-         "sk_estelar_dr": ("druida", D, sk_estelar_dr)}
+         "sk_estelar_dr": ("druida", D, sk_estelar_dr), "sk_corrompida": ("druida", D, sk_corrompida)}
 ## Cabelo e sobrancelha do MakeHuman de cada skin (carregados com o corpo).
 EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
           "sk_cinzas": [("hair/braid01/braid01.mhclo", "Hair"), ("eyebrows/eyebrow006/eyebrow006.mhclo", "Eyebrows")],
@@ -692,7 +823,8 @@ EXTRAS = {"sk_eloreth": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebro
           "sk_ninfa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")],
           "sk_bruxa": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")],
           "sk_primavera": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow001/eyebrow001.mhclo", "Eyebrows")],
-          "sk_estelar_dr": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")]}
+          "sk_estelar_dr": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow002/eyebrow002.mhclo", "Eyebrows")],
+          "sk_corrompida": [("hair/long01/long01.mhclo", "Hair"), ("eyebrows/eyebrow008/eyebrow008.mhclo", "Eyebrows")]}
 
 
 def main():
