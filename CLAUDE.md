@@ -280,6 +280,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   assa a malha na descanso do herói e exporta com TODAS as animações dele). Resultado: `models/hero_lanceiro_ia.glb`
   (esqueleto da Druida; fora do preset Web). No shader: `use_vertex_color` e `rim_strength` ~0,08 (senão a armadura
   escura fica bege). Foto: `tools/shot_ai_rig.gd` (MODEL, ANIMS, T, YAW, OUT, RIM, SHOT).
+- **Classe Lanceiro (5ª, modelo de IA):** `CLASSES.lanceiro` com `"model": "hero_lanceiro_ia"` → `ModelKit.load_class`
+  (usado no Player, RemotePlayers, menu de classes e equipamento) carrega o modelo inteiro em vez das peças; skills
+  `la1..la10` com tipos existentes e campo `"anim"` (animação da Druida que a skill toca; `play_skill` usa `anim`).
+  Ícones `textures/icons/la*.png` (ícones parecidos tingidos de azul). Saves antigos "lanceiro" não viram mais Náutico.
+  Sem skins nem peças por raridade (equipamento só muda números).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

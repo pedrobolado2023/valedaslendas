@@ -151,7 +151,7 @@ func _preview(key: String) -> Control:
 	var all := {}
 	for k in ModelKit.HERO_SLOTS:
 		all[k] = "lendaria"
-	var kit := ModelKit.load_hero(key, all)   # por peças (os modelos inteiros não vão na versão web)
+	var kit := ModelKit.load_class(key, all)   # por peças (os modelos inteiros não vão na versão web)
 	if kit == null:
 		kit = ModelKit.load_kit("hero_%s_lendaria" % key, 0.035)
 	if kit == null:

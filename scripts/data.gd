@@ -46,6 +46,14 @@ const CLASSES := {
 		"basic": "arrow", "range": 0.0, "dot": 0.0, "cd": 0.36,
 		"color": Color(0.45, 0.42, 0.38), "trim": Color(0.4, 0.8, 1.0),
 	},
+	## Lanceiro: modelo inteiro feito por IA ("model"; tools/ai_rig.py), com o esqueleto e as animações da Druida.
+	## Não troca peças por raridade (o equipamento só muda os números) e a lança já vem no modelo.
+	"lanceiro": {
+		"name": "Lanceiro", "desc": "Cavaleiro de Vyndara: alcance longo, saltos e estocadas que atravessam fileiras.",
+		"hp": 145, "mp": 130, "atk": 23.0, "speed": 7.5,
+		"basic": "thrust", "range": 4.2, "dot": 0.85, "cd": 0.44, "skill_power": 1.2,
+		"color": Color(0.22, 0.3, 0.45), "trim": Color(0.5, 0.75, 1.0), "model": "hero_lanceiro_ia",
+	},
 	"druida": {
 		"name": "Druida", "desc": "Controle de grupo, cura e suporte da natureza.",
 		"hp": 110, "mp": 220, "atk": 27.0, "speed": 7.0,
@@ -54,9 +62,9 @@ const CLASSES := {
 	},
 }
 
-const CLASS_ORDER := ["druida", "assassino", "mecanico", "nautico"]
+const CLASS_ORDER := ["druida", "assassino", "mecanico", "nautico", "lanceiro"]
 ## Classes antigas (saves de versões anteriores) → classes novas.
-const OLD_CLASS := {"guerreiro": "assassino", "lanceiro": "nautico", "arqueiro": "mecanico", "mago": "druida"}
+const OLD_CLASS := {"guerreiro": "assassino", "arqueiro": "mecanico", "mago": "druida"}   # "lanceiro" voltou como classe
 
 ## Skills das classes (conforme a lista do projeto). O efeito de cada "type" está em skills.gd.
 ## Passivas ("passive") não precisam ser usadas: funcionam sozinhas depois de aprendidas.
@@ -157,6 +165,39 @@ const SKILLS := {
 		{"id": "me10", "name": "Torre Tesla", "type": "tesla", "cd": 26.0, "mp": 42, "mult": 0.85, "range": 9.0, "dur": 9.0, "every": 0.6, "targets": 3,
 			"color": Color(0.55, 0.8, 1.0), "sfx": "sk_thunder",
 			"desc": "Monta uma torre Tesla por {dur} s: a cada 0,6 s ela solta raios em até 3 inimigos próximos ({dmg} de dano cada)."},
+	],
+	## "anim": animação de skill do modelo usada por esta skill (o Lanceiro usa as da Druida).
+	"lanceiro": [
+		{"id": "la1", "name": "Estocada Tripla", "type": "thrust3", "hits": 3, "cd": 3.0, "mp": 8, "mult": 0.75, "range": 6.5, "knock": 2.0, "anim": "dr5",
+			"color": Color(0.55, 0.8, 1.0), "sfx": "sk_slash",
+			"desc": "Três estocadas rápidas à frente, cada uma com {dmg} de dano, empurrando os inimigos."},
+		{"id": "la2", "name": "Salto do Dragão", "type": "leap", "cd": 8.0, "mp": 16, "mult": 1.8, "r": 3.5, "range": 10.0, "anim": "dr10",
+			"color": Color(0.6, 0.8, 1.0), "sfx": "sk_slam",
+			"desc": "Salta até o ponto mirado e crava a lança no chão: {dmg} de dano em área e atordoa."},
+		{"id": "la3", "name": "Guarda de Vyndara", "type": "guard", "cd": 16.0, "mp": 18, "buff": 0.4, "buff_lv": 0.03, "dur": 6.0, "anim": "dr4",
+			"color": Color(0.75, 0.85, 1.0), "sfx": "sk_shield",
+			"desc": "Postura de defesa dos cavaleiros: recebe {buff} menos dano por {dur} s."},
+		{"id": "la4", "name": "Redemoinho da Lança", "type": "spin_multi", "cd": 7.0, "mp": 14, "mult": 0.7, "r": 3.8, "hits": 4, "anim": "dr8",
+			"color": Color(0.5, 0.75, 1.0), "sfx": "sk_slash",
+			"desc": "Gira a lança em volta do corpo 4 vezes: {dmg} de dano por giro (raio {r} m)."},
+		{"id": "la5", "name": "Investida", "type": "dash", "cd": 9.0, "mp": 16, "mult": 1.5, "dist": 9.0, "anim": "dr5",
+			"color": Color(0.7, 0.85, 1.0), "sfx": "sk_dash",
+			"desc": "Avança {dist} m com a lança à frente, atravessando tudo no caminho: {dmg} de dano."},
+		{"id": "la6", "name": "Lança Celeste", "type": "strike", "cd": 12.0, "mp": 24, "mult": 2.6, "r": 4.0, "range": 14.0, "delay": 0.6, "visual": "sword", "anim": "dr7",
+			"color": Color(0.6, 0.85, 1.0), "sfx": "sk_explosion",
+			"desc": "Uma lança gigante de luz cai no ponto mirado: {dmg} de dano na área e atordoa."},
+		{"id": "la7", "name": "Chuva de Lanças", "type": "projectile", "visual": "spear", "count": 5, "spread": 0.5, "cd": 10.0, "mp": 22, "mult": 1.3, "speed": 30.0, "life": 0.7, "pierce": true, "anim": "dr5",
+			"color": Color(0.7, 0.9, 1.0), "sfx": "sk_slash",
+			"desc": "Arremessa 5 lanças em leque que atravessam os inimigos: {dmg} de dano cada."},
+		{"id": "la8", "name": "Grito de Batalha", "type": "buff", "cd": 20.0, "mp": 20, "buff": 0.25, "buff_lv": 0.02, "dur": 10.0, "anim": "dr2",
+			"color": Color(1.0, 0.85, 0.45), "sfx": "sk_buff",
+			"desc": "Grito de guerra de Vyndara: +{buff} de dano por {dur} s."},
+		{"id": "la9", "name": "Muralha de Lanças", "type": "spikes", "cd": 14.0, "mp": 26, "mult": 1.7, "len": 12.0, "stun": 1.0, "anim": "dr1",
+			"color": Color(0.55, 0.8, 1.0), "sfx": "sk_slam",
+			"desc": "Lanças de pedra brotam do chão numa linha de {len} m à frente: {dmg} de dano e atordoa."},
+		{"id": "la10", "name": "Julgamento do Cavaleiro", "type": "execute", "cd": 24.0, "mp": 35, "mult": 5.0, "r": 10.0, "anim": "dr9",
+			"color": Color(1.0, 0.85, 0.4), "sfx": "sk_slash",
+			"desc": "Estocada final no inimigo com menos vida na área: {dmg} de dano. Se ele cair, as outras skills recarregam."},
 	],
 	"nautico": [
 		{"id": "na1", "name": "Estocada do Tridente", "type": "thrust3", "hits": 1, "cd": 3.0, "mp": 8, "mult": 1.6, "range": 6.0, "knock": 3.0, "vuln": 0.2, "vuln_dur": 5.0,
@@ -1334,6 +1375,9 @@ const GEAR_NAMES := {
 	"mecanico": {"weapon": ["Chave Inglesa", "Chave Elétrica", "Garra de Plasma", "Canhão de Engrenagens"],
 		"chest": ["Macacão de Oficina", "Avental do Inventor", "Traje Robótico", "Armadura Mecânica Dourada"],
 		"theme": ["de Oficina", "do Inventor", "Robótico", "Mecânico Dourado"]},
+	"lanceiro": {"weapon": ["Lança de Ferro", "Lança de Vyndara", "Lança Rúnica", "Lança do Cavaleiro Celeste"],
+		"chest": ["Cota de Malha", "Armadura de Vyndara", "Armadura Rúnica", "Armadura do Cavaleiro Celeste"],
+		"theme": ["de Ferro", "de Vyndara", "Rúnico", "Celeste"]},
 	"druida": {"weapon": ["Cajado de Galho", "Cajado das Runas", "Cajado do Bosque Sombrio", "Cajado do Sol Eterno"],
 		"chest": ["Túnica de Linho", "Manto do Andarilho", "Armadura de Folhas", "Armadura do Cervo Dourado"],
 		"theme": ["de Linho", "do Andarilho", "de Folhas", "do Cervo Dourado"]},

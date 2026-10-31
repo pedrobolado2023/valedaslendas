@@ -182,7 +182,7 @@ func _rebuild_preview() -> void:
 	if _preview_tier != "":
 		for k in rars:
 			rars[k] = _preview_tier
-	var kit := ModelKit.load_hero(player.class_key, rars)
+	var kit := ModelKit.load_class(player.class_key, rars)
 	if kit == null:
 		kit = ModelKit.load_kit("hero_%s_%s" % [player.class_key, a_r], 0.035)
 	if kit == null:

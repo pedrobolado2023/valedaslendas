@@ -39,7 +39,7 @@ func _make(o: Dictionary, key: String) -> Dictionary:
 	var root := Node3D.new()
 	add_child(root)
 	root.global_position = o["pos"]
-	var kit := ModelKit.load_hero(String(o["cls"]), o["gear"]) if String(o["cls"]) != "" else null
+	var kit := ModelKit.load_class(String(o["cls"]), o["gear"]) if String(o["cls"]) != "" else null
 	if kit != null:
 		root.add_child(kit.root)
 		Player.attach_weapon(kit, String(o["cls"]), String((o["gear"] as Dictionary).get("offhand", "comum")))

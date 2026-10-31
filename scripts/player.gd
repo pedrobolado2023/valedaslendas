@@ -262,7 +262,7 @@ func cast_skill(i: int, point: Vector3) -> bool:
 	_since_action = 0.0
 	_break_stealth()
 	Skills.cast(self, i, point)
-	play_skill(String(skill(i)["id"]))
+	play_skill(String(skill(i).get("anim", skill(i)["id"])))
 	_add_heat()
 	stats_changed.emit()
 	return true
@@ -887,7 +887,7 @@ func _build_visuals() -> void:
 		c.queue_free()
 	var a_r := String(armor.get("rarity", "comum"))
 	var w_r := String(weapon.get("rarity", "comum"))
-	_kit = ModelKit.load_hero(class_key, visual_rarities())
+	_kit = ModelKit.load_class(class_key, visual_rarities())
 	if _kit == null:
 		_kit = ModelKit.load_kit("hero_%s_%s" % [class_key, a_r], 0.035)
 	if _kit == null:
