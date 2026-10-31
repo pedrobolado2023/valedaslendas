@@ -285,6 +285,9 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   `la1..la10` com tipos existentes e campo `"anim"` (animação da Druida que a skill toca; `play_skill` usa `anim`).
   Ícones `textures/icons/la*.png` (ícones parecidos tingidos de azul). Saves antigos "lanceiro" não viram mais Náutico.
   Sem skins nem peças por raridade (equipamento só muda números).
+  Animações: as do Náutico (guarda com a arma à frente, estocadas, giro), copiadas por `tools/ai_anims.py <heroi_ia.glb>
+  <fonte.glb> <saida.glb>` (troca todas as ações e gira a mão da arma por um Q fixo para a lança seguir o eixo do tridente).
+  Para refazer o Lanceiro: ai_prep_glb → ai_rig (base da Druida) → ai_anims (fonte hero_nautico_base.glb).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).
