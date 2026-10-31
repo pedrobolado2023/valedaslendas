@@ -273,6 +273,13 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   alpha MASK e marca `cards` (fora do Decimate e das texturas de roupa). No Godot o ModelKit usa
   `shaders/toon_hair.gdshader` (recorte de transparência, sem contorno, verso iluminado). Serve para heróis e NPCs.
   Foto de perto no Godot: `t_look.gd` (CLS, RAR, PERTO, SHOT) no scratchpad.
+- **Personagem de IA (teste do Lanceiro):** o dono gera a forma 3D com IA a partir da arte (`Assets/`, fora do git).
+  `tools/ai_prep_glb.py` (reduz para ~24 mil triângulos e pinta com a imagem de frente, cor por vértice) →
+  `tools/ai_rig.py <hero_base.glb> <modelo.glb> <saida.glb> [lado_arma] [raio_arma]` (encaixa o esqueleto do herói nas
+  juntas medidas na malha, pesa por distância, corta a ligação arma–corpo, gira a mão para a haste cair no nó Weapon,
+  assa a malha na descanso do herói e exporta com TODAS as animações dele). Resultado: `models/hero_lanceiro_ia.glb`
+  (esqueleto da Druida; fora do preset Web). No shader: `use_vertex_color` e `rim_strength` ~0,08 (senão a armadura
+  escura fica bege). Foto: `tools/shot_ai_rig.gd` (MODEL, ANIMS, T, YAW, OUT, RIM, SHOT).
 - Próximo: etapa 2 = servidor/multiplayer (Godot sem tela, ENet; boss com vida no servidor), etapa 3 = arena PvP 1x1.
 - **Testes nunca podem usar o save do dono:** rodar sempre com a variável `VALE_TESTE=1` (SaveGame usa
   `user://teste_save.json`). Antes disso, testes sobrescreveram o save do dono uma vez (Assassino nv 35 perdido).

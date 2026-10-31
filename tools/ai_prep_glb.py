@@ -53,7 +53,9 @@ print("caixa na imagem", ix0, ix1, iy0, iy1, "de", W, H)
 
 mn = Vector((min(v.co.x for v in o.data.vertices), 0, min(v.co.z for v in o.data.vertices)))
 mx = Vector((max(v.co.x for v in o.data.vertices), 0, max(v.co.z for v in o.data.vertices)))
-navy = (0.07, 0.1, 0.18)
+
+
+navy = tuple(float(x) for x in (args[4].split(",") if len(args) > 4 else (0.07, 0.1, 0.18)))   # cor de fundo (capa)
 
 
 def sample(x, z):
@@ -70,7 +72,7 @@ def sample(x, z):
                 return c[:3]
             if best is None:
                 best = c[:3]
-    return (best[0] * 0.35, best[1] * 0.35, best[2] * 0.4)
+    return navy   # fora do desenho (borda da imagem): cor de fundo do personagem
 
 
 me = o.data
