@@ -130,7 +130,7 @@ func _web_test() -> void:
 		var kv := part.split("=")
 		if kv.size() == 2:
 			args[kv[0]] = kv[1]
-	start_game(String(args.get("classe", "druida")), {})
+	start_game(String(args.get("classe", "guerreiro")), {})
 	tutorial.visible = false
 	player.level = int(args.get("nivel", "120"))
 	player.recalc()
@@ -278,7 +278,7 @@ func _make_menu() -> void:
 	_menu.continue_slot.connect(func(i: int) -> void:
 		SaveGame.select(i)
 		var d := SaveGame.read()
-		start_game(_cls(String(d.get("class", "assassino"))), d))
+		start_game(_cls(String(d.get("class", "guerreiro"))), d))
 	_menu.delete_slot.connect(func(i: int) -> void:
 		SaveGame.remove(i)
 		if get_node("/root/Net").online:
@@ -510,7 +510,7 @@ func travel(id: String, ignore_level: bool = false) -> void:
 # =================================================================== início e save
 
 static func _cls(k: String) -> String:
-	return String(GameData.OLD_CLASS.get(k, k)) if GameData.CLASSES.has(GameData.OLD_CLASS.get(k, k)) else "assassino"
+	return String(GameData.OLD_CLASS.get(k, k)) if GameData.CLASSES.has(GameData.OLD_CLASS.get(k, k)) else "guerreiro"
 
 
 func _save_summary() -> String:
@@ -520,7 +520,7 @@ func _save_summary() -> String:
 func _summary_of(d: Dictionary) -> String:
 	if d.is_empty():
 		return ""
-	var cls := _cls(String(d.get("class", "assassino")))
+	var cls := _cls(String(d.get("class", "guerreiro")))
 	var mapn := String(GameData.MAPS.get(String(d.get("map", "vale")), GameData.MAPS["vale"])["name"])
 	var nm := String(d.get("name", ""))
 	return "%s%s  ·  Nível %d  ·  %s" % [nm + "  ·  " if nm != "" else "", String(GameData.CLASSES[cls]["name"]), int(d.get("level", 1)), mapn]

@@ -1,6 +1,6 @@
 class_name Skills
 extends RefCounted
-## Execução das 24 skills. Cada skill de GameData.SKILLS tem um "type"; aqui está o efeito de cada tipo.
+## Execução das skills. Cada skill de GameData.SKILLS tem um "type"; aqui está o efeito de cada tipo.
 ## Dano = ataque do herói × multiplicador da skill × bônus do nível da skill (+18% por nível).
 
 
@@ -87,7 +87,7 @@ static func seg_dist(p: Vector3, a: Vector3, b: Vector3) -> float:
 static func hit(p: Player, e: Enemy, mult: float, from: Vector3, opts: Dictionary = {}) -> void:
 	if e == null or not is_instance_valid(e) or not e.alive:
 		return
-	var crit := randf() < 0.15 or p.crit_next
+	var crit := randf() < 0.15 + (p.crit_bonus if p.crit_bonus_t > 0.0 else 0.0) or p.crit_next or bool(opts.get("crit", false))
 	p.crit_next = false
 	# combo: vale para todos os golpes da skill (inclusive os atrasados) enquanto a janela estiver aberta
 	var combo_boost := p.combo_active_boost if p.combo_boost_t > 0.0 else 1.0
@@ -97,8 +97,19 @@ static func hit(p: Player, e: Enemy, mult: float, from: Vector3, opts: Dictionar
 		dmg *= 2.0
 	if p._giant_t > 0.0:
 		dmg *= 1.2
-	e.take_damage(maxi(1, int(round(dmg))), from, crit)
+	if opts.has("low") and float(e.hp) / float(e.max_hp) < float(opts["low"]):   # Tiro do Caçador
+		dmg *= 2.0
+	if opts.has("vs_vuln") and e._vuln > 0.0:   # Lança do Firmamento: defesa quebrada
+		dmg *= float(opts["vs_vuln"])
+	var final := maxi(1, int(round(dmg)))
+	e.take_damage(final, from, crit)
+	if opts.has("heal"):   # roubo de vida
+		p.heal(final * float(opts["heal"]))
+	if opts.has("mana"):
+		p.mp = minf(p.max_mp, p.mp + float(opts["mana"]))
 	if e.alive:
+		if opts.has("lift"):
+			e.lift(float(opts["lift"]))
 		if p.poison_t > 0.0:
 			e.apply_poison(p.atk * p.poison_mult, 4.0, p)
 			e.apply_slow(0.2, 4.0)
@@ -597,7 +608,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					mr.mult = m
 					mr.homing = true
 					mr.explode_r = float(sk["blast"]) * GameData.AREA_MULT
-					mr.visual = "rocket"
+					mr.visual = String(sk.get("visual", "rocket"))
 					mr.color = col
 					host.add_child(mr)
 					mr.global_position = p.global_position + Vector3(0, 1.6, 0) + side2 * 0.4
@@ -781,6 +792,379 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 						if k == 0:
 							e.lift(every2 * ticks2 * 0.6)
 						hit(p, e, m, o, {"vuln": float(sk["vuln"]), "vuln_dur": float(sk["vuln_dur"])}))
+		# ------------------------------------------------------------- Guerreiro
+		"arc":
+			var ra2 := area(sk)
+			var half2 := float(sk["half"])
+			p.attack_visual()
+			Fx.slash(host, pos + Vector3(0, 1.0, 0), _ang(dir), ra2, rad_to_deg(half2 * 2.0), col, 1.3, 0.24)
+			Fx.slash(host, pos + Vector3(0, 0.8, 0), _ang(dir), ra2 * 0.7, rad_to_deg(half2 * 2.0), Color(1, 1, 1), 0.6, 0.2, true)
+			Vfx.sparks(host, pos + dir * ra2 * 0.7 + Vector3(0, 1.0, 0), 14, 6.0)
+			for e in in_cone(tree, pos, dir, ra2, cos(half2)):
+				hit(p, e, m, pos, {"stun": float(sk["stun"])})
+		"charge":
+			var cdist := float(sk["dist"])
+			var cend := pos + dir * cdist
+			p.start_dash(dir, cdist, 0.25)
+			Fx.streak(host, hand, cend + Vector3(0, 1.1, 0), col, 1.4, 0.35)
+			Vfx.emit(host, pos + Vector3(0, 0.3, 0), {"tex": "smoke", "add": false, "amount": 18, "life": 0.7, "size": [0.8, 1.6],
+					"shape": "box", "box": Vector3(0.6, 0.2, 0.6) + (dir * cdist * 0.5).abs(), "vel": [0.5, 1.5], "colors": Vfx.SMOKE})
+			_later(p, 0.25, func() -> void:
+				if not is_instance_valid(p):
+					return
+				for e in enemies(tree):
+					if seg_dist(e.global_position, pos, cend) <= 2.0 + e.radius:
+						hit(p, e, m, pos, {"stun": float(sk["stun"]), "knock": 2.5})
+				Vfx.shockwave(host, p.global_position, col, 3.5, 0.35)
+				Fx.shake(p, 0.3))
+		"roar":
+			var rr2 := area(sk)
+			p.spin_visual()
+			Vfx.shockwave(host, pos, col, rr2, 0.5)
+			Vfx.shockwave(host, pos, Color(1, 1, 1), rr2 * 0.6, 0.35)
+			Fx.ring(host, pos + Vector3(0, 1.6, 0), col, rr2 * 0.5, 0.4, 0.12)
+			Fx.light_flash(host, pos + Vector3(0, 2, 0), col, 5.0, 12.0, 0.4)
+			Fx.shake(p, 0.4)
+			for e in in_radius(tree, pos, rr2):
+				hit(p, e, m, pos, _opts(sk))
+		"wave":
+			var wlen := float(sk["len"]) * GameData.AREA_MULT
+			var ww := float(sk["width"]) * GameData.AREA_MULT
+			var wtime := float(sk["time"])
+			p.attack_visual()
+			var hitw := {}
+			for k in 8:
+				_later(p, wtime * k / 8.0, func() -> void:
+					var front := pos + dir * wlen * (k + 1) / 8.0
+					Fx.slash(host, front + Vector3(0, 1.0, 0), _ang(dir), ww * 0.7, 130.0, col, 1.0, 0.16)
+					for e in enemies(tree):
+						if hitw.has(e):
+							continue
+						if seg_dist(e.global_position, pos, front) <= ww * 0.5 + e.radius:
+							hitw[e] = true
+							hit(p, e, m, pos, {"knock": 1.5}))
+		"riposte":
+			var rp := area(sk)
+			var rdur := float(sk["dur"])
+			p.invuln_t = rdur
+			p.cc_immune_t = rdur
+			Vfx.golden_shield(p, rdur, col)
+			_later(p, rdur, func() -> void:
+				if not is_instance_valid(p):
+					return
+				var o := p.global_position
+				p.spin_visual()
+				Fx.slash(host, o + Vector3(0, 1.0, 0), _ang(p.facing), rp, 360.0, col, 1.3, 0.3)
+				Vfx.shockwave(host, o, col, rp, 0.4)
+				Vfx.sparks(host, o + Vector3(0, 1.0, 0), 30, 9.0)
+				Fx.hitstop(p, 0.06)
+				Sfx.play("sk_slash", -2.0, 0.9)
+				for e in in_radius(tree, o, rp):
+					hit(p, e, m, o, {"knock": 2.0}))
+		"hook":
+			var far: Enemy = null
+			var fd := 0.0
+			for e in in_cone(tree, pos, dir, float(sk["range"]), cos(0.5)):
+				var dd2 := flat(e.global_position - pos).length()
+				if dd2 > fd:
+					fd = dd2
+					far = e
+			if far == null:
+				Fx.streak(host, hand, hand + dir * float(sk["range"]), col, 0.25, 0.3)
+			else:
+				var fe := far
+				Fx.streak(host, hand, fe.global_position + Vector3(0, 1.0, 0), col, 0.3, 0.45)
+				Vfx.sparks(host, fe.global_position + Vector3(0, 1.0, 0), 12, 5.0)
+				fe.pull_to(pos + dir * (fe.radius + 1.4), 0.3)
+				_later(p, 0.3, func() -> void:
+					if is_instance_valid(p) and is_instance_valid(fe):
+						hit(p, fe, m, p.global_position, {"stun": float(sk["stun"])})
+						Fx.shake(p, 0.2))
+		# ------------------------------------------------------------- Lanceiro
+		"launch":
+			var rl := area(sk)
+			p.attack_visual()
+			Fx.slash(host, pos + Vector3(0, 0.6, 0) + dir * 0.6, _ang(dir), rl, rad_to_deg(float(sk["half"]) * 2.0), col, 1.1, 0.25)
+			Vfx.emit(host, pos + dir * rl * 0.5 + Vector3(0, 0.3, 0), {"tex": "dot", "amount": 24, "life": 0.6, "size": [0.08, 0.16],
+					"shape": "ring", "r": rl * 0.5, "r_in": 0.2, "vel": [5.0, 9.0], "dir": Vector3.UP, "spread": 15.0,
+					"colors": [[0, Color(col, 0.95)], [1, Color(col, 0.0)]]})
+			for e in in_cone(tree, pos, dir, rl, cos(float(sk["half"]))):
+				hit(p, e, m, pos, {"lift": float(sk["lift"]), "stun": float(sk["lift"])})
+		"javelin":
+			p.attack_visual()
+			var jv := Projectile.new()
+			jv.player = p
+			jv.dir = dir
+			jv.speed = float(sk["speed"])
+			jv.life = float(sk["life"])
+			jv.mult = m
+			jv.pierce = true
+			jv.slow = float(sk["slow"])
+			jv.slow_dur = float(sk["slow_dur"])
+			jv.visual = "spear"
+			jv.color = col
+			host.add_child(jv)
+			jv.global_position = hand + dir * 0.8
+			Fx.streak(host, hand, hand + dir * 3.0, col, 0.3, 0.2)
+		"wind_wall":
+			var rw := area(sk)
+			p.add_shield(p.max_hp * shield_pct(sk, lvl), float(sk["dur"]), col)
+			p.spin_visual()
+			Vfx.emit(host, pos + Vector3(0, 0.4, 0), {"tex": "smoke", "add": false, "amount": 34, "life": 0.7, "size": [0.9, 1.8], "shape": "ring",
+					"r": rw * 0.6, "r_in": rw * 0.3, "vel": [3.0, 6.0], "dir": Vector3.UP, "spread": 40.0,
+					"colors": [[0, Color(0.85, 1.0, 0.95, 0.6)], [1, Color(0.7, 1.0, 0.9, 0.0)]], "spin": 120.0})
+			Vfx.shockwave(host, pos, col, rw, 0.45)
+			for e in in_radius(tree, pos, rw):
+				e.knockback(pos, float(sk["knock"]))
+		"sweep":
+			var rsw := area(sk)
+			p.spin_visual()
+			Fx.slash(host, pos + Vector3(0, 0.7, 0), _ang(dir), rsw, 190.0, col, 1.4, 0.32)
+			Fx.slash(host, pos + Vector3(0, 0.5, 0), _ang(dir), rsw * 0.8, 190.0, Color(1, 1, 1), 0.5, 0.28)
+			Vfx.emit(host, pos + dir * rsw * 0.5 + Vector3(0, 0.2, 0), {"tex": "smoke", "add": false, "amount": 20, "life": 0.6, "size": [0.7, 1.4],
+					"shape": "ring", "r": rsw * 0.8, "r_in": rsw * 0.4, "vel": [1.0, 2.5], "colors": Vfx.SMOKE, "spin": 60.0})
+			for e in in_cone(tree, pos, dir, rsw, 0.0):
+				hit(p, e, m, pos, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"]), "knock": 1.2})
+		"crush":
+			var rcr := area(sk)
+			var cat := pos + dir * float(sk["range"])
+			p.attack_visual()
+			_later(p, 0.18, func() -> void:
+				if not is_instance_valid(p):
+					return
+				Vfx.ground_slam(host, cat, rcr, col)
+				Fx.streak(host, cat + Vector3(0, 6, 0), cat, col, 0.6, 0.18)
+				Fx.shake(p, 0.4)
+				Fx.hitstop(p, 0.05)
+				Sfx.play("sk_slam", -2.0, 0.9)
+				for e in in_radius(tree, cat, rcr):
+					hit(p, e, m, cat, _opts(sk)))
+		"leech":
+			var rle := area(sk)
+			p.attack_visual()
+			Fx.streak(host, hand, hand + dir * rle, col, 0.7, 0.25)
+			for e in in_cone(tree, pos, dir, rle, cos(float(sk["half"]))):
+				hit(p, e, m, pos, {"heal": float(sk["heal"])})
+				Fx.streak(host, e.global_position + Vector3(0, 1.0, 0), hand, Color(1.0, 0.4, 0.45), 0.2, 0.5)
+			Vfx.heal_pulse(host, pos)
+		"blitz":
+			var bt := _closest(tree, pos, float(sk["range"]))
+			if bt == null:
+				p.start_dash(dir, 6.0, 0.12)
+			else:
+				var bdir := flat(bt.global_position - pos).normalized()
+				var bdest := bt.global_position - bdir * (bt.radius + 1.3)
+				Vfx.bolt(host, hand, Vector3(bdest.x, hand.y, bdest.z), col, 0.6, 0.3, 2)
+				p.global_position = Vector3(bdest.x, pos.y, bdest.z)
+				p.face_dir(bdir)
+				p.attack_visual()
+				Vfx.shockwave(host, bt.global_position, col, 3.0, 0.3)
+				Fx.hitstop(p, 0.05)
+				hit(p, bt, m, p.global_position, {"knock": float(sk["knock"]), "stun": 0.6})
+		"finisher":
+			var flen2 := float(sk["len"]) * GameData.AREA_MULT
+			var fwid := float(sk["width"]) * GameData.AREA_MULT
+			var fend := pos + dir * flen2
+			p.attack_visual()
+			Vfx.cinematic_dim(host, 0.6, 0.35)
+			Vfx._beam_column(host, pos + dir * 1.5, 0.8, Color(col, 0.9), 0.4)
+			Fx.streak(host, hand, fend + Vector3(0, 1.1, 0), col, 1.6, 0.4)
+			Fx.streak(host, hand, fend + Vector3(0, 1.1, 0), Color(1, 1, 1), 0.6, 0.3)
+			Fx.shake(p, 0.5)
+			Fx.hitstop(p, 0.07)
+			for e in enemies(tree):
+				if seg_dist(e.global_position, pos, fend) <= fwid * 0.5 + e.radius:
+					var fe2 := e
+					hit(p, fe2, m, pos, {"vs_vuln": 2.0, "knock": 2.0})
+					Vfx.sparks(host, fe2.global_position + Vector3(0, 1.0, 0), 14, 7.0)
+					if not fe2.alive:
+						p.skill_cd[i] = maxf(0.0, p.skill_cd[i] - 3.0)
+		# ------------------------------------------------------------- Mago
+		"ice_block":
+			var rib := area(sk)
+			var idur := float(sk["dur"])
+			p.invuln_t = idur
+			p.cc_immune_t = idur
+			p.heal(p.max_hp * shield_pct(sk, lvl))
+			var block := Toon.glow_part(Toon.box(Vector3(1.6, 2.6, 1.6)), Color(0.7, 0.95, 1.0), Vector3(0, 1.3, 0), 0.45, true)
+			p.add_child(block)
+			Vfx.emit(host, pos + Vector3(0, 0.5, 0), {"tex": "dot", "amount": 30, "life": 0.8, "size": [0.06, 0.14], "shape": "ring",
+					"r": 1.2, "r_in": 0.4, "vel": [1.0, 3.0], "dir": Vector3.UP, "colors": [[0, Color(0.9, 1.0, 1.0, 0.9)], [1, Color(0.6, 0.9, 1.0, 0.0)]]})
+			_later(p, idur, func() -> void:
+				if is_instance_valid(block):
+					block.queue_free()
+				if not is_instance_valid(p):
+					return
+				var o := p.global_position
+				for k in 10:
+					var a3 := TAU * k / 10.0
+					_ice_spike(host, o + Vector3(cos(a3), 0, sin(a3)) * rib * 0.7, col)
+				Vfx.shockwave(host, o, col, rib, 0.4)
+				Sfx.play("sk_ice", -2.0, 0.9)
+				for e in in_radius(tree, o, rib):
+					hit(p, e, m, o, {"stun": float(sk["stun"])}))
+		"immolate":
+			var rim := area(sk)
+			var iat := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var spots2: Array[Vector3] = []
+			for e in in_radius(tree, iat, rim):
+				if spots2.size() < int(sk["count"]):
+					spots2.append(e.global_position)
+			while spots2.size() < 3:
+				spots2.append(iat + Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).limit_length(1.0) * rim * 0.7)
+			var ievery := float(sk["every"])
+			var iticks := int(sk["ticks"])
+			Vfx.marker(host, iat, col, rim, ievery * iticks + 0.3)
+			for sp2 in spots2:
+				var spot := sp2
+				Vfx.ground_mark(host, spot, "scorch", 3.0, ievery * iticks + 2.0)
+				_later(p, 0.15, func() -> void:
+					Vfx.fire_column(host, spot, 6.0, ievery * iticks, 0.9))
+				for k in iticks:
+					_later(p, 0.2 + ievery * k, func() -> void:
+						if not is_instance_valid(p):
+							return
+						for e in in_radius(tree, spot, 1.8):
+							hit(p, e, m, spot))
+		"flame_nova":
+			var rfn := area(sk)
+			var fburn := float(sk["burn"]) * level_mult(lvl)
+			Vfx.explosion(host, pos, rfn * 0.6, false)
+			Vfx.shockwave(host, pos, col, rfn, 0.45)
+			Fx.light_flash(host, pos + Vector3(0, 1.5, 0), col, 6.0, 12.0, 0.4)
+			Fx.shake(p, 0.35)
+			var burned := in_radius(tree, pos, rfn)
+			for e in burned:
+				hit(p, e, m, pos, {"knock": float(sk["knock"])})
+			for k in 4:
+				_later(p, 0.5 * (k + 1), func() -> void:
+					if not is_instance_valid(p):
+						return
+					for e in burned:
+						if is_instance_valid(e) and e.alive:
+							Vfx.sparks(host, e.global_position + Vector3(0, 0.8, 0), 4, 2.0)
+							hit(p, e, fburn, e.global_position))
+		"mana_shield":
+			var spend := p.mp * shield_pct(sk, lvl)
+			p.mp -= spend
+			p.add_shield(spend * 3.0, float(sk["dur"]), col)
+			Vfx.magic_rune_circle(host, pos, 2.2, Color(col, 0.9), 1.2, 1.2)
+			Vfx.shockwave(host, pos, col, 3.0, 0.4)
+			Fx.damage_number(host, pos + Vector3(0, 2.8, 0), "Escudo %d" % int(spend * 3.0), col)
+		"soul_drain":
+			p.attack_visual()
+			for k in int(sk["count"]):
+				var sd := Projectile.new()
+				sd.player = p
+				sd.dir = dir.rotated(Vector3.UP, (float(k) / maxf(1.0, float(sk["count"]) - 1.0) - 0.5) * 1.2)
+				sd.speed = float(sk["speed"])
+				sd.life = 1.4
+				sd.mult = m
+				sd.homing = true
+				sd.visual = "orb"
+				sd.color = col
+				sd.extra = {"mana": float(sk["mana"])}
+				sd._delay = 0.06 * k
+				host.add_child(sd)
+				sd.global_position = hand + sd.dir * 0.6
+			Vfx.shadow_puff(host, hand, 0.6, col)
+		"tornado":
+			var rt := area(sk)
+			var tlen2 := float(sk["len"])
+			var tticks := int(sk["ticks"])
+			var tevery := float(sk["every"])
+			var ttotal := tticks * tevery
+			var tw3 := _whirl(host, pos + dir * 2.0, rt, col, ttotal)
+			var tw_move := tw3.create_tween()
+			tw_move.tween_property(tw3, "global_position", pos + dir * (2.0 + tlen2), ttotal)
+			Vfx.emit(tw3, Vector3(0, 0.5, 0), {"tex": "flame", "shot": false, "local": true, "amount": 40, "life": 0.8, "dur": ttotal,
+					"size": [0.8, 1.8], "shape": "ring", "r": rt * 0.5, "r_in": rt * 0.2, "vel": [3.0, 7.0], "dir": Vector3.UP, "spread": 10.0,
+					"colors": Vfx.FIRE, "spin": 200.0})
+			Vfx.cinematic_dim(host, 0.8, 0.3)
+			for k in tticks:
+				_later(p, tevery * (k + 1), func() -> void:
+					if not is_instance_valid(p) or not is_instance_valid(tw3):
+						return
+					var o := tw3.global_position
+					for e in in_radius(tree, o, rt):
+						var to2 := flat(e.global_position - o)
+						if to2.length() > 1.2:
+							e.pull_to(o + to2 * 0.6, tevery * 0.8)
+						hit(p, e, m, o))
+		# ------------------------------------------------------------- Arqueira
+		"backstep":
+			var bsd := float(sk["dist"])
+			var rbs := area(sk)
+			p.start_dash(-dir, bsd, 0.22)
+			p.invuln_t = 0.3
+			p.attack_visual()
+			for k in 5:
+				var bd2 := dir.rotated(Vector3.UP, (k / 4.0 - 0.5) * float(sk["half"]) * 2.0)
+				Fx.streak(host, hand, hand + bd2 * rbs, col, 0.15, 0.25)
+			Fx.burst(host, pos + Vector3(0, 0.3, 0), Color(0.7, 0.6, 0.45), 14, 4.0, 0.1)
+			for e in in_cone(tree, pos, dir, rbs, cos(float(sk["half"]))):
+				hit(p, e, m, pos, {"knock": float(sk["knock"])})
+		"focus":
+			p.crit_bonus = buff_amount(sk, lvl)
+			p.crit_bonus_t = float(sk["dur"])
+			p.add_dmg_buff(0.15, float(sk["dur"]), col)
+			Vfx.magic_rune_circle(host, pos, 1.8, Color(col, 0.85), float(sk["dur"]) * 0.3, 0.6)
+			Fx.ring(host, pos + Vector3(0, 0.1, 0), col, 3.0, 0.5)
+			Fx.burst(host, pos + Vector3(0, 1.4, 0), col, 20, 3.0, 0.08, 0.8, 2.0)
+		"blast_arrow":
+			p.attack_visual()
+			var brange := float(sk["speed"]) * float(sk["life"])
+			var bfirst: Enemy = null
+			var bbest := brange
+			for e in enemies(tree):
+				var along := flat(e.global_position - pos).dot(dir)
+				if along > 0.0 and along < bbest and seg_dist(e.global_position, pos, pos + dir * brange) <= 1.0 + e.radius:
+					bbest = along
+					bfirst = e
+			var bat := pos + dir * bbest
+			if bfirst != null:
+				bat = bfirst.global_position
+			var bblast := float(sk["explode"]) * GameData.AREA_MULT
+			Fx.streak(host, hand, bat + Vector3(0, 1.0, 0), col, 0.3, 0.2)
+			_later(p, bbest / float(sk["speed"]), func() -> void:
+				if not is_instance_valid(p):
+					return
+				Vfx.explosion(host, bat, bblast * 0.7)
+				Fx.shake(p, 0.3)
+				for e in in_radius(tree, bat, bblast):
+					hit(p, e, m, bat, {"knock": 1.5})
+				for k in int(sk["frags"]):
+					var fr := Projectile.new()
+					fr.player = p
+					fr.dir = Vector3.FORWARD.rotated(Vector3.UP, TAU * k / float(sk["frags"]))
+					fr.speed = 18.0
+					fr.life = 0.35
+					fr.mult = m * 0.35
+					fr.visual = "arrow"
+					fr.color = col
+					host.add_child(fr)
+					fr.global_position = bat + Vector3(0, 1.0, 0) + fr.dir * (bblast * 0.5))
+		"snipe":
+			var sdir := dir
+			Vfx.magic_rune_circle(host, pos, 1.4, Color(col, 0.9), float(sk["charge"]) + 0.2, 2.0)
+			Fx.streak(host, hand, hand + sdir * 20.0, Color(col, 0.5), 0.05, float(sk["charge"]))
+			_later(p, float(sk["charge"]), func() -> void:
+				if not is_instance_valid(p):
+					return
+				p.attack_visual()
+				var sn := Projectile.new()
+				sn.player = p
+				sn.dir = sdir
+				sn.speed = float(sk["speed"])
+				sn.life = float(sk["life"])
+				sn.mult = m
+				sn.visual = "bigarrow"
+				sn.color = col
+				sn.extra = {"low": float(sk["low"]), "crit": true, "knock": 2.5}
+				host.add_child(sn)
+				sn.global_position = p.global_position + Vector3(0, 1.1, 0) + sdir * 0.8
+				Fx.shake(p, 0.2)
+				Sfx.play("arrow", 0.0, 0.7))
 
 
 static func _opts(sk: Dictionary) -> Dictionary:

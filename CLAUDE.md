@@ -319,10 +319,21 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   nesse tempo, todos os golpes dela levam +25% (`combo_boost_t`, janela de 2 s lida em `Skills.hit`). Tropa: 2 lanceiros
   (`Player.spawn_troops`, ao começar e ao viajar) que lutam até 18 m do herói e voltam para a formação; só no cliente (online
   os outros não veem; o dano vai por `enemy_hit`). Nada disso vai no save.
-- **Visuais grandes de skill por campo `"visual"` nos dados (`Vfx`):** strike `"sword"` → `Vfx.sky_sword` (gu6), guard
-  `"shields"` → `golden_shield` (gu3), companion `"phoenix"` → `phoenix_flight` (ar9 Fênix Companheira), meteor_rain
-  `"colossal"` → `colossal_meteor` (ma6 Meteoro Colossal, um golpe só). Também `cinematic_dim`, `screen_flash`, `magic_rune_circle`.
-  Nunca usar nomes/termos de outros jogos (uma versão anterior copiou o Legend Online e foi desfeita).
+- **Visuais grandes de skill por campo `"visual"` nos dados (`Vfx`):** strike `"sword"` → `Vfx.sky_sword` (gu10), guard
+  `"shields"` → `golden_shield` (gu9), companion `"phoenix"` → `phoenix_flight` (ar10), meteor_rain `"colossal"` →
+  `colossal_meteor` (sem uso agora). Também `cinematic_dim`, `screen_flash`, `magic_rune_circle`.
+  Nunca usar nomes/termos de outros jogos (uma versão anterior copiou o Legend Online e foi desfeita; a lista de
+  skills pedida pelo dono veio de outro jogo e virou só inspiração, com nomes próprios).
+- **Só 4 heróis jogáveis (`CLASS_ORDER`): Guerreiro, Lanceiro, Mago, Arqueira** (modelos de IA). Druida/Assassino/
+  Mecânico/Náutico continuam nos dados (o corpo e as animações dos heróis de IA vêm deles) e saves antigos viram
+  Mago/Arqueira/Guerreiro/Lanceiro (`OLD_CLASS`). Cada classe tem tipos de skill só dela (só "projectile" se repete):
+  Guerreiro (tanque/controle) `arc`, `charge`, `roar`, `wave`, `leap`, `riposte`, `hook`, `spin_multi`, `guard`, `strike`;
+  Lanceiro (crítico/quebra de defesa) `thrust3`, `launch`, `spin`, `javelin`, `wind_wall`, `sweep`, `crush`, `leech`,
+  `blitz`, `finisher` (dobro em quem tem defesa quebrada); Mago (elementos em área) `projectile`, `storm_chain`,
+  `ice_block`, `immolate`, `ice_fall`, `flame_nova`, `mana_shield`, `soul_drain`, `sea_storm`, `tornado`; Arqueira
+  (alcance/fuga) `projectile`, `backstep`, `rain`, `focus` (`player.crit_bonus`), `blast_arrow`, `stealth`, `trap`,
+  `missiles` (visual pela skill), `snipe`, `companion`. Opções novas do `Skills.hit`: `crit`, `low`, `vs_vuln`, `heal`,
+  `mana`, `lift`. Ícones = cópias dos ícones parecidos das classes antigas.
 - **Mapas sem colisão interna:** `world._solid`/`_solid_box` não fazem nada (casas, cercas, lago não bloqueiam; só chão e bordas).
   Clima trocado por vento (rajadas + folhas/neve/cinza/areia pelo bioma) seguindo o herói. Teste: `tools/test_wind_and_collision.gd`;
   combo/fúria/tropas/visuais: `VALE_TESTE=1 godot --headless --path . -s tools/test_combo_fury.gd`.

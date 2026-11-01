@@ -11,9 +11,21 @@ func check(ok: bool, what: String) -> void:
 		_fails += 1
 
 
+func game_cls(k: String) -> String:
+	return load("res://scripts/game.gd")._cls(k)
+
+
 func _initialize() -> void:
 	check(OS.get_environment("VALE_TESTE") == "1", "rodando com VALE_TESTE=1 (não mexe no save do dono)")
-	check(GameData.CLASS_ORDER[0] == "druida", "ordem das classes original")
+	check(GameData.CLASS_ORDER == ["guerreiro", "lanceiro", "mago", "arqueira"], "só os 4 heróis jogáveis")
+	check(game_cls("druida") == "mago" and game_cls("assassino") == "arqueira" and game_cls("mecanico") == "guerreiro" and game_cls("nautico") == "lanceiro", "saves antigos viram as classes novas")
+	var owner := {}
+	for cls in GameData.CLASS_ORDER:
+		for sk in GameData.SKILLS[cls]:
+			var t := String(sk["type"])
+			if t != "projectile":
+				check(not owner.has(t) or owner[t] == cls, "%s: tipo %s só nesta classe" % [sk["id"], t])
+				owner[t] = cls
 	check(GameData.BASE_MAPS["vale"]["name"] == "Vale das Lendas", "nome do mapa 1 original")
 	for cls in ["mago", "guerreiro", "arqueira"]:
 		for sk in GameData.SKILLS[cls]:
@@ -55,22 +67,22 @@ func _initialize() -> void:
 	check(p.activate_awakening(), "desperta com a fúria cheia")
 	check(p.awakened and p.awakened_t > 15.0, "despertar dura 16 s")
 
-	# skills com visual novo não quebram (sword, shields, phoenix, colossal)
+	# todas as skills das 4 classes, numa zona com monstros (troca só a classe das skills; o modelo continua o do Guerreiro)
 	var z = game.zones.values()[0]
-	p.global_position = z.center() + Vector3(0, 0, 4)
-	for e in z.alive_enemies():
-		e.global_position = z.center() + Vector3(randf_range(-3, 3), 0.2, randf_range(-3, 3))
-	# (troca só a classe das skills: o modelo continua o do Guerreiro)
-	for cls_ids in [["guerreiro", ["gu3", "gu6"]], ["arqueira", ["ar9"]], ["mago", ["ma6"]]]:
-		p.class_key = cls_ids[0]
-		for id in cls_ids[1]:
-			for i in p.skill_count():
-				if String(p.skill(i)["id"]) == id:
-					p.mp = 9999
-					p.skill_cd[i] = 0.0
-					check(p.cast_skill(i, z.center()), "%s usada" % id)
-		await create_timer(1.5).timeout
-	await create_timer(1.0).timeout
+	for cls in GameData.CLASS_ORDER:
+		p.class_key = cls
+		for i in p.skill_count():
+			p.global_position = z.center() + Vector3(0, 0, 4)
+			for e in z.alive_enemies():
+				e.global_position = z.center() + Vector3(randf_range(-3, 3), 0.2, randf_range(-3, 3))
+			p.mp = 9999
+			p.skill_cd[i] = 0.0
+			p.invuln_t = 999.0
+			var id := String(p.skill(i)["id"])
+			check(p.cast_skill(i, z.center()), "%s %s usada" % [id, p.skill(i)["name"]])
+			await create_timer(0.6).timeout
+		await create_timer(2.0).timeout
+	await create_timer(3.0).timeout
 	check(p.alive, "herói vivo depois das skills")
 
 	print("--- %s ---" % ("TUDO CERTO" if _fails == 0 else "%d FALHAS" % _fails))

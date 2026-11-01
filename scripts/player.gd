@@ -12,7 +12,7 @@ signal awakening_changed(is_awakened: bool)
 
 const LIMIT := 106.0
 
-var class_key := "assassino"
+var class_key := "guerreiro"
 var cdata: Dictionary = {}
 var alive := true
 var level := 1
@@ -118,6 +118,8 @@ var combo_dur := 4.0
 var combo_mult := 1.25
 var combo_active_boost := 1.0
 var combo_boost_t := 0.0   # janela em que os golpes da skill do combo recebem o bônus (Skills.hit)
+var crit_bonus := 0.0      # Mira Firme: chance extra de crítico enquanto crit_bonus_t > 0
+var crit_bonus_t := 0.0
 var soldiers: Array = []
 var troop_level := 1
 var troop_type := "lanceiro"
@@ -567,6 +569,7 @@ func _timers(delta: float) -> void:
 	_skill_anim_t -= delta
 	invuln_t -= delta
 	combo_boost_t -= delta
+	crit_bonus_t -= delta
 	if combo_timer > 0.0:
 		combo_timer -= delta
 		if combo_timer <= 0.0:
