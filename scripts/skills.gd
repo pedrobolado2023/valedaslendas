@@ -202,13 +202,21 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 						return
 					var o := p.global_position
 					p.attack_visual()
-					var side := dir.cross(Vector3.UP) * (0.35 * (k - 1))
-					Fx.streak(host, o + Vector3(0, 1.1, 0) + side, o + dir * rng + Vector3(0, 1.1, 0) + side, col, 0.45, 0.22)
-					Vfx.emit(host, o + dir * rng * 0.5 + Vector3(0, 1.1, 0), {"tex": "smoke", "add": false, "amount": 14, "life": 0.5,
-							"size": [0.6, 1.2], "shape": "box", "box": Vector3(0.3, 0.3, 0.3) + (dir * rng * 0.45).abs(), "vel": [1.0, 3.0],
-							"colors": Vfx.FOAM, "spin": 40.0})
-					Vfx.splash(host, o + dir * rng, 0.8)
-					Sfx.play("swing", -6.0, 1.1 + 0.1 * k)
+					if p.class_key == "lanceiro":
+						if p._vis != null:
+							var lunge := p.create_tween()
+							lunge.tween_property(p._vis, "position:z", -0.45, 0.05).set_ease(Tween.EASE_OUT)
+							lunge.tween_property(p._vis, "position:z", 0.0, 0.06).set_ease(Tween.EASE_IN)
+						Fx.slash(host, o + dir * 0.55 + Vector3(0, 1.05, 0), _ang(dir) + (k - 1) * 0.12, rng * 0.88, 72.0, col, 0.82, 0.18, k % 2 == 1)
+						Vfx.sparks(host, o + dir * (rng * 0.78) + Vector3(0, 1.05, 0), 10, 4.0)
+					else:
+						var side := dir.cross(Vector3.UP) * (0.35 * (k - 1))
+						Fx.streak(host, o + Vector3(0, 1.1, 0) + side, o + dir * rng + Vector3(0, 1.1, 0) + side, col, 0.45, 0.22)
+						Vfx.emit(host, o + dir * rng * 0.5 + Vector3(0, 1.1, 0), {"tex": "smoke", "add": false, "amount": 14, "life": 0.5,
+								"size": [0.6, 1.2], "shape": "box", "box": Vector3(0.3, 0.3, 0.3) + (dir * rng * 0.45).abs(), "vel": [1.0, 3.0],
+								"colors": Vfx.FOAM, "spin": 40.0})
+						Vfx.splash(host, o + dir * rng, 0.8)
+					Sfx.play("swing", -5.0, 1.1 + 0.1 * k)
 					for e in in_cone(tree, o, dir, rng, 0.82):
 						hit(p, e, m, o, _opts(sk)))
 		"leap":

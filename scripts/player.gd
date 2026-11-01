@@ -331,8 +331,13 @@ func basic_attack(point: Vector3) -> void:
 				Skills.hit(self, e, 1.0, global_position)
 		"thrust":
 			var r2 := float(cdata["range"])
-			Fx.streak(host, global_position + Vector3(0, 1.1, 0), global_position + dir * r2 + Vector3(0, 1.1, 0), trim, 0.5, 0.2)
-			Sfx.play("swing", -5.0, 1.2)
+			if _vis != null:
+				var lunge := create_tween()
+				lunge.tween_property(_vis, "position:z", -0.42, 0.07).set_ease(Tween.EASE_OUT)
+				lunge.tween_property(_vis, "position:z", 0.0, 0.14).set_ease(Tween.EASE_IN)
+			Fx.slash(host, global_position + dir * 0.55 + Vector3(0, 1.05, 0), atan2(dir.z, dir.x), r2 * 0.88, 65.0, Color(0.92, 0.96, 1.0), 0.72, 0.18, randf() < 0.5)
+			Vfx.sparks(host, global_position + dir * (r2 * 0.75) + Vector3(0, 1.05, 0), 8, 3.5)
+			Sfx.play("swing", -4.0, 1.08)
 			for e in Skills.in_cone(get_tree(), global_position, dir, r2, float(cdata["dot"])):
 				Skills.hit(self, e, 1.0, global_position)
 		"arrow":

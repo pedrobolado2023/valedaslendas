@@ -22,7 +22,9 @@ base_path, mesh_path, out_path = args[0], args[1], args[2]
 WSIDE = args[3] if len(args) > 3 else "r"
 SPEAR_R = float(args[4]) if len(args) > 4 else 0.08   # raio da faixa da arma (enfeites mais grossos que a haste)
 import os
-SMOOTH = int(os.environ.get("AI_SMOOTH", "12"))   # passadas de suavização dos pesos
+SMOOTH = int(os.environ.get("AI_SMOOTH", "12"))   # passadas de suavização dos pesos (3 com bone heat)
+HEAT = os.environ.get("AI_HEAT", "1") != "0"      # pesos automáticos do Blender (bone heat) numa cópia em voxels
+VOXEL = float(os.environ.get("AI_VOXEL", "0.02"))  # tamanho do voxel da cópia (m); menor = mais fiel e mais lento
 CAPE_AMP = float(os.environ.get("AI_CAPE", "0.35"))   # quanto do balanço da capa do herói base fica (0..1)
 # Opções por variável de ambiente (arma que não é haste em pé):
 #   AI_WTIP="x,y,z"  ponta da arma (mundo, modelo já virado para +Y); sem isto = topo da haste (z > 1,75)
@@ -265,6 +267,92 @@ for i, p in enumerate(vs):
     pinned[i] = lk is not None or on_spear   # arma e peças presas não entram na suavização
     for n, w in ws.items():
         Wt[i, col_of[n]] = w
+
+
+
+def heat_weights_any():
+    """Tenta o bone heat com voxels cada vez maiores (malha mais simples) até dar certo."""
+    for vox in (VOXEL, VOXEL * 1.6, VOXEL * 2.5):
+        r = heat_weights(vox)
+        if r is not None:
+            return r
+    return None
+
+
+def heat_weights(vox):
+    """Pesos automáticos do Blender ("bone heat", o mesmo que artistas usam): calcula numa cópia refeita em voxels
+    (malha de IA tem buracos e camadas sobrepostas, onde o bone heat falha) e transfere para a malha original pela
+    superfície mais próxima. Devolve a matriz de pesos (vértices × ossos) ou None se falhar."""
+    C = M.copy()
+    C.data = M.data.copy()
+    C.name = "CopiaPesos"
+    bpy.context.scene.collection.objects.link(C)
+    for g in list(C.vertex_groups):
+        C.vertex_groups.remove(g)
+    rm = C.modifiers.new("Voxels", "REMESH")
+    rm.mode = "VOXEL"
+    rm.voxel_size = vox
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = C
+    C.select_set(True)
+    bpy.ops.object.modifier_apply(modifier=rm.name)
+    keep = {b.name: b.use_deform for b in B.data.bones}
+    for bb in B.data.bones:                      # só os ossos que o jogo usa para o corpo (dedos vão com a mão)
+        bb.use_deform = bb.name in segs
+    bpy.ops.object.select_all(action="DESELECT")
+    C.select_set(True)
+    B.select_set(True)
+    bpy.context.view_layer.objects.active = B
+    try:
+        bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+    except RuntimeError as e:
+        print("bone heat falhou:", e)
+    for bb in B.data.bones:
+        bb.use_deform = keep[bb.name]
+    ok = len(C.vertex_groups) > 0 and sum(1 for v in C.data.vertices if len(v.groups)) > 0.5 * len(C.data.vertices)
+    print("bone heat (voxel %.3f):" % vox, "ok" if ok else "falhou", "copia com", len(C.data.vertices), "vertices")
+    out = None
+    if ok:
+        dt = M.modifiers.new("Transferir", "DATA_TRANSFER")
+        dt.object = C
+        dt.use_vert_data = True
+        dt.data_types_verts = {"VGROUP_WEIGHTS"}
+        dt.vert_mapping = "POLYINTERP_NEAREST"
+        dt.layers_vgroup_select_src = "ALL"
+        dt.layers_vgroup_select_dst = "NAME"
+        bpy.ops.object.select_all(action="DESELECT")
+        bpy.context.view_layer.objects.active = M
+        M.select_set(True)
+        bpy.ops.object.modifier_apply(modifier=dt.name)
+        out = np.zeros((len(vs), len(names)), np.float32)
+        gname = {g.index: g.name for g in M.vertex_groups}
+        for v in M.data.vertices:
+            for g in v.groups:
+                n = gname[g.group]
+                if n in col_of:
+                    out[v.index, col_of[n]] = g.weight
+        for g in list(M.vertex_groups):          # recria os grupos vazios (os pesos finais entram depois)
+            M.vertex_groups.remove(g)
+        for n in names:
+            groups[n] = M.vertex_groups.new(name=n)
+    bpy.data.objects.remove(C, do_unlink=True)
+    return out
+
+
+if HEAT:
+    Hw = heat_weights_any()
+    if Hw is not None:
+        has = Hw.sum(1) > 1e-4
+        use = has & ~pinned                          # arma e peças presas continuam como estavam
+        Hn = Hw[use] / Hw[use].sum(1, keepdims=True)
+        # braços: na pose da IA eles encostam no tronco e viram uma peça só na cópia em voxels (o bone heat prende o
+        # braço no corpo). Onde os pesos por distância dizem "braço", ficam eles; a mistura é gradual.
+        arm_cols = [col_of[n] for n in names if n.startswith(("upperarm", "lowerarm", "hand", "clavicle"))]
+        armness = Wt[use][:, arm_cols].sum(1)
+        a_ = np.clip((armness - 0.3) / 0.4, 0.0, 1.0)[:, None]
+        Wt[use] = a_ * Wt[use] + (1.0 - a_) * Hn
+        print("pesos do bone heat em", int(use.sum()), "de", len(vs), "vertices")
+        SMOOTH = int(os.environ.get("AI_SMOOTH", "3"))
 
 # pesos suaves: média com os vizinhos da malha várias vezes (peso que muda de repente = pele/roupa esticando)
 ev = np.array([(e.vertices[0], e.vertices[1]) for e in M.data.edges], np.int64)
