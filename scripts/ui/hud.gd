@@ -33,6 +33,9 @@ var _hp: ProgressBar
 var _hp_t: Label
 var _mp: ProgressBar
 var _mp_t: Label
+var _fury: ProgressBar
+var _fury_t: Label
+var _btn_awakening: Button
 var _xp: ProgressBar
 var _xp_t: Label
 var _gold: Label
@@ -100,6 +103,16 @@ func _build_status() -> void:
 	r = _bar_row(v, Color(0.2, 0.42, 0.9), 16.0)
 	_mp = r[0]
 	_mp_t = r[1]
+	r = _bar_row(v, Color(1.0, 0.55, 0.12), 15.0)
+	_fury = r[0]
+	_fury_t = r[1]
+	_btn_awakening = Button.new()
+	_btn_awakening.text = "DESPERTAR (F)"
+	_btn_awakening.focus_mode = Control.FOCUS_NONE
+	_btn_awakening.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+	_btn_awakening.pressed.connect(func() -> void: player.activate_awakening())
+	_btn_awakening.visible = false
+	v.add_child(_btn_awakening)
 	r = _bar_row(v, Color(0.85, 0.65, 0.2), 11.0)
 	_xp = r[0]
 	_xp_t = r[1]
@@ -192,7 +205,34 @@ func _make_slot(i: int) -> Control:
 	lv.position = Vector2(42, 56)
 	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(lv)
-	_slots.append({"btn": b, "icon": icon, "cd": cd, "cd_t": cd_t, "lv": lv})
+	var flame_style := StyleBoxFlat.new()
+	flame_style.bg_color = Color(1.0, 0.45, 0.05, 0.22)
+	flame_style.border_color = Color(1.0, 0.75, 0.1, 0.95)
+	flame_style.set_border_width_all(3)
+	flame_style.set_corner_radius_all(9)
+	flame_style.shadow_color = Color(1.0, 0.45, 0.0, 0.85)
+	flame_style.shadow_size = 8
+	var flame_panel := Panel.new()
+	flame_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flame_panel.add_theme_stylebox_override("panel", flame_style)
+	flame_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	flame_panel.offset_left = -3
+	flame_panel.offset_top = -3
+	flame_panel.offset_right = 3
+	flame_panel.offset_bottom = 3
+	flame_panel.visible = false
+	b.add_child(flame_panel)
+	var flame_tag := Label.new()
+	flame_tag.text = "+25%"
+	flame_tag.add_theme_font_size_override("font_size", 12)
+	flame_tag.add_theme_color_override("font_color", Color(1.0, 0.95, 0.3))
+	flame_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	flame_tag.position = Vector2(0, -18)
+	flame_tag.custom_minimum_size = Vector2(78, 16)
+	flame_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	flame_tag.visible = false
+	b.add_child(flame_tag)
+	_slots.append({"btn": b, "icon": icon, "cd": cd, "cd_t": cd_t, "lv": lv, "flame": flame_panel, "flame_tag": flame_tag, "style": flame_style})
 	return b
 
 
@@ -417,6 +457,14 @@ func refresh() -> void:
 	_mp.max_value = p.max_mp
 	_mp.value = p.mp
 	_mp_t.text = "%d / %d" % [int(p.mp), p.max_mp]
+	_fury.max_value = p.max_fury
+	_fury.value = p.fury
+	if p.awakened:
+		_fury_t.text = "DESPERTAR: %.1f s" % p.awakened_t
+		_btn_awakening.visible = false
+	else:
+		_fury_t.text = "Fúria  %d / %d" % [int(p.fury), int(p.max_fury)]
+		_btn_awakening.visible = p.fury >= 99.0
 	if p.level >= GameData.MAX_LEVEL:
 		_xp.max_value = 1
 		_xp.value = 1
@@ -466,3 +514,27 @@ func refresh() -> void:
 		cd_rect.size.y = 70.0 * clampf(rem / total, 0.0, 1.0)
 		cd_t.add_theme_font_size_override("font_size", 24)
 		cd_t.text = ("%.0f" % ceil(rem)) if rem > 0.05 else ""
+		var is_combo := (p.combo_skill_idx == i and p.combo_timer > 0.0)
+		var flame: Panel = s.get("flame", null)
+		var flame_tag: Label = s.get("flame_tag", null)
+		var flame_style: StyleBoxFlat = s.get("style", null)
+		var b_node: Button = s["btn"]
+		if flame != null:
+			if is_combo:
+				flame.visible = true
+				if flame_tag != null:
+					flame_tag.visible = true
+				var t := Time.get_ticks_msec() * 0.012
+				var pulse := 0.5 + 0.5 * sin(t)
+				var fire_col := Color(1.0, lerpf(0.35, 0.88, pulse), 0.05, 0.95)
+				if flame_style != null:
+					flame_style.border_color = fire_col
+					flame_style.shadow_color = Color(1.0, 0.35 * pulse, 0.0, 0.9)
+					flame_style.shadow_size = int(6.0 + 4.0 * pulse)
+				b_node.scale = Vector2.ONE * (1.05 + 0.04 * pulse)
+				b_node.pivot_offset = Vector2(39, 39)
+			else:
+				flame.visible = false
+				if flame_tag != null:
+					flame_tag.visible = false
+				b_node.scale = Vector2.ONE

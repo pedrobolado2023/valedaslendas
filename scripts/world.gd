@@ -377,24 +377,12 @@ func _build_bounds() -> void:
 		obstacles.add_child(cs)
 
 
-func _solid(pos: Vector3, r: float) -> void:
-	var cs := CollisionShape3D.new()
-	var c := CylinderShape3D.new()
-	c.radius = r
-	c.height = 4.0
-	cs.shape = c
-	cs.position = pos + Vector3(0, 2.0, 0)
-	obstacles.add_child(cs)
+func _solid(_pos: Vector3, _r: float) -> void:
+	pass
 
 
-func _solid_box(pos: Vector3, size: Vector3, rot_y: float) -> void:
-	var cs := CollisionShape3D.new()
-	var b := BoxShape3D.new()
-	b.size = size
-	cs.shape = b
-	cs.position = pos + Vector3(0, size.y * 0.5, 0)
-	cs.rotation.y = rot_y
-	obstacles.add_child(cs)
+func _solid_box(_pos: Vector3, _size: Vector3, _rot_y: float) -> void:
+	pass
 
 
 func _place(model: String, pos: Vector3, rot_y: float = 0.0, s: float = 1.0, outline: float = 0.04) -> Node3D:
@@ -458,20 +446,14 @@ func _build_hub() -> void:
 		var pos := Vector3(cos(a), 0, sin(a)) * 16.5
 		var ry := _facing_center(pos)
 		_place(model, pos, ry)
-		if model == "tent":
-			_solid(pos, 2.3)
-		else:
-			_solid_box(pos, Vector3(7.0 if model != "house_b" else 8.2, 4.0, 5.2), ry)
 		var side := Vector3(cos(a + 0.4), 0, sin(a + 0.4)) * 15.0
 		if road_dist(Vector2(side.x, side.z)) > 3.0:
 			_place("barrel" if i % 2 == 0 else "crate", side, _rng.randf() * TAU)
-			_solid(side, 0.5)
 	if map_id == "vale" or map_id == "gelo":
 		var a2 := _free_angle(9.0)
 		var wp := Vector3(cos(a2), 0, sin(a2)) * 5.5
 		well_pos = wp
 		_place("well", wp, 0.4)
-		_solid(wp, 1.2)
 	for i in 6:
 		var a3 := TAU * i / 6.0 + 0.5
 		var lp := Vector3(cos(a3), 0, sin(a3)) * 10.5
@@ -479,20 +461,10 @@ func _build_hub() -> void:
 			lp *= 1.18
 		_place("lamp", lp, _facing_center(lp) + PI / 2.0)
 		_lamp_light(lp + Vector3(0, 2.8, 0), Color(1.0, 0.68, 0.32), 3.2, 12.0)
-		_solid(lp, 0.35)
-	if map_id != "deserto":
-		for i in 44:
-			var a4 := TAU * i / 44.0
-			var fp := Vector3(cos(a4), 0, sin(a4)) * 23.0
-			if road_dist(Vector2(fp.x, fp.z)) < 5.0:
-				continue
-			_place("fence", fp, -a4 - PI / 2.0)
 	# portal de viagem e quadro de missões
 	_place("portal", portal_pos, _facing_center(portal_pos), 1.0, 0.05)
-	_solid(portal_pos, 2.0)
 	_lamp_light(portal_pos + Vector3(0, 2.6, 0), Color(0.45, 0.85, 1.0), 3.0, 10.0)
 	_place("board", board_pos, _facing_center(board_pos), 1.0, 0.04)
-	_solid_box(board_pos, Vector3(3.0, 3.0, 0.6), _facing_center(board_pos))
 
 
 func _build_stone_ruins() -> void:
@@ -510,16 +482,12 @@ func _build_stone_ruins() -> void:
 				continue
 			var ry := _rng.randf() * PI
 			_place(arch, p, ry, 1.0, 0.05)
-			var off := Vector3(cos(-ry), 0, sin(-ry)) * 2.4
-			_solid(p + off, 0.7)
-			_solid(p - off, 0.7)
 		for i in 10:
 			var a2 := _rng.randf() * TAU
 			var p2 := c + Vector3(cos(a2), 0, sin(a2)) * _rng.randf_range(r * 0.3, r)
 			if road_dist(Vector2(p2.x, p2.z)) < 3.5:
 				continue
 			_place("ruin_pillar", p2, _rng.randf() * TAU, _rng.randf_range(0.8, 1.3), 0.05)
-			_solid(p2, 0.7)
 		for i in 3:
 			var a3 := TAU * i / 3.0 + 0.4
 			_lamp_light(c + Vector3(cos(a3), 0, sin(a3)) * r * 0.5 + Vector3(0, 2.0, 0), theme["glow_color"], 2.5, 12.0)
@@ -563,15 +531,7 @@ func _build_lake() -> void:
 	mi.position = Vector3(lake_c.x, 0.04, lake_c.y)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
-	for i in 10:
-		var t := (float(i) / 9.0 - 0.5) * 1.8
-		var cs := CollisionShape3D.new()
-		var b := CylinderShape3D.new()
-		b.radius = lake_r.y * sqrt(maxf(0.0, 1.0 - t * t * 0.95)) * 0.9
-		b.height = 3.0
-		cs.shape = b
-		cs.position = Vector3(lake_c.x + t * lake_r.x * 0.95, 1.5, lake_c.y)
-		obstacles.add_child(cs)
+
 	_lamp_light(Vector3(lake_c.x, 2.5, lake_c.y), light, 2.4 if lake_type == "lava" else 1.6, 20.0)
 
 
@@ -604,15 +564,20 @@ static var DRAW_R := 62.0 if OS.has_feature("web") else 90.0
 
 
 func _process(delta: float) -> void:
+	if not is_inside_tree():
+		return
+	# Atualiza a posição do efeito de vento imediatamente a cada quadro na visão do personagem
+	var p := get_tree().get_first_node_in_group("player") as Node3D
+	if p != null and _weather_holder != null:
+		_weather_holder.global_position = p.global_position + Vector3(0, 1.5, 0)
+
 	_cull_t -= delta
 	if _cull_t > 0.0:
 		return
 	_cull_t = 0.3
-	var p := get_tree().get_first_node_in_group("player") as Node3D
 	if p == null:
 		return
 	var at := Vector2(p.global_position.x, p.global_position.z)
-	# raio pelo zoom da câmera (o que a tela mostra) + folga do tamanho do pedaço
 	var cam := get_viewport().get_camera_3d()
 	var r := minf(DRAW_R, (cam.size * 1.25 if cam != null and cam.projection == Camera3D.PROJECTION_ORTHOGONAL else DRAW_R)) + CHUNK * 0.75
 	for c in _chunks:
@@ -621,8 +586,6 @@ func _process(delta: float) -> void:
 		var show := near and not mmi.has_meta("q_off")
 		if mmi.visible != show:
 			mmi.visible = show
-	if _weather_holder != null:
-		_weather_holder.global_position = Vector3(p.global_position.x, 0.0, p.global_position.z)
 
 
 func _add_instances(mesh: Mesh, xforms: Array, colors: Array = [], customs: Array = [], shadow: bool = true, chunk: float = -1.0) -> void:
@@ -681,60 +644,92 @@ var _weather: CPUParticles3D
 
 
 func _build_weather() -> void:
-	var ground := String(theme["ground"])
-	var kind: String = {"snow": "neve", "ash": "cinza", "sand": "areia"}.get(ground, "folha")
-	if bool(GameData.MAPS[map_id].get("event", false)) and kind == "folha":
-		return
-	var p := CPUParticles3D.new()
-	p.amount = 28 if OS.has_feature("web") else 60
-	p.lifetime = 7.0
-	p.preprocess = 7.0
-	p.local_coords = false
-	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	p.emission_box_extents = Vector3(38, 6, 30)
-	p.position = Vector3(0, 7, 0)
-	var q := QuadMesh.new()
-	q.size = Vector2(0.18, 0.18) if kind != "folha" else Vector2(0.28, 0.16)
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.vertex_color_use_as_albedo = true
-	q.material = mat
-	p.mesh = q
-	match kind:
-		"neve":
-			p.color = Color(1, 1, 1, 0.85)
-			p.direction = Vector3(0.4, -1, 0.2)
-			p.initial_velocity_min = 1.2
-			p.initial_velocity_max = 2.2
-			p.gravity = Vector3(0.4, -0.6, 0)
-		"cinza":
-			p.color = Color(0.55, 0.5, 0.5, 0.7)
-			p.direction = Vector3(1, 0.2, 0.3)
-			p.initial_velocity_min = 1.0
-			p.initial_velocity_max = 2.5
-			p.gravity = Vector3(0.3, 0.15, 0)
-		"areia":
-			p.color = Color(0.9, 0.75, 0.5, 0.55)
-			p.direction = Vector3(1, 0.05, 0.2)
-			p.initial_velocity_min = 3.0
-			p.initial_velocity_max = 5.0
-			p.gravity = Vector3(0.6, -0.1, 0)
-		_:
-			p.color = (theme["forest_tint"] as Color).lerp(Color(0.9, 0.7, 0.3), 0.4)
-			p.direction = Vector3(1, -0.3, 0.4)
-			p.initial_velocity_min = 1.0
-			p.initial_velocity_max = 2.0
-			p.gravity = Vector3(0.5, -0.4, 0)
-			p.angular_velocity_min = -120.0
-			p.angular_velocity_max = 120.0
-	p.spread = 25.0
 	var holder := Node3D.new()
 	add_child(holder)
-	holder.add_child(p)
-	_weather = p
 	_weather_holder = holder
+
+	# 1. Linhas de Vento e Rajadas Translúcidas (Wind Streaks)
+	var p_streaks := CPUParticles3D.new()
+	p_streaks.amount = 40
+	p_streaks.lifetime = 1.4
+	p_streaks.preprocess = 2.0
+	p_streaks.local_coords = false
+	p_streaks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p_streaks.emission_box_extents = Vector3(26, 3.5, 20)
+	p_streaks.position = Vector3(0, 1.2, 0)
+
+	var q_streak := QuadMesh.new()
+	q_streak.size = Vector2(2.6, 0.05)
+	var mat_streak := StandardMaterial3D.new()
+	mat_streak.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat_streak.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat_streak.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat_streak.vertex_color_use_as_albedo = true
+	q_streak.material = mat_streak
+	p_streaks.mesh = q_streak
+
+	p_streaks.direction = Vector3(1.0, -0.05, 0.35).normalized()
+	p_streaks.spread = 12.0
+	p_streaks.initial_velocity_min = 16.0
+	p_streaks.initial_velocity_max = 24.0
+	p_streaks.gravity = Vector3(1.5, -0.2, 0.5)
+
+	var grad_streak := Gradient.new()
+	grad_streak.set_color(0, Color(1.0, 1.0, 1.0, 0.0))
+	grad_streak.add_point(0.25, Color(0.9, 0.96, 1.0, 0.38))
+	grad_streak.add_point(0.75, Color(0.85, 0.95, 1.0, 0.30))
+	grad_streak.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
+	p_streaks.color_ramp = grad_streak
+	holder.add_child(p_streaks)
+
+	# 2. Folhas e Partículas Levadas pelo Vento
+	var p_leaves := CPUParticles3D.new()
+	p_leaves.amount = 55
+	p_leaves.lifetime = 2.8
+	p_leaves.preprocess = 2.0
+	p_leaves.local_coords = false
+	p_leaves.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p_leaves.emission_box_extents = Vector3(28, 4.5, 22)
+	p_leaves.position = Vector3(0, 1.5, 0)
+
+	var q_leaf := QuadMesh.new()
+	q_leaf.size = Vector2(0.24, 0.16)
+	var mat_leaf := StandardMaterial3D.new()
+	mat_leaf.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat_leaf.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat_leaf.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat_leaf.vertex_color_use_as_albedo = true
+	q_leaf.material = mat_leaf
+	p_leaves.mesh = q_leaf
+
+	p_leaves.direction = Vector3(1.0, -0.15, 0.35).normalized()
+	p_leaves.spread = 24.0
+	p_leaves.initial_velocity_min = 7.0
+	p_leaves.initial_velocity_max = 13.0
+	p_leaves.gravity = Vector3(1.8, -0.4, 0.6)
+	p_leaves.angular_velocity_min = -180.0
+	p_leaves.angular_velocity_max = 180.0
+
+	var ground := String(theme.get("ground", "grass"))
+	match ground:
+		"snow":
+			p_leaves.color = Color(0.9, 0.96, 1.0, 0.85)
+		"ash":
+			p_leaves.color = Color(1.0, 0.55, 0.15, 0.8)
+		"sand":
+			p_leaves.color = Color(0.95, 0.82, 0.55, 0.75)
+		_:
+			p_leaves.color = Color(0.65, 0.95, 0.55, 0.85)
+
+	var grad_leaf := Gradient.new()
+	grad_leaf.set_color(0, Color(1, 1, 1, 0.0))
+	grad_leaf.add_point(0.2, Color(1, 1, 1, 1.0))
+	grad_leaf.add_point(0.8, Color(1, 1, 1, 0.9))
+	grad_leaf.set_color(1, Color(1, 1, 1, 0.0))
+	p_leaves.color_ramp = grad_leaf
+	holder.add_child(p_leaves)
+
+	_weather = p_streaks
 
 
 var _weather_holder: Node3D
@@ -804,8 +799,6 @@ func _build_vegetation() -> void:
 			trees[t] = []
 		var s := _rng.randf_range(0.85, 1.4)
 		(trees[t] as Array).append(_xf(p, s))
-		if not border:
-			_solid(Vector3(p.x, 0, p.y), 0.42 * s)
 	for t in trees:
 		_add_instances(_windy(ModelKit.static_mesh(String(t), 0.05), 0.012), trees[t])
 
@@ -826,70 +819,10 @@ func _build_vegetation() -> void:
 		if not props.has(k):
 			props[k] = []
 		(props[k] as Array).append(_xf(p2, s2))
-		if k.begins_with("rock") and s2 > 1.2:
-			_solid(Vector3(p2.x, 0, p2.y), 0.5 * s2)
 	for k in props:
-		_add_instances(_windy(ModelKit.static_mesh(String(k), 0.04), 0.03 if String(k).begins_with("bush") else 0.0), props[k])
-	_add_instances(ModelKit.static_mesh(String(theme["glow_prop"]), 0.03), glow, [], [], false)
-	for i in mini(10, glow.size()):
-		var t2: Transform3D = glow[i * glow.size() / mini(10, glow.size())]
-		_lamp_light(t2.origin + Vector3(0, 1.2, 0), theme["glow_color"], 1.8, 7.0)
-
-	var gcount := int(theme["grass_count"])
-	if gcount > 0:
-		var gmat := ShaderMaterial.new()
-		gmat.shader = load("res://shaders/foliage_card.gdshader")
-		gmat.set_shader_parameter("tex", load("res://textures/grass_blade.png"))
-		var gmesh := _card_mesh(1.1, 0.9, 3)
-		gmesh.surface_set_material(0, gmat)
-		var gx: Array = []
-		var gc: Array = []
-		var gd: Array = []
-		var base: Color = theme["grass"]
-		var fbase: Color = theme["forest_grass"]
-		for i in gcount:
-			var p3 := Vector2(_rng.randf_range(-HALF, HALF), _rng.randf_range(-HALF, HALF))
-			if road_dist(p3) < 3.2 or p3.length() < 11.0 or in_lake(p3, 0.5):
-				continue
-			var reg3 := _region_at(p3)
-			if reg3 == "stone" and _rng.randf() < 0.85:
-				continue
-			gx.append(_xf(p3, _rng.randf_range(0.6, 1.35)))
-			var v := _rng.randf_range(0.75, 1.1)
-			var col: Color = fbase if reg3 == "forest" else base
-			gc.append(Color(col.r * v, col.g * v, col.b * v))
-			gd.append(Color(_rng.randf() * TAU, 0, 0, 0))
-		_add_instances(gmesh, gx, gc, gd, false, 30.0)
-
-	var fcount := int(theme["flowers"])
-	if fcount > 0:
-		var fmat := ShaderMaterial.new()
-		fmat.shader = load("res://shaders/foliage_card.gdshader")
-		fmat.set_shader_parameter("tex", load("res://textures/flower.png"))
-		fmat.set_shader_parameter("tint_whites", 1.0)
-		fmat.set_shader_parameter("sway", 0.06)
-		var fmesh := _card_mesh(0.45, 0.5, 2)
-		fmesh.surface_set_material(0, fmat)
-		var fx: Array = []
-		var fc: Array = []
-		var fd: Array = []
-		var palette := [Color(1.0, 0.85, 0.3), Color(1.0, 0.5, 0.65), Color(0.75, 0.6, 1.0), Color(1, 1, 1), Color(0.5, 0.85, 1.0)]
-		var open_c := Vector2.ZERO
-		for reg in regions():
-			if String(reg["type"]) == "open":
-				open_c = reg["c"]
-		for i in fcount:
-			var p4: Vector2
-			if i < fcount * 0.64:
-				p4 = open_c + Vector2(_rng.randf_range(-30, 30), _rng.randf_range(-30, 30))
-			else:
-				p4 = Vector2(_rng.randf_range(-HALF, HALF), _rng.randf_range(-HALF, HALF))
-			if road_dist(p4) < 3.0 or p4.length() < 11.0 or in_lake(p4, 0.5) or _region_at(p4) == "forest":
-				continue
-			fx.append(_xf(p4, _rng.randf_range(0.7, 1.3)))
-			fc.append(palette[_rng.randi() % palette.size()])
-			fd.append(Color(_rng.randf() * TAU, 0, 0, 0))
-		_add_instances(fmesh, fx, fc, fd, false, 30.0)
+		_add_instances(ModelKit.static_mesh(String(k), 0.04), props[k])
+	if not glow.is_empty():
+		_add_instances(ModelKit.static_mesh(String(theme["glow_prop"]), 0.04), glow)
 
 
 func _build_zone_markers() -> void:

@@ -89,7 +89,9 @@ static func hit(p: Player, e: Enemy, mult: float, from: Vector3, opts: Dictionar
 		return
 	var crit := randf() < 0.15 or p.crit_next
 	p.crit_next = false
-	var dmg := p.atk * mult * randf_range(0.92, 1.08) * (1.0 + p.dmg_buff) * (1.8 if crit else 1.0)
+	# combo: vale para todos os golpes da skill (inclusive os atrasados) enquanto a janela estiver aberta
+	var combo_boost := p.combo_active_boost if p.combo_boost_t > 0.0 else 1.0
+	var dmg := p.atk * mult * combo_boost * randf_range(0.92, 1.08) * (1.0 + p.dmg_buff) * (1.8 if crit else 1.0)
 	if p.double_next:
 		p.double_next = false
 		dmg *= 2.0
@@ -182,17 +184,21 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			var r4 := area(sk)
 			var target := pos + flat(point - pos).limit_length(float(sk["range"]))
 			var delay := float(sk["delay"])
-			Fx.telegraph(host, target, r4, col, delay)
-			_falling(host, target, String(sk["visual"]), col, delay)
+			if String(sk.get("visual", "")) == "sword":
+				Vfx.sky_sword(host, target, r4, delay, col)
+			else:
+				Fx.telegraph(host, target, r4, col, delay)
+				_falling(host, target, String(sk["visual"]), col, delay)
 			_later(p, delay, func() -> void:
-				Fx.ring(host, target + Vector3(0, 0.1, 0), col, r4 * 1.2, 0.5, 0.1)
-				Fx.disc(host, target + Vector3(0, 0.05, 0), col, r4, 0.5, 0.28)
-				Fx.burst(host, target + Vector3(0, 0.5, 0), col, 40, 10.0, 0.16)
-				Fx.light_flash(host, target + Vector3(0, 2, 0), col, 6.0, 16.0, 0.6)
-				Fx.shake(p, 0.5)
-				Sfx.play("sk_explosion", 0.0)
+				if String(sk.get("visual", "")) != "sword":
+					Fx.ring(host, target + Vector3(0, 0.1, 0), col, r4 * 1.2, 0.5, 0.1)
+					Fx.disc(host, target + Vector3(0, 0.05, 0), col, r4, 0.5, 0.28)
+					Fx.burst(host, target + Vector3(0, 0.5, 0), col, 40, 10.0, 0.16)
+					Fx.light_flash(host, target + Vector3(0, 2, 0), col, 6.0, 16.0, 0.6)
+					Fx.shake(p, 0.5)
+					Sfx.play("sk_explosion", 0.0)
 				for e in in_radius(tree, target, r4):
-					hit(p, e, m, target, {"stun": 0.6}))
+					hit(p, e, m, target, {"stun": 0.8}))
 		"thrust3":
 			var rng := float(sk["range"])
 			var hits := int(sk["hits"])
@@ -359,8 +365,11 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 						Fx.damage_number(host, p.global_position + Vector3(0, 2.6, 0), "+%d" % int(amount), Color(0.45, 1.0, 0.5)))
 		"guard":
 			p.add_guard(buff_amount(sk, lvl), float(sk["dur"]))
-			_bark(p, col, float(sk["dur"]))
-			Vfx.bark_aura(p, float(sk["dur"]))
+			if String(sk.get("visual", "")) == "shields":
+				Vfx.golden_shield(p, float(sk["dur"]), col)
+			else:
+				_bark(p, col, float(sk["dur"]))
+				Vfx.bark_aura(p, float(sk["dur"]))
 		"awaken":
 			var ra := area(sk)
 			Vfx.radiance(host, pos, ra)
@@ -468,7 +477,10 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				for e in in_radius(tree, o, rc):
 					hit(p, e, m, o, {"stun": 0.8}))
 		"companion":
-			_jelly(p, m, float(sk["range"]), float(sk["dur"]), float(sk["every"]), col)
+			if String(sk.get("visual", "")) == "phoenix":
+				Vfx.phoenix_flight(p, host, dir, float(sk["range"]), float(sk["dur"]), float(sk["every"]), col, m)
+			else:
+				_jelly(p, m, float(sk["range"]), float(sk["dur"]), float(sk["every"]), col)
 		"ice_fall":
 			var ri := area(sk)
 			var center := pos + flat(point - pos).limit_length(float(sk["range"]))
@@ -703,21 +715,30 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			var rr := area(sk)
 			var center2 := pos + flat(point - pos).limit_length(float(sk["range"]))
 			var blast := float(sk["blast"]) * GameData.AREA_MULT
-			Vfx.marker(host, center2, col, rr, float(sk["spread_t"]) + 0.9)
-			for k in int(sk["count"]):
-				var off2 := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).limit_length(1.0) * rr * 0.8
-				var at2 := center2 + off2
-				var fall2 := 0.85
-				var start2 := 0.1 + float(sk["spread_t"]) * float(k) / int(sk["count"])
-				_later(p, start2, func() -> void:
-					Vfx.meteor(host, at2, fall2, blast))
-				_later(p, start2 + fall2, func() -> void:
+			if String(sk.get("visual", "")) == "colossal":
+				# um meteoro gigante só, com um golpe em toda a área
+				Vfx.colossal_meteor(host, center2, 1.1, rr, blast * 1.5, col)
+				_later(p, 1.1, func() -> void:
 					if not is_instance_valid(p):
 						return
-					Sfx.play("sk_explosion", -4.0, randf_range(0.8, 1.1))
-					Fx.shake(p, 0.3)
-					for e in in_radius(tree, at2, blast):
-						hit(p, e, m, at2, {"knock": 2.0}))
+					for e in in_radius(tree, center2, rr):
+						hit(p, e, m, center2, {"knock": 3.5}))
+			else:
+				Vfx.marker(host, center2, col, rr, float(sk["spread_t"]) + 0.9)
+				for k in int(sk["count"]):
+					var off2 := Vector3(randf_range(-1, 1), 0, randf_range(-1, 1)).limit_length(1.0) * rr * 0.8
+					var at2 := center2 + off2
+					var fall2 := 0.85
+					var start2 := 0.1 + float(sk["spread_t"]) * float(k) / int(sk["count"])
+					_later(p, start2, func() -> void:
+						Vfx.meteor(host, at2, fall2, blast))
+					_later(p, start2 + fall2, func() -> void:
+						if not is_instance_valid(p):
+							return
+						Sfx.play("sk_explosion", -4.0, randf_range(0.8, 1.1))
+						Fx.shake(p, 0.3)
+						for e in in_radius(tree, at2, blast):
+							hit(p, e, m, at2, {"knock": 2.0}))
 		"fissure":
 			var rf := area(sk)
 			var dur := float(sk["dur"])

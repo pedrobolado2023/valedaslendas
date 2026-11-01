@@ -313,6 +313,20 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   (espada para frente e para baixo, `na*`). Ataque básico da Arqueira = `"bow"` (flecha). Skills ma1-10, gu1-10, ar1-10
   reaproveitam tipos existentes; ícones = cópias tingidas. Menu de classes em grade 4x2 (skills no tooltip).
 
+- **Fúria, Despertar, combo e tropas (`player.gd`, `scripts/soldier.gd`):** barra de Fúria no HUD (enche batendo, apanhando e
+  com os golpes da tropa); cheia, F (ou o botão "DESPERTAR (F)") dá 16 s de forma gigante, +60% de dano, +35% de velocidade e
+  asas de luz. Combo em chamas: depois de uma skill (80%) ou ataque básico (35%) outra skill fica acesa no HUD por 4 s; usada
+  nesse tempo, todos os golpes dela levam +25% (`combo_boost_t`, janela de 2 s lida em `Skills.hit`). Tropa: 2 lanceiros
+  (`Player.spawn_troops`, ao começar e ao viajar) que lutam até 18 m do herói e voltam para a formação; só no cliente (online
+  os outros não veem; o dano vai por `enemy_hit`). Nada disso vai no save.
+- **Visuais grandes de skill por campo `"visual"` nos dados (`Vfx`):** strike `"sword"` → `Vfx.sky_sword` (gu6), guard
+  `"shields"` → `golden_shield` (gu3), companion `"phoenix"` → `phoenix_flight` (ar9 Fênix Companheira), meteor_rain
+  `"colossal"` → `colossal_meteor` (ma6 Meteoro Colossal, um golpe só). Também `cinematic_dim`, `screen_flash`, `magic_rune_circle`.
+  Nunca usar nomes/termos de outros jogos (uma versão anterior copiou o Legend Online e foi desfeita).
+- **Mapas sem colisão interna:** `world._solid`/`_solid_box` não fazem nada (casas, cercas, lago não bloqueiam; só chão e bordas).
+  Clima trocado por vento (rajadas + folhas/neve/cinza/areia pelo bioma) seguindo o herói. Teste: `tools/test_wind_and_collision.gd`;
+  combo/fúria/tropas/visuais: `VALE_TESTE=1 godot --headless --path . -s tools/test_combo_fury.gd`.
+
 ## Próximos passos combinados com o dono
 1. ~~Humanizar as 4 classes com MPFB2~~ — feito (Druida, Assassino, Mecânico, Náutico). Falta o dono testar jogando.
 2. Cabelo melhor (com balanço). Já feitos: capa com balanço, texturas de tecido/couro/metal e barras nas roupas.

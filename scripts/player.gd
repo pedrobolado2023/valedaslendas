@@ -7,6 +7,8 @@ signal stats_changed
 signal leveled_up(level: int)
 signal fell
 signal message(text: String)
+signal combo_changed(skill_idx: int, duration: float)
+signal awakening_changed(is_awakened: bool)
 
 const LIMIT := 106.0
 
@@ -103,6 +105,23 @@ var shield_burst := {}     # Escudo de Conchas: explode ao quebrar
 var _since_action := 99.0
 var _giant_t := 0.0
 var _uid := 0
+
+## Fúria (enche batendo/apanhando; cheia libera o Despertar na tecla F), combo em chamas
+## (uma skill sorteada fica acesa por combo_dur s e dá +25% se usada) e tropas que lutam ao lado.
+var fury := 0.0
+var max_fury := 100.0
+var awakened := false
+var awakened_t := 0.0
+var combo_skill_idx := -1
+var combo_timer := 0.0
+var combo_dur := 4.0
+var combo_mult := 1.25
+var combo_active_boost := 1.0
+var combo_boost_t := 0.0   # janela em que os golpes da skill do combo recebem o bônus (Skills.hit)
+var soldiers: Array = []
+var troop_level := 1
+var troop_type := "lanceiro"
+var _wings_fx: Node3D
 
 
 func _ready() -> void:
@@ -261,10 +280,28 @@ func cast_skill(i: int, point: Vector3) -> bool:
 	_act_t = 0.35
 	_since_action = 0.0
 	_break_stealth()
+	add_fury(10.0)
+	if i == combo_skill_idx and combo_timer > 0.0:
+		combo_active_boost = combo_mult
+		combo_boost_t = 2.0
+		combo_skill_idx = -1
+		combo_timer = 0.0
+		combo_changed.emit(-1, 0.0)
+		add_fury(15.0)
+		Fx.damage_number(get_parent(), global_position + Vector3(0, 3.2, 0), "COMBO EM CHAMAS! +25%", Color(1.0, 0.6, 0.1), true)
+		Vfx.sparks(get_parent(), global_position + Vector3(0, 1.4, 0), 22, 5.0)
+		Sfx.play("equip", 0.0, 1.4)
+	else:
+		combo_active_boost = 1.0
+		combo_boost_t = 0.0
+
 	Skills.cast(self, i, point)
 	play_skill(String(skill(i).get("anim", skill(i)["id"])))
 	_add_heat()
 	stats_changed.emit()
+
+	if randf() < 0.80:
+		trigger_combo_proc(i)
 	return true
 
 
@@ -319,6 +356,12 @@ func basic_attack(point: Vector3) -> void:
 	_skill_anim_t = 0.0   # o ataque básico sempre aparece (interrompe a animação de skill)
 	attack_visual()
 	var host := get_parent()
+	add_fury(14.0)
+	combo_boost_t = 0.0   # o bônus do combo é só da skill
+	if combo_skill_idx < 0 and randf() < 0.35:
+		trigger_combo_proc(-1)
+	if awakened:
+		Vfx.shockwave(host, global_position + dir * 1.5, Color(1.0, 0.85, 0.3), 3.2, 0.22)
 	var trim: Color = cdata["trim"]
 	if not weapon.is_empty() and String(weapon["rarity"]) != "comum":
 		trim = GameData.RARITY[weapon["rarity"]]["color"]
@@ -523,6 +566,23 @@ func _timers(delta: float) -> void:
 	_act_t -= delta
 	_skill_anim_t -= delta
 	invuln_t -= delta
+	combo_boost_t -= delta
+	if combo_timer > 0.0:
+		combo_timer -= delta
+		if combo_timer <= 0.0:
+			combo_skill_idx = -1
+			combo_changed.emit(-1, 0.0)
+	if awakened:
+		awakened_t -= delta
+		fury = maxf(0.0, (awakened_t / 16.0) * 100.0)
+		if awakened_t <= 0.0:
+			awakened = false
+			fury = 0.0
+			awakening_changed.emit(false)
+			stats_changed.emit()
+			if _wings_fx != null and is_instance_valid(_wings_fx):
+				_wings_fx.queue_free()
+				_wings_fx = null
 	_since_hit += delta
 	_since_action += delta
 	if not alive:
@@ -654,6 +714,7 @@ func take_damage(n: int, from: Vector3 = Vector3.ZERO, attacker: Node = null) ->
 		return
 	hp -= dmg
 	_since_hit = 0.0
+	add_fury(dmg * 0.15)
 	if _kit != null:
 		_kit.flash(self)
 	Fx.shake(self, 0.18)
@@ -1228,3 +1289,84 @@ func heal(amount: float) -> void:
 		return
 	hp = minf(max_hp, hp + amount)
 	stats_changed.emit()
+
+
+# ------------------------------------------------------------------ fúria, despertar, combo e tropas
+
+func add_fury(amount: float) -> void:
+	if awakened or not alive:
+		return
+	var before := fury
+	fury = minf(max_fury, fury + amount)
+	if before < max_fury and fury >= max_fury:
+		message.emit("FÚRIA 100% — Pressione F para DESPERTAR!")
+		Sfx.play("legendary", -2.0, 1.2)
+		Fx.ring(get_parent(), global_position + Vector3(0, 0.1, 0), Color(1.0, 0.85, 0.3), 3.5, 0.45)
+	stats_changed.emit()
+
+
+func activate_awakening() -> bool:
+	if not alive or awakened or fury < 99.0:
+		return false
+	awakened = true
+	awakened_t = 16.0
+	cc_immune_t = 16.0
+	become_giant(16.0)
+	add_dmg_buff(0.60, 16.0, Color(1.0, 0.85, 0.3))
+	add_speed_buff(0.35, 16.0)
+	_create_wings_visual()
+	awakening_changed.emit(true)
+	var host := get_parent()
+	Fx.shake(self, 0.5)
+	Fx.light_flash(host, global_position + Vector3(0, 2.0, 0), Color(1.0, 0.85, 0.4), 8.0, 16.0, 0.8)
+	Vfx.radiance(host, global_position, 8.0)
+	Vfx.shockwave(host, global_position, Color(1.0, 0.88, 0.3), 7.0, 0.45)
+	Sfx.play("legendary", 0.0, 1.0)
+	message.emit("DESPERTAR DIVINO ATIVADO!")
+	stats_changed.emit()
+	return true
+
+
+func _create_wings_visual() -> void:
+	if _wings_fx != null and is_instance_valid(_wings_fx):
+		_wings_fx.queue_free()
+	_wings_fx = Node3D.new()
+	_vis.add_child(_wings_fx)
+	_wings_fx.position = Vector3(0, 1.25, -0.2)
+	for side in [-1.0, 1.0]:
+		var wing := Node3D.new()
+		_wings_fx.add_child(wing)
+		wing.position = Vector3(side * 0.18, 0.15, 0.0)
+		for k in 5:
+			var feather := Toon.glow_part(Toon.box(Vector3(0.08, 0.04, 0.7 - k * 0.08)), Color(1.0, 0.85, 0.3), Vector3(side * (0.2 + k * 0.12), 0.15 - k * 0.08, 0.35 + k * 0.1), 0.88, true)
+			feather.rotation = Vector3(-0.35, side * (0.45 + k * 0.15), side * -0.25)
+			wing.add_child(feather)
+		var tw := wing.create_tween().set_loops()
+		tw.tween_property(wing, "rotation:y", side * 0.35, 0.45).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(wing, "rotation:y", side * -0.15, 0.45).set_trans(Tween.TRANS_SINE)
+
+
+func trigger_combo_proc(from_skill: int = -1) -> void:
+	var available := []
+	for j in skill_count():
+		if j != from_skill and skill_levels[j] >= 1 and not is_passive(j):
+			available.append(j)
+	if available.is_empty():
+		return
+	combo_skill_idx = available[randi() % available.size()]
+	combo_timer = combo_dur
+	combo_changed.emit(combo_skill_idx, combo_timer)
+
+
+func spawn_troops(host_node: Node) -> void:
+	for s in soldiers:
+		if is_instance_valid(s):
+			s.queue_free()
+	soldiers.clear()
+	var sides: Array[float] = [-1.4, 1.4]
+	for side in sides:
+		var SoldierScript := preload("res://scripts/soldier.gd")
+		var sol = SoldierScript.new()
+		host_node.add_child(sol)
+		sol.setup(self, side, troop_type, troop_level)
+		soldiers.append(sol)

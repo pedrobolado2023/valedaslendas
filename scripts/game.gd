@@ -493,6 +493,7 @@ func travel(id: String, ignore_level: bool = false) -> void:
 	await tw.finished
 	_build_map(id, true)
 	player.global_position = world.spawn_pos + Vector3(0, 0.1, 0)
+	player.spawn_troops(actors)
 	_cam_target = player.global_position
 	_place_camera(_cam_target)
 	Sfx.music(String(md["music"]))
@@ -558,6 +559,7 @@ func start_game(key: String, save: Dictionary) -> void:
 	player.fell.connect(_on_fell)
 	player.message.connect(func(t: String) -> void: toast(t, 1.6))
 	_cam_target = player.global_position
+	player.spawn_troops(actors)
 
 	_build_ui()
 	if Rewards.can_claim_daily(player):
@@ -992,6 +994,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		chat.open()
 		get_viewport().set_input_as_handled()
 		return
+	if k.keycode == KEY_F and player != null:
+		if player.activate_awakening():
+			get_viewport().set_input_as_handled()
+			return
 	if k.keycode >= KEY_1 and k.keycode <= KEY_9:
 		player.cast_skill(k.keycode - KEY_1, player.aim_point)
 	elif k.keycode == KEY_0:

@@ -8,7 +8,7 @@ extends RefCounted
 static var _tex := {}
 static var _mats := {}
 
-const ALL_TEX := ["soft", "dot", "ring", "beam", "smoke", "flame", "crack", "crack_glow", "crack_white", "frost", "scorch", "leaf"]
+const ALL_TEX := ["soft", "dot", "ring", "beam", "smoke", "flame", "crack", "crack_glow", "crack_white", "frost", "scorch", "leaf", "rune_circle"]
 
 
 ## Gera todas as texturas de uma vez (chamado ao entrar no jogo, para a primeira skill não travar).
@@ -51,6 +51,8 @@ static func _make(name: String) -> Image:
 			return _ground(256, Color(0.55, 0.75, 0.9), 0.35, 11)
 		"scorch":
 			return _ground(256, Color(0.04, 0.03, 0.03), 0.85, 5)
+		"rune_circle":
+			return _rune_circle(256)
 	return _radial(16, func(r: float) -> float: return 1.0 - r)
 
 
@@ -64,6 +66,36 @@ static func _radial(n: int, f: Callable) -> Image:
 			img.set_pixel(x, y, Color(1, 1, 1, a))
 	return img
 
+
+
+
+## Círculo de runas procedural (círculos, marcas e estrela de 4 pontas) para as invocações.
+static func _rune_circle(n: int) -> Image:
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var c := (n - 1) / 2.0
+	for y in n:
+		for x in n:
+			var dx := (x - c) / c
+			var dy := (y - c) / c
+			var r := sqrt(dx * dx + dy * dy)
+			if r > 1.0:
+				continue
+			var theta := atan2(dy, dx)
+			var a := 0.0
+			a += exp(-pow((r - 0.94) / 0.018, 2.0)) * 0.95
+			a += exp(-pow((r - 0.82) / 0.015, 2.0)) * 0.85
+			if r > 0.82 and r < 0.94:
+				var angle_mod := absf(fmod(theta + PI, TAU / 16.0) - (TAU / 32.0))
+				if angle_mod < 0.025:
+					a += 0.85
+			a += exp(-pow((r - 0.62) / 0.015, 2.0)) * 0.75
+			var star := absf(cos(theta * 4.0)) * 0.55 + 0.1
+			if absf(r - star) < 0.035:
+				a += 0.8
+			a += exp(-r * r * 20.0) * 0.9
+			a = clampf(a, 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	return img
 
 static func _beam() -> Image:
 	# faixa para os raios: forte no meio da largura (U), suave nas pontas (V)
@@ -1275,3 +1307,361 @@ static func tentacle(host: Node, at: Vector3, height: float, face: Vector3) -> v
 	tw.tween_interval(0.4)
 	tw.tween_property(root, "scale", Vector3(1, 0.05, 1), 0.3).set_ease(Tween.EASE_IN)
 	tw.tween_callback(root.queue_free)
+
+
+
+# ------------------------------------------------------------------ invocações grandes (espada, meteoro, fênix, escudo)
+
+## Flash rápido de tela para habilidades de impacto massivo
+static func screen_flash(host: Node, col: Color = Color(1, 1, 1), time: float = 0.09) -> void:
+	if not _ok(host):
+		return
+	var canvas := CanvasLayer.new()
+	canvas.layer = 95
+	var rect := ColorRect.new()
+	rect.color = Color(col.r, col.g, col.b, 0.65)
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(rect)
+	host.add_child(canvas)
+	var tw := rect.create_tween()
+	tw.tween_property(rect, "color:a", 0.0, time).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(canvas.queue_free)
+
+
+## Escurece a tela por um instante para destacar uma skill grande.
+static func cinematic_dim(host: Node, dur: float = 0.8, max_alpha: float = 0.45) -> void:
+	if not _ok(host):
+		return
+	var canvas := CanvasLayer.new()
+	canvas.layer = 85
+	var rect := ColorRect.new()
+	rect.color = Color(0.02, 0.01, 0.03, 0.0)
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas.add_child(rect)
+	host.add_child(canvas)
+	var tw := rect.create_tween()
+	tw.tween_property(rect, "color:a", max_alpha, 0.12).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(dur * 0.5)
+	tw.tween_property(rect, "color:a", 0.0, dur * 0.38).set_ease(Tween.EASE_IN)
+	tw.tween_callback(canvas.queue_free)
+
+
+## Círculo mágico rúnico animado no solo com rotação contínua
+static func magic_rune_circle(host: Node, pos: Vector3, radius: float, col: Color, dur: float, rot_speed: float = 0.8) -> Node3D:
+	if not _ok(host):
+		return null
+	var root := Node3D.new()
+	host.add_child(root)
+	root.global_position = pos + Vector3(0, 0.04, 0)
+
+	var mi := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(radius * 2.2, radius * 2.2)
+	qm.orientation = QuadMesh.FACE_Y
+	mi.mesh = qm
+
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_texture = tex("rune_circle")
+	mat.albedo_color = Color(col.r, col.g, col.b, 0.0)
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
+
+	# Animação de rotação contínua e fade-in/fade-out
+	var tw := root.create_tween()
+	tw.tween_property(mat, "albedo_color:a", col.a if col.a > 0.0 else 0.95, 0.15).set_ease(Tween.EASE_OUT)
+	var rot_tw := mi.create_tween().set_loops(int(dur / 0.03))
+	rot_tw.tween_callback(func() -> void:
+		if is_instance_valid(mi):
+			mi.rotation.y += rot_speed * 0.03
+	).set_delay(0.03)
+
+	var end_tw := root.create_tween()
+	end_tw.tween_interval(maxf(0.1, dur - 0.3))
+	end_tw.tween_property(mat, "albedo_color:a", 0.0, 0.3)
+	end_tw.tween_callback(root.queue_free)
+	return root
+
+
+## Espada gigante que cai do céu sobre um círculo de runas girando;
+## no impacto: clarão, rachaduras brilhando, colunas de luz e ondas de choque.
+static func sky_sword(host: Node, target: Vector3, radius: float, delay: float, col: Color) -> void:
+	if not _ok(host):
+		return
+	# 1. Escurecimento cinematográfico dramático
+	cinematic_dim(host, delay + 1.2, 0.50)
+
+	# 2. Círculo de invocação rúnico rotativo no chão
+	magic_rune_circle(host, target, radius, Color(1.0, 0.88, 0.35, 0.95), delay + 1.4, 0.75)
+	shockwave(host, target, Color(1.0, 0.9, 0.4), radius * 0.8, delay * 0.6)
+	emit(host, target + Vector3(0, 0.1, 0), {"tex": "dot", "shot": false, "amount": 35, "life": 0.5, "dur": delay,
+			"size": [0.10, 0.22], "shape": "ring", "r": radius * 0.9, "r_in": radius * 0.3, "vel": [0.8, 2.0], "dir": Vector3.UP,
+			"colors": [[0, Color(1.0, 0.9, 0.4, 0.0)], [0.5, Color(1.0, 0.85, 0.3, 0.95)], [1, Color(1.0, 0.5, 0.1, 0.0)]]})
+
+	# 3. Espada Colossal Celestial Detalhada
+	var sword := Node3D.new()
+	host.add_child(sword)
+
+	# Lâmina dourada gigante
+	var blade := Toon.glow_part(Toon.box(Vector3(1.2, 0.18, 14.0)), Color(1.0, 0.85, 0.35), Vector3(0, 0, 7.0), 1.0, true)
+	sword.add_child(blade)
+	# Núcleo branco incandescente solar
+	var core := Toon.glow_part(Toon.box(Vector3(0.5, 0.25, 13.5)), Color(1.0, 1.0, 1.0), Vector3(0, 0, 7.0), 1.0, true)
+	sword.add_child(core)
+	# Guarda asas douradas imponentes
+	var guard := Toon.glow_part(Toon.box(Vector3(4.2, 0.45, 0.6)), Color(1.0, 0.75, 0.2), Vector3(0, 0, 0.3), 1.0, true)
+	sword.add_child(guard)
+	# Pomo e empunhadura
+	var hilt := Toon.part(Toon.cyl(0.24, 0.24, 2.8, 12), Color(0.25, 0.18, 0.12), Vector3(0, 0, -1.4), 0.03)
+	hilt.rotation_degrees.x = 90.0
+	sword.add_child(hilt)
+	var pommel := Toon.glow_part(Toon.sphere(0.55, 12), Color(1.0, 0.9, 0.4), Vector3(0, 0, -2.8), 1.0, true)
+	sword.add_child(pommel)
+
+	sword.rotation_degrees.x = 90.0
+	var start_pos := target + Vector3(0, 38.0, 0)
+	sword.global_position = start_pos
+
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.9, 0.45)
+	l.light_energy = 5.0
+	l.omni_range = 18.0
+	sword.add_child(l)
+	Fx.budget_light(l)
+
+	emit(sword, Vector3(0, 0, 7.0), {"tex": "flame", "shot": false, "amount": 45, "life": 0.45, "dur": delay,
+			"size": [1.4, 2.8], "vel": [1.5, 3.5], "dir": Vector3.UP, "colors": [[0, Color(1, 0.95, 0.5, 0.95)], [1, Color(1, 0.45, 0.1, 0.0)]]})
+
+	var tw := sword.create_tween()
+	tw.tween_property(sword, "global_position", target + Vector3(0, 0.4, 0), delay).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+	tw.tween_callback(func() -> void:
+		if not _ok(host):
+			return
+		# Flash épico de impacto
+		screen_flash(host, Color(1.0, 0.95, 0.7), 0.11)
+		Fx.shake(host, 0.95)
+		Fx.hitstop(host, 0.14)
+		Sfx.play("sk_explosion", 5.0, 0.6)
+		ground_mark(host, target, "crack_glow", radius * 2.8, 6.0, "crack_glow", 6.0, 0.0, Color(1.0, 0.75, 0.2))
+		_beam_column(host, target, radius * 0.65, Color(1.0, 0.95, 0.5, 0.95), 1.4)
+		_beam_column(host, target, radius * 0.25, Color(1.0, 1.0, 1.0, 1.0), 1.2)
+		shockwave(host, target, Color(1.0, 0.95, 0.6), radius * 2.2, 0.6)
+		shockwave(host, target, Color(1.0, 0.55, 0.15), radius * 1.5, 0.45)
+		sparks(host, target + Vector3(0, 0.5, 0), 80, 16.0)
+
+		var end_tw := sword.create_tween()
+		end_tw.tween_interval(1.2)
+		end_tw.tween_property(sword, "scale", Vector3(0.01, 0.01, 0.01), 0.25).set_ease(Tween.EASE_IN)
+		end_tw.tween_callback(func() -> void:
+			sparks(host, target + Vector3(0, 2.0, 0), 35, 9.0)
+			sword.queue_free())
+	)
+
+
+## Um meteoro gigante de lava (cai na diagonal) sobre um círculo de runas de fogo;
+## rastro de fogo e fumaça, cratera queimada e coluna de fogo no impacto.
+static func colossal_meteor(host: Node, target: Vector3, delay: float, radius: float, blast: float, col: Color) -> void:
+	if not _ok(host):
+		return
+	cinematic_dim(host, delay + 1.4, 0.50)
+	magic_rune_circle(host, target, blast, Color(1.0, 0.55, 0.15, 0.9), delay + 1.5, -0.6)
+
+	var node := Node3D.new()
+	host.add_child(node)
+	var core := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 2.6
+	sm.height = 5.0
+	sm.radial_segments = 16
+	sm.rings = 10
+	core.mesh = sm
+	core.material_override = lava_rock_mat()
+	node.add_child(core)
+
+	var glow := emit(node, Vector3.ZERO, {"tex": "soft", "shot": false, "amount": 8, "life": 0.35, "dur": delay + 0.1,
+			"size": [7.0, 9.5], "vel": [0, 0], "local": true,
+			"colors": [[0, Color(1.0, 0.85, 0.35, 0.95)], [1, Color(1.0, 0.35, 0.05, 0.0)]], "curve": [[0, 1], [1, 1]]})
+
+	var start := target + Vector3(-18.0 + randf_range(-2, 2), 36.0, -18.0 + randf_range(-2, 2))
+	node.global_position = start
+
+	var fire := emit(host, start, {"tex": "smoke", "add": false, "shot": false, "amount": 75, "life": 0.8, "dur": delay,
+			"size": [3.0, 5.0], "shape": "sphere", "r": 1.4, "vel": [1.2, 4.0], "colors": FIRE, "spin": 90.0,
+			"curve": [[0, 1], [1, 0.2]]})
+	var smoke := emit(host, start, {"tex": "smoke", "add": false, "shot": false, "amount": 40, "life": 2.0, "dur": delay,
+			"size": [2.5, 4.5], "vel": [0.5, 1.5], "colors": SMOKE, "curve": [[0, 0.6], [1, 1.5]], "spin": 25.0})
+
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.65, 0.2)
+	l.light_energy = 4.5
+	l.omni_range = 22.0
+	node.add_child(l)
+	Fx.budget_light(l)
+
+	var fall := func(t: float) -> void:
+		var p := start.lerp(target + Vector3(0, 0.5, 0), t * t)
+		node.global_position = p
+		core.rotation += Vector3(0.3, 0.4, 0.2)
+		for e in [fire, smoke]:
+			if is_instance_valid(e):
+				(e as Node3D).global_position = p
+
+	var hit := func() -> void:
+		if is_instance_valid(glow):
+			glow.queue_free()
+		node.queue_free()
+		screen_flash(host, Color(1.0, 0.7, 0.3), 0.12)
+		Fx.shake(host, 0.95)
+		Fx.hitstop(host, 0.12)
+		Sfx.play("sk_explosion", 5.0, 0.55)
+		ground_mark(host, target, "scorch", blast * 3.0, 8.0)
+		ground_mark(host, target, "crack_glow", blast * 2.5, 6.0, "crack_glow", 6.0, 0.0, Color(1.0, 0.55, 0.15))
+		fire_column(host, target, 20.0, 1.6, 3.8)
+		_beam_column(host, target, blast * 0.6, Color(1.0, 0.5, 0.1, 0.85), 1.0)
+		shockwave(host, target, Color(1.0, 0.65, 0.2), blast * 2.2, 0.65)
+		explosion(host, target, blast)
+
+	var tw := node.create_tween()
+	tw.tween_method(fall, 0.0, 1.0, delay)
+	tw.tween_callback(hit)
+
+
+## Fênix de fogo que voa à frente batendo as asas, queima o chão e fere quem estiver embaixo
+## a cada `every` s (dano `m`) e explode no fim.
+static func phoenix_flight(p: Node3D, host: Node, dir: Vector3, rng: float, dur: float, every: float, col: Color, m: float) -> void:
+	if not _ok(host):
+		return
+	cinematic_dim(host, 0.9, 0.35)
+	var bird := Node3D.new()
+	host.add_child(bird)
+	var start_pos := p.global_position + Vector3(0, 3.4, 0)
+	bird.global_position = start_pos
+
+	# Corpo da Fênix com núcleo dourado
+	var body := Toon.glow_part(Toon.sphere(0.95, 14), Color(1.0, 0.75, 0.2), Vector3.ZERO, 1.0, true)
+	body.scale = Vector3(0.75, 0.6, 1.8)
+	bird.add_child(body)
+	var head := Toon.glow_part(Toon.sphere(0.5, 12), Color(1.0, 0.92, 0.4), Vector3(0, 0.4, 1.3), 1.0, true)
+	bird.add_child(head)
+	var beak := Toon.part(Toon.cyl(0.01, 0.2, 0.6, 6), Color(1.0, 0.5, 0.1), Vector3(0, 0.3, 1.7), 0.0)
+	beak.rotation_degrees.x = 90.0
+	bird.add_child(beak)
+
+	# Asas articuladas com penas duplas
+	var left_wing := Node3D.new()
+	left_wing.position = Vector3(-0.7, 0.15, 0.2)
+	bird.add_child(left_wing)
+	var l_feather1 := Toon.glow_part(Toon.box(Vector3(2.6, 0.12, 0.9)), Color(1.0, 0.65, 0.15), Vector3(-1.3, 0, 0), 1.0, true)
+	left_wing.add_child(l_feather1)
+	var l_feather2 := Toon.glow_part(Toon.box(Vector3(2.0, 0.1, 0.7)), Color(1.0, 0.92, 0.35), Vector3(-1.8, 0.06, -0.25), 1.0, true)
+	left_wing.add_child(l_feather2)
+
+	var right_wing := Node3D.new()
+	right_wing.position = Vector3(0.7, 0.15, 0.2)
+	bird.add_child(right_wing)
+	var r_feather1 := Toon.glow_part(Toon.box(Vector3(2.6, 0.12, 0.9)), Color(1.0, 0.65, 0.15), Vector3(1.3, 0, 0), 1.0, true)
+	right_wing.add_child(r_feather1)
+	var r_feather2 := Toon.glow_part(Toon.box(Vector3(2.0, 0.1, 0.7)), Color(1.0, 0.92, 0.35), Vector3(1.8, 0.06, -0.25), 1.0, true)
+	right_wing.add_child(r_feather2)
+
+	# Três caudas longas de plumas de fogo
+	for k in 3:
+		var tail := Toon.glow_part(Toon.box(Vector3(0.32, 0.08, 3.6)), Color(1.0, 0.52, 0.1), Vector3((k - 1) * 0.4, -0.2, -2.2), 0.95, true)
+		tail.rotation_degrees.x = -15.0
+		bird.add_child(tail)
+
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.75, 0.25)
+	l.light_energy = 3.5
+	l.omni_range = 14.0
+	bird.add_child(l)
+	Fx.budget_light(l)
+
+	emit(bird, Vector3(0, 0, -1.0), {"tex": "flame", "shot": false, "amount": 50, "life": 0.65, "dur": dur,
+			"size": [1.6, 3.0], "vel": [1.2, 3.5], "dir": -Vector3.FORWARD, "colors": FIRE, "curve": [[0, 1], [1, 0.2]]})
+
+	var t_elapsed := 0.0
+	var forward := dir.normalized() if dir.length() > 0.1 else Vector3.FORWARD
+	bird.look_at(bird.global_position + forward, Vector3.UP)
+
+	var timer := Timer.new()
+	timer.wait_time = every
+	timer.autostart = true
+	bird.add_child(timer)
+
+	var flight_step := func(delta: float) -> void:
+		t_elapsed += delta
+		var flap := sin(t_elapsed * 15.0) * 0.5
+		left_wing.rotation.z = flap
+		right_wing.rotation.z = -flap
+		bird.position.y += cos(t_elapsed * 6.0) * 0.04
+
+	var tw_fly := bird.create_tween().set_loops(int(dur / 0.05))
+	tw_fly.tween_callback(func() -> void: flight_step.call(0.05)).set_delay(0.05)
+
+	var target_pos := start_pos + forward * (rng * 1.5) + Vector3(0, 1.2, 0)
+	var move_tw := bird.create_tween()
+	move_tw.tween_property(bird, "global_position", target_pos, dur * 0.65).set_trans(Tween.TRANS_SINE)
+	move_tw.tween_property(bird, "global_position", target_pos + forward.rotated(Vector3.UP, 1.2) * (rng * 0.8), dur * 0.35)
+
+	timer.timeout.connect(func() -> void:
+		if not is_instance_valid(bird) or not is_instance_valid(p):
+			return
+		var bpos := bird.global_position
+		ground_mark(host, Vector3(bpos.x, 0.0, bpos.z), "scorch", 3.4, 4.0)
+		sparks(host, Vector3(bpos.x, 0.5, bpos.z), 22, 7.0)
+		Sfx.play("sk_fire", -7.0, randf_range(1.0, 1.3))
+		for e in p.get_tree().get_nodes_in_group("enemy"):
+			var en := e as Enemy
+			if en != null and en.alive:
+				if Vector3(en.global_position.x - bpos.x, 0, en.global_position.z - bpos.z).length() <= 4.5:
+					Skills.hit(p as Player, en, m, bpos, {"burn": 0.40})
+	)
+
+	Fx.later(host, dur).connect(func() -> void:
+		if not is_instance_valid(bird):
+			return
+		var end_p := bird.global_position
+		bird.queue_free()
+		screen_flash(host, Color(1.0, 0.8, 0.2), 0.12)
+		Fx.shake(host, 0.7)
+		Sfx.play("sk_explosion", 3.0, 0.75)
+		shockwave(host, end_p, Color(1.0, 0.85, 0.2), 7.5, 0.55)
+		explosion(host, end_p, 5.0)
+		ground_mark(host, Vector3(end_p.x, 0, end_p.z), "scorch", 5.5, 5.5)
+	)
+
+
+## Três escudos dourados girando em volta do herói
+## dentro de uma cúpula dourada transparente.
+static func golden_shield(p: Node3D, dur: float, col: Color) -> void:
+	if not is_instance_valid(p):
+		return
+	var rig := Node3D.new()
+	p.add_child(rig)
+	rig.position = Vector3(0, 1.0, 0)
+	for k in 3:
+		var a := TAU * k / 3.0
+		var crest := Toon.glow_part(Toon.box(Vector3(0.65, 0.95, 0.12)), Color(1.0, 0.88, 0.35), Vector3(cos(a) * 1.4, 0, sin(a) * 1.4), 1.0, true)
+		crest.rotation.y = a + PI / 2.0
+		rig.add_child(crest)
+	var dome := Toon.glow_part(Toon.sphere(1.6, 16), Color(1.0, 0.85, 0.35), Vector3.ZERO, 0.30, true)
+	rig.add_child(dome)
+	var rot_tw := rig.create_tween().set_loops(int(dur / 0.03))
+	rot_tw.tween_callback(func() -> void:
+		if is_instance_valid(rig):
+			rig.rotation.y += 0.08
+	).set_delay(0.03)
+	var end_timer := rig.create_tween()
+	end_timer.tween_interval(dur)
+	end_timer.tween_callback(func() -> void:
+		if is_instance_valid(rig):
+			rig.queue_free())
