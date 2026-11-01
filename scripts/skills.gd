@@ -1336,6 +1336,30 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				if e._vuln > 0.0 or e._slow > 0.0 or e._stun_t > 0.0:
 					Vfx.shadow_burst(host, e.global_position, 2.0, col)
 				hit(p, e, m, pos, {"consume": 1.6})
+		"volley":
+			var vref: WeakRef = weakref(_closest(tree, pos + flat(point - pos).limit_length(14.0), 10.0))   # o alvo pode morrer no meio
+			for k in int(sk["count"]):
+				_later(p, float(sk["every"]) * k + 0.001, func() -> void:
+					if not is_instance_valid(p):
+						return
+					var o := p.global_position + Vector3(0, 1.1, 0)
+					var vd := dir
+					var vt: Enemy = vref.get_ref()
+					if vt != null and vt.alive:
+						vd = flat(vt.global_position - p.global_position).normalized()
+					vd = vd.rotated(Vector3.UP, randf_range(-0.05, 0.05))
+					p.face_dir(vd)
+					var va := Projectile.new()
+					va.player = p
+					va.dir = vd
+					va.speed = float(sk["speed"])
+					va.life = float(sk["life"])
+					va.mult = m
+					va.visual = "arrow"
+					va.color = col
+					host.add_child(va)
+					va.global_position = o + vd * 0.8
+					Sfx.play("arrow", -8.0, randf_range(1.1, 1.3)))
 
 
 static func _opts(sk: Dictionary) -> Dictionary:

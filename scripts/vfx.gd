@@ -1546,10 +1546,10 @@ static func phoenix_flight(p: Node3D, host: Node, dir: Vector3, rng: float, dur:
 	bird.global_position = start_pos
 
 	# Corpo da Fênix com núcleo dourado
-	var body := Toon.glow_part(Toon.sphere(0.95, 14), Color(1.0, 0.75, 0.2), Vector3.ZERO, 1.0, true)
+	var body := Toon.glow_part(Toon.sphere(0.95, 14), Color(0.75, 0.4, 0.1), Vector3.ZERO, 1.0, false)
 	body.scale = Vector3(0.75, 0.6, 1.8)
 	bird.add_child(body)
-	var head := Toon.glow_part(Toon.sphere(0.5, 12), Color(1.0, 0.92, 0.4), Vector3(0, 0.4, 1.3), 1.0, true)
+	var head := Toon.glow_part(Toon.sphere(0.5, 12), Color(0.8, 0.55, 0.15), Vector3(0, 0.4, 1.3), 1.0, false)
 	bird.add_child(head)
 	var beak := Toon.part(Toon.cyl(0.01, 0.2, 0.6, 6), Color(1.0, 0.5, 0.1), Vector3(0, 0.3, 1.7), 0.0)
 	beak.rotation_degrees.x = 90.0
@@ -1559,28 +1559,28 @@ static func phoenix_flight(p: Node3D, host: Node, dir: Vector3, rng: float, dur:
 	var left_wing := Node3D.new()
 	left_wing.position = Vector3(-0.7, 0.15, 0.2)
 	bird.add_child(left_wing)
-	var l_feather1 := Toon.glow_part(Toon.box(Vector3(2.6, 0.12, 0.9)), Color(1.0, 0.65, 0.15), Vector3(-1.3, 0, 0), 1.0, true)
+	var l_feather1 := Toon.glow_part(Toon.box(Vector3(2.6, 0.12, 0.9)), Color(0.7, 0.35, 0.08), Vector3(-1.3, 0, 0), 1.0, false)
 	left_wing.add_child(l_feather1)
-	var l_feather2 := Toon.glow_part(Toon.box(Vector3(2.0, 0.1, 0.7)), Color(1.0, 0.92, 0.35), Vector3(-1.8, 0.06, -0.25), 1.0, true)
+	var l_feather2 := Toon.glow_part(Toon.box(Vector3(2.0, 0.1, 0.7)), Color(0.75, 0.5, 0.12), Vector3(-1.8, 0.06, -0.25), 0.9, false)
 	left_wing.add_child(l_feather2)
 
 	var right_wing := Node3D.new()
 	right_wing.position = Vector3(0.7, 0.15, 0.2)
 	bird.add_child(right_wing)
-	var r_feather1 := Toon.glow_part(Toon.box(Vector3(2.6, 0.12, 0.9)), Color(1.0, 0.65, 0.15), Vector3(1.3, 0, 0), 1.0, true)
+	var r_feather1 := Toon.glow_part(Toon.box(Vector3(2.6, 0.12, 0.9)), Color(0.7, 0.35, 0.08), Vector3(1.3, 0, 0), 1.0, false)
 	right_wing.add_child(r_feather1)
-	var r_feather2 := Toon.glow_part(Toon.box(Vector3(2.0, 0.1, 0.7)), Color(1.0, 0.92, 0.35), Vector3(1.8, 0.06, -0.25), 1.0, true)
+	var r_feather2 := Toon.glow_part(Toon.box(Vector3(2.0, 0.1, 0.7)), Color(0.75, 0.5, 0.12), Vector3(1.8, 0.06, -0.25), 0.9, false)
 	right_wing.add_child(r_feather2)
 
 	# Três caudas longas de plumas de fogo
 	for k in 3:
-		var tail := Toon.glow_part(Toon.box(Vector3(0.32, 0.08, 3.6)), Color(1.0, 0.52, 0.1), Vector3((k - 1) * 0.4, -0.2, -2.2), 0.95, true)
+		var tail := Toon.glow_part(Toon.box(Vector3(0.32, 0.08, 3.6)), Color(0.7, 0.3, 0.05), Vector3((k - 1) * 0.4, -0.2, -2.2), 0.9, false)
 		tail.rotation_degrees.x = -15.0
 		bird.add_child(tail)
 
 	var l := OmniLight3D.new()
 	l.light_color = Color(1.0, 0.75, 0.25)
-	l.light_energy = 3.5
+	l.light_energy = 1.4
 	l.omni_range = 14.0
 	bird.add_child(l)
 	Fx.budget_light(l)

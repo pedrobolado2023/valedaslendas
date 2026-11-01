@@ -337,8 +337,10 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Mago 12: Orbe de Chamas, Orbe de Gelo `frost_orb`, Golpe de Chamas `flame_nova`, Raios em Cadeia, Bloco Congelado
   `ice_block`, Imolação `immolate`, Nevasca `blizzard`, Escudo Mágico `magic_shield` (`player.mana_shield_t/pct`: parte do
   dano sai da mana), Devorador de Almas `soul_drain`, Tempestade de Raios, Vórtice Sombrio `dark_vortex`, Tornado
-  Elemental `tornado` (suprema); redemoinhos com `Vfx.funnel`. Arqueira só 6: `backstep`, `rain`, `blast_arrow`, `focus` (crítico + alcance das flechas no
-  `Player._shoot`), `stealth` com `confuse`, `snipe` (Assassinato: dobro em alvo fraco ou desavisado `not aggro`).
+  Elemental `tornado` (suprema); redemoinhos com `Vfx.funnel`. Arqueira 12: as 6 da lista (`backstep`, `rain`,
+  `blast_arrow`, `focus` = crítico + alcance das flechas no `Player._shoot`, `stealth` com `confuse`, `snipe` = Assassinato,
+  dobro em alvo fraco ou desavisado `not aggro`) + 6 no mesmo tema escolhidas por mim: Rajada Veloz `volley`, Armadilha
+  de Espinhos `trap`, Rolamento Ágil `roll`, Revoada de Flechas `missiles`, Flecha do Vendaval, Fênix Companheira (suprema).
   Opções do `Skills.hit`: `crit`, `low`, `vs_vuln`, `consume`, `heal`, `mana`, `lift`, `weaken`. Efeitos claros demais
   estouram no Vulkan: usar cores escuras/aditivas fracas (`_flame_cone` tem `core`). Ícones = cópias de ícones parecidos.
 - **Mapas sem colisão interna:** `world._solid`/`_solid_box` não fazem nada (casas, cercas, lago não bloqueiam; só chão e bordas).

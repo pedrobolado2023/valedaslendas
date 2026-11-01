@@ -190,7 +190,7 @@ const SKILLS := {
 			"color": Color(0.55, 0.8, 1.0), "sfx": "sk_thunder",
 			"desc": "Monta uma torre Tesla por {dur} s: a cada 0,6 s ela solta raios em até 3 inimigos próximos ({dmg} de dano cada)."},
 	],
-	## Os 4 heróis jogáveis usam as listas de skills do dono (Guerreiro e Lanceiro 12 + ataque básico, Mago 12, Arqueira 6).
+	## Os 4 heróis jogáveis usam as listas de skills do dono (Guerreiro e Lanceiro 12 + ataque básico, Mago 12, Arqueira 6 + 6).
 	## "anim": animação de skill do modelo (Guerreiro/Lanceiro usam as do Náutico na*, Mago/Arqueira as da Druida dr*).
 	## Guerreiro: as skills da lista do dono (o Golpe de Crescente virou o ataque básico, "basic_fx": "crescent").
 	"guerreiro": [
@@ -308,7 +308,7 @@ const SKILLS := {
 			"color": Color(0.75, 0.55, 1.0), "sfx": "sk_magic",
 			"desc": "Suprema: invoca um redemoinho elemental gigante no ponto mirado que arrasta e estraçalha todos em {r} m: {dmg} de dano por giro."},
 	],
-	## Arqueira: as 6 skills da lista do dono.
+	## Arqueira: as 6 skills da lista do dono (1-6) + 6 no mesmo tema (7-12).
 	"arqueira": [
 		{"id": "ar1", "name": "Salto e Disparo de Recuo", "type": "backstep", "cd": 6.0, "mp": 10, "mult": 1.1, "dist": 7.0, "r": 5.5, "half": 0.7, "knock": 4.5, "anim": "dr2",
 			"color": Color(0.8, 0.95, 0.75), "sfx": "sk_dash",
@@ -328,6 +328,25 @@ const SKILLS := {
 		{"id": "ar6", "name": "Assassinato", "type": "snipe", "cd": 14.0, "mp": 26, "mult": 3.6, "speed": 60.0, "life": 0.9, "charge": 0.5, "low": 0.35, "anim": "dr5",
 			"color": Color(1.0, 0.85, 0.3), "sfx": "sk_slash",
 			"desc": "Disparo cirúrgico que sempre é crítico: {dmg} de dano, o dobro em alvos com menos de 35% de vida ou que ainda não viram você."},
+		## 7-12: completam a Arqueira (a lista do dono tinha 6), no mesmo tema: rajadas rápidas, mobilidade e truques.
+		{"id": "ar7", "name": "Rajada Veloz", "type": "volley", "cd": 7.0, "mp": 16, "mult": 0.75, "count": 6, "every": 0.08, "speed": 40.0, "life": 0.8, "anim": "dr5",
+			"color": Color(0.95, 0.9, 0.6), "sfx": "arrow",
+			"desc": "Solta 6 flechas uma atrás da outra em alta velocidade no inimigo mais perto da mira: {dmg} de dano cada."},
+		{"id": "ar8", "name": "Armadilha de Espinhos", "type": "trap", "cd": 12.0, "mp": 16, "mult": 1.8, "r": 3.2, "range": 10.0, "stun": 2.0, "anim": "dr1",
+			"color": Color(0.75, 0.6, 0.35), "sfx": "sk_slam",
+			"desc": "Arma uma armadilha no chão: quem pisar leva {dmg} de dano e fica preso por 2 s (ótima para fugir)."},
+		{"id": "ar9", "name": "Rolamento Ágil", "type": "roll", "cd": 6.0, "mp": 8, "dist": 7.0, "buff": 0.35, "buff_lv": 0.02, "dur": 3.0, "anim": "dr2",
+			"color": Color(0.8, 0.95, 0.75), "sfx": "sk_dash",
+			"desc": "Rola na direção em que está andando sem levar dano e ganha +{buff} de velocidade por {dur} s."},
+		{"id": "ar10", "name": "Revoada de Flechas", "type": "missiles", "visual": "arrow", "cd": 10.0, "mp": 24, "mult": 0.9, "count": 8, "blast": 1.6, "speed": 22.0, "anim": "dr8",
+			"color": Color(0.85, 1.0, 0.7), "sfx": "arrow",
+			"desc": "Oito flechas encantadas sobem e caçam os inimigos sozinhas: {dmg} de dano cada."},
+		{"id": "ar11", "name": "Flecha do Vendaval", "type": "projectile", "visual": "bigarrow", "cd": 9.0, "mp": 20, "mult": 2.2, "speed": 38.0, "life": 0.9, "pierce": true, "knock": 4.0, "vuln": 0.25, "vuln_dur": 5.0, "anim": "dr5",
+			"color": Color(0.8, 1.0, 0.9), "sfx": "sk_dash",
+			"desc": "Uma flecha enorme de vento que atravessa a fila inteira: {dmg} de dano, empurra e deixa todos 25% mais frágeis."},
+		{"id": "ar12", "name": "Fênix Companheira", "type": "companion", "visual": "phoenix", "cd": 28.0, "mp": 40, "mult": 0.9, "range": 8.0, "dur": 14.0, "every": 0.6, "anim": "dr6",
+			"color": Color(1.0, 0.55, 0.2), "sfx": "sk_fire",
+			"desc": "Suprema: chama uma fênix de fogo que voa à frente por {dur} s queimando o chão ({dmg} de dano por rasante) e explode no fim."},
 	],
 	"nautico": [
 		{"id": "na1", "name": "Estocada do Tridente", "type": "thrust3", "hits": 1, "cd": 3.0, "mp": 8, "mult": 1.6, "range": 6.0, "knock": 3.0, "vuln": 0.2, "vuln_dur": 5.0,
