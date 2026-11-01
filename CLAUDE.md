@@ -340,7 +340,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Elemental `tornado` (suprema); redemoinhos com `Vfx.funnel`. Arqueira 12: as 6 da lista (`backstep`, `rain`,
   `blast_arrow`, `focus` = crítico + alcance das flechas no `Player._shoot`, `stealth` com `confuse`, `snipe` = Assassinato,
   dobro em alvo fraco ou desavisado `not aggro`) + 6 no mesmo tema escolhidas por mim: Rajada Veloz `volley`, Armadilha
-  de Espinhos `trap`, Rolamento Ágil `roll`, Revoada de Flechas `missiles`, Flecha do Vendaval, Fênix Companheira (suprema).
+  de Espinhos `trap`, Rolamento Ágil `roll`, Revoada de Flechas `missiles`, Flecha do Vendaval, Dança das Mil Flechas `arrow_dance` (suprema: salta invulnerável e dispara
+  anéis de flechas; trocou a Fênix Companheira a pedido do dono — `Vfx.phoenix_flight` ficou sem uso).
   Opções do `Skills.hit`: `crit`, `low`, `vs_vuln`, `consume`, `heal`, `mana`, `lift`, `weaken`. Efeitos claros demais
   estouram no Vulkan: usar cores escuras/aditivas fracas (`_flame_cone` tem `core`). Ícones = cópias de ícones parecidos.
 - **Mapas sem colisão interna:** `world._solid`/`_solid_box` não fazem nada (casas, cercas, lago não bloqueiam; só chão e bordas).

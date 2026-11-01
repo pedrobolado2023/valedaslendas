@@ -1360,6 +1360,43 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					host.add_child(va)
 					va.global_position = o + vd * 0.8
 					Sfx.play("arrow", -8.0, randf_range(1.1, 1.3)))
+		"arrow_dance":
+			var ddur := float(sk["dur"])
+			var waves := int(sk["waves"])
+			var per := int(sk["per"])
+			p.leap_to(pos, ddur)
+			p.spin_visual()
+			Vfx.magic_rune_circle(host, pos, 3.0, Color(col, 0.7), ddur + 0.3, 2.5)
+			for w in waves:
+				_later(p, ddur * (w + 0.5) / waves, func() -> void:
+					if not is_instance_valid(p):
+						return
+					var o := Vector3(p.global_position.x, pos.y + 1.1, p.global_position.z)
+					var off := TAU * float(w) / float(waves * 2)
+					p.spin_visual()
+					Sfx.play("arrow", -6.0, 1.0 + 0.08 * w)
+					for k in per:
+						var ad := Vector3.FORWARD.rotated(Vector3.UP, off + TAU * k / per)
+						var ar := Projectile.new()
+						ar.player = p
+						ar.dir = ad
+						ar.speed = float(sk["speed"])
+						ar.life = float(sk["life"])
+						ar.mult = m
+						ar.pierce = true
+						ar.visual = "arrow"
+						ar.color = col
+						host.add_child(ar)
+						ar.global_position = o + ad * 0.8)
+			_later(p, ddur, func() -> void:
+				if not is_instance_valid(p):
+					return
+				var o2 := p.global_position
+				Vfx.shockwave(host, o2, col, area(sk), 0.4)
+				Fx.shake(p, 0.35)
+				Sfx.play("sk_slam", -4.0, 1.3)
+				for e in in_radius(tree, o2, area(sk)):
+					hit(p, e, m, o2, {"knock": float(sk["knock"])}))
 
 
 static func _opts(sk: Dictionary) -> Dictionary:

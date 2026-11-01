@@ -344,9 +344,9 @@ const SKILLS := {
 		{"id": "ar11", "name": "Flecha do Vendaval", "type": "projectile", "visual": "bigarrow", "cd": 9.0, "mp": 20, "mult": 2.2, "speed": 38.0, "life": 0.9, "pierce": true, "knock": 4.0, "vuln": 0.25, "vuln_dur": 5.0, "anim": "dr5",
 			"color": Color(0.8, 1.0, 0.9), "sfx": "sk_dash",
 			"desc": "Uma flecha enorme de vento que atravessa a fila inteira: {dmg} de dano, empurra e deixa todos 25% mais frágeis."},
-		{"id": "ar12", "name": "Fênix Companheira", "type": "companion", "visual": "phoenix", "cd": 28.0, "mp": 40, "mult": 0.9, "range": 8.0, "dur": 14.0, "every": 0.6, "anim": "dr6",
-			"color": Color(1.0, 0.55, 0.2), "sfx": "sk_fire",
-			"desc": "Suprema: chama uma fênix de fogo que voa à frente por {dur} s queimando o chão ({dmg} de dano por rasante) e explode no fim."},
+		{"id": "ar12", "name": "Dança das Mil Flechas", "type": "arrow_dance", "cd": 26.0, "mp": 40, "mult": 0.7, "dur": 1.4, "waves": 5, "per": 16, "speed": 30.0, "life": 0.7, "r": 4.5, "knock": 3.0, "anim": "dr6",
+			"color": Color(0.95, 0.85, 0.55), "sfx": "arrow",
+			"desc": "Suprema: salta alto sem poder ser atingida e gira no ar disparando 5 anéis de 16 flechas em todas as direções ({dmg} de dano cada); ao cair, empurra quem estiver em volta."},
 	],
 	"nautico": [
 		{"id": "na1", "name": "Estocada do Tridente", "type": "thrust3", "hits": 1, "cd": 3.0, "mp": 8, "mult": 1.6, "range": 6.0, "knock": 3.0, "vuln": 0.2, "vuln_dur": 5.0,
