@@ -94,7 +94,8 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   dos eixos). No jogo, `Player.play_skill` toca a animação depois de `Skills.cast`; enquanto ela toca, os
   `attack_visual`/`leap_to` de dentro da skill não a cortam (o ataque básico corta). Folhas de quadros em
   `docs/skills_<classe>.png` (`C:\Users\pedro\vale-tools\skill_sheet.py`).
-- **Até 10 skills por classe** (teclas 1-9 e 0; liberadas nos níveis 1/3/6/10/15/20/25/30/40/50 em
+- **Até 12 skills por classe** (`MAX_SKILLS`, teclas 1-9, 0, - e = em `GameData.SKILL_KEYS`; 11ª/12ª nos níveis 60/70 e na
+  campanha em "ninho"; antes eram 10, teclas 1-9 e 0; liberadas nos níveis 1/3/6/10/15/20/25/30/40/50 em
   `GameData.SKILL_UNLOCK`). Tudo usa `player.skill_count()` (HUD, painel K com rolagem, save, admin, autopilot).
   Druida já tem 10: dr7 Granizo Ancestral (`ice_fall`), dr8 Fúria do Trovão (`storm_chain`), dr9 Chuva de Meteoros
   (`meteor_rain`), dr10 Pisão da Morte (`fissure`). Assassino também tem 10: as7 Leque de Adagas (`dagger_fan`),
@@ -329,8 +330,11 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   Mago/Arqueira/Guerreiro/Lanceiro (`OLD_CLASS`). Cada classe tem tipos de skill só dela (só "projectile" se repete):
   Guerreiro (tanque/controle) `arc`, `charge`, `roar`, `wave`, `leap`, `riposte`, `hook`, `spin_multi`, `guard`, `strike`;
   Lanceiro (crítico/quebra de defesa) `thrust3`, `launch`, `spin`, `javelin`, `wind_wall`, `sweep`, `crush`, `leech`,
-  `blitz`, `finisher` (dobro em quem tem defesa quebrada); Mago (elementos em área) `projectile`, `storm_chain`,
-  `ice_block`, `immolate`, `ice_fall`, `flame_nova`, `mana_shield`, `soul_drain`, `sea_storm`, `tornado`; Arqueira
+  `blitz`, `finisher` (dobro em quem tem defesa quebrada); **Mago = as 12 skills da lista do dono** (Orbe de Chamas,
+  Orbe de Gelo `frost_orb`, Golpe de Chamas `flame_nova`, Raios em Cadeia, Bloco Congelado `ice_block`, Imolação `immolate`,
+  Nevasca `blizzard`, Escudo Mágico `magic_shield` (`player.mana_shield_t/pct`: parte do dano sai da mana), Devorador de
+  Almas `soul_drain`, Tempestade de Raios `sea_storm`, Vórtice Sombrio `dark_vortex`, Tornado Elemental `tornado` (suprema)),
+  efeitos de redemoinho com `Vfx.funnel`; Arqueira
   (alcance/fuga) `projectile`, `backstep`, `rain`, `focus` (`player.crit_bonus`), `blast_arrow`, `stealth`, `trap`,
   `missiles` (visual pela skill), `snipe`, `companion`. Opções novas do `Skills.hit`: `crit`, `low`, `vs_vuln`, `heal`,
   `mana`, `lift`. Ícones = cópias dos ícones parecidos das classes antigas.

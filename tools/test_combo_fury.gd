@@ -40,7 +40,7 @@ func _initialize() -> void:
 	var p = game.player
 	p.level = 60
 	p.invuln_t = 999.0
-	p.story_skills = 10
+	p.story_skills = GameData.MAX_SKILLS
 	for i in p.skill_count():
 		p.skill_levels[i] = 5
 	check(p.soldiers.size() == 2, "duas tropas ao lado do herói")
@@ -77,6 +77,7 @@ func _initialize() -> void:
 				e.global_position = z.center() + Vector3(randf_range(-3, 3), 0.2, randf_range(-3, 3))
 			p.mp = 9999
 			p.skill_cd[i] = 0.0
+			p.skill_levels[i] = 5
 			p.invuln_t = 999.0
 			var id := String(p.skill(i)["id"])
 			check(p.cast_skill(i, z.center()), "%s %s usada" % [id, p.skill(i)["name"]])

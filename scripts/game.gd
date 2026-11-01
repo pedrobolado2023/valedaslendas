@@ -1002,6 +1002,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		player.cast_skill(k.keycode - KEY_1, player.aim_point)
 	elif k.keycode == KEY_0:
 		player.cast_skill(9, player.aim_point)
+	elif k.keycode == KEY_MINUS:
+		player.cast_skill(10, player.aim_point)
+	elif k.keycode == KEY_EQUAL:
+		player.cast_skill(11, player.aim_point)
 	match k.keycode:
 		KEY_K:
 			skill_panel.toggle()

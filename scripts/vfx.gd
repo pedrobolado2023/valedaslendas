@@ -1640,6 +1640,56 @@ static func phoenix_flight(p: Node3D, host: Node, dir: Vector3, rng: float, dur:
 	)
 
 
+## Funil de redemoinho (tornado, vórtice): cascas de cone abertas, mais largas em cima, e anéis girando.
+## Cores fracas e somadas de propósito (o glow do ambiente estoura cores claras). Some sozinho depois de t s.
+static func funnel(host: Node, at: Vector3, r_bottom: float, r_top: float, height: float, col: Color, t: float, dust: Array = SMOKE) -> Node3D:
+	if not _ok(host):
+		return null
+	var w := Node3D.new()
+	host.add_child(w)
+	w.global_position = at
+	var spin := Node3D.new()
+	w.add_child(spin)
+	var layers := 6
+	var dim := Color(col.r * 0.55, col.g * 0.55, col.b * 0.55)
+	for k in layers:
+		var cm := CylinderMesh.new()
+		cm.bottom_radius = lerpf(r_bottom, r_top, float(k) / layers)
+		cm.top_radius = lerpf(r_bottom, r_top, float(k + 1) / layers)
+		cm.height = height / layers
+		cm.cap_top = false
+		cm.cap_bottom = false
+		cm.radial_segments = 20
+		cm.rings = 1
+		spin.add_child(Toon.glow_part(cm, dim, Vector3(0, height * (k + 0.5) / layers, 0), 0.16 + 0.03 * (k % 2), true))
+	for k in 7:
+		var f := float(k) / 6.0
+		var rr := lerpf(r_bottom, r_top, f)
+		var tm := TorusMesh.new()
+		tm.inner_radius = rr * 0.9
+		tm.outer_radius = rr
+		tm.rings = 24
+		tm.ring_segments = 6
+		var ring := Toon.glow_part(tm, dim, Vector3(0, height * f, 0), 0.4, true)
+		ring.rotation = Vector3(randf_range(-0.15, 0.15), 0, randf_range(-0.15, 0.15))
+		spin.add_child(ring)
+	emit(w, Vector3(0, 0.3, 0), {"tex": "smoke", "add": false, "shot": false, "local": true, "amount": 36, "life": 1.0, "dur": t,
+			"size": [1.2, 2.4], "shape": "ring", "r": r_bottom * 1.6, "r_in": r_bottom * 0.8, "vel": [1.5, 3.0], "dir": Vector3.UP,
+			"spread": 25.0, "colors": dust, "spin": 160.0})
+	emit(w, Vector3(0, height * 0.4, 0), {"tex": "dot", "shot": false, "local": true, "amount": 40, "life": 0.8, "dur": t,
+			"size": [0.06, 0.14], "shape": "ring", "r": lerpf(r_bottom, r_top, 0.5), "r_in": r_bottom, "vel": [3.0, 6.0], "dir": Vector3.UP,
+			"spread": 20.0, "colors": [[0, Color(col, 0.0)], [0.2, Color(col, 0.8)], [1, Color(col, 0.0)]]})
+	var tw := spin.create_tween().set_loops()
+	tw.tween_property(spin, "rotation:y", -TAU, 0.45).from(0.0)
+	w.scale = Vector3(0.2, 0.05, 0.2)
+	var grow := w.create_tween()
+	grow.tween_property(w, "scale", Vector3.ONE, 0.3).set_ease(Tween.EASE_OUT)
+	grow.tween_interval(maxf(0.1, t - 0.6))
+	grow.tween_property(w, "scale", Vector3(0.3, 1.3, 0.3), 0.3).set_ease(Tween.EASE_IN)
+	grow.tween_callback(w.queue_free)
+	return w
+
+
 ## Três escudos dourados girando em volta do herói
 ## dentro de uma cúpula dourada transparente.
 static func golden_shield(p: Node3D, dur: float, col: Color) -> void:

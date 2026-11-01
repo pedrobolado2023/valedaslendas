@@ -158,7 +158,7 @@ func _build_skillbar() -> void:
 	panel.add_child(row)
 	for i in player.skill_count():
 		row.add_child(_make_slot(i))
-	var keys := "1-%d" % player.skill_count() if player.skill_count() < 10 else "1-9 e 0"
+	var keys := "1-%s" % GameData.SKILL_KEYS[player.skill_count() - 1] if player.skill_count() < 10 else "1-9, 0" + (", - e =" if player.skill_count() > 10 else "")
 	var hint := UiTheme.label("Clique / Espaço: ataque básico   ·   %s: skills   ·   E: falar" % keys, 14, Color(0.8, 0.75, 0.65))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	wrap.add_child(hint)
@@ -196,7 +196,7 @@ func _make_slot(i: int) -> Control:
 	cd_t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	cd_t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(cd_t)
-	var key := UiTheme.label(str((i + 1) % 10), 15, Color(1.0, 0.9, 0.6))
+	var key := UiTheme.label(GameData.SKILL_KEYS[i], 15, Color(1.0, 0.9, 0.6))
 	key.position = Vector2(6, 2)
 	key.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(key)

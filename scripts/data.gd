@@ -22,8 +22,10 @@ const MP_REGEN_FLAT := 4.0
 const MP_REGEN_PCT := 0.04
 const MAX_SKILL_LEVEL := 10
 ## Nível do personagem necessário para aprender cada skill (até 10 por classe; teclas 1-9 e 0).
-const SKILL_UNLOCK := [1, 3, 6, 10, 15, 20, 25, 30, 40, 50]
-const MAX_SKILLS := 10
+const SKILL_UNLOCK := [1, 3, 6, 10, 15, 20, 25, 30, 40, 50, 60, 70]
+const MAX_SKILLS := 12
+## Tecla de cada skill (a 11ª e a 12ª ficam no - e no =).
+const SKILL_KEYS := ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "="]
 ## Multiplicador da área (raio "r") de todas as skills.
 const AREA_MULT := 1.4
 
@@ -255,36 +257,42 @@ const SKILLS := {
 			"desc": "Concentra todo o poder na ponta da lança e perfura em linha: {dmg} de dano, o DOBRO em quem estiver com a defesa quebrada. Cada inimigo derrotado tira 3 s da recarga."},
 	],
 	"mago": [
-		{"id": "ma1", "name": "Orbe de Chamas", "type": "projectile", "visual": "fireball", "cd": 2.6, "mp": 9, "mult": 1.4, "speed": 26.0, "life": 1.0, "explode": 2.4, "anim": "dr5",
+		{"id": "ma1", "name": "Orbe de Chamas", "type": "projectile", "visual": "fireball", "cd": 2.6, "mp": 9, "mult": 1.4, "speed": 26.0, "life": 1.0, "explode": 2.6, "anim": "dr5",
 			"color": Color(1.0, 0.55, 0.2), "sfx": "sk_fire",
-			"desc": "Uma bola de fogo que explode no primeiro inimigo: {dmg} de dano em volta dele."},
-		{"id": "ma2", "name": "Raio em Cadeia", "type": "storm_chain", "cd": 6.0, "mp": 18, "mult": 1.3, "range": 14.0, "hops": 5, "jump": 8.0, "stun": 0.3, "anim": "dr8",
-			"color": Color(0.65, 0.75, 1.0), "sfx": "sk_thunder",
-			"desc": "Um raio que salta de inimigo em inimigo, atingindo até {n}: {dmg} de dano em cada."},
-		{"id": "ma3", "name": "Bloco de Gelo", "type": "ice_block", "cd": 18.0, "mp": 20, "mult": 0.8, "r": 4.0, "dur": 1.8, "stun": 2.0, "pct": 0.12, "pct_lv": 0.01, "anim": "dr4",
-			"color": Color(0.7, 0.95, 1.0), "sfx": "sk_ice",
-			"desc": "Se fecha num bloco de gelo por {dur} s sem levar dano e cura {shield} da vida; ao sair, congela quem estiver perto ({dmg} de dano)."},
-		{"id": "ma4", "name": "Pilares Infernais", "type": "immolate", "cd": 9.0, "mp": 22, "mult": 0.9, "r": 6.0, "range": 15.0, "count": 5, "ticks": 4, "every": 0.5, "anim": "dr1",
-			"color": Color(1.0, 0.45, 0.15), "sfx": "sk_fire",
-			"desc": "Colunas de fogo brotam debaixo de até 5 inimigos na área mirada: {dmg} de dano 4 vezes em cada."},
-		{"id": "ma5", "name": "Nevasca", "type": "ice_fall", "cd": 11.0, "mp": 26, "mult": 0.9, "r": 5.0, "range": 14.0, "count": 10, "spread_t": 1.6, "hit_r": 2.2, "slow": 0.5, "slow_dur": 3.0, "anim": "dr7",
-			"color": Color(0.7, 0.9, 1.0), "sfx": "sk_ice",
-			"desc": "Uma tempestade de gelo cai na área ({r} m): {dmg} de dano por pedra e deixa todos lentos."},
-		{"id": "ma6", "name": "Onda de Calor", "type": "flame_nova", "cd": 10.0, "mp": 18, "mult": 1.2, "r": 4.5, "knock": 4.5, "burn": 0.3, "anim": "dr6",
+			"desc": "Dispara uma esfera de fogo concentrada que explode no impacto: {dmg} de dano em área."},
+		{"id": "ma2", "name": "Orbe de Gelo", "type": "frost_orb", "cd": 5.0, "mp": 12, "mult": 1.2, "speed": 22.0, "life": 1.1, "r": 2.4, "slow": 0.65, "slow_dur": 4.0, "anim": "dr5",
+			"color": Color(0.6, 0.9, 1.0), "sfx": "sk_ice",
+			"desc": "Lança uma esfera congelante: {dmg} de dano em volta do alvo e reduz muito a velocidade de quem for atingido (65% por 4 s)."},
+		{"id": "ma3", "name": "Golpe de Chamas", "type": "flame_nova", "cd": 9.0, "mp": 16, "mult": 1.2, "r": 4.5, "knock": 5.0, "burn": 0.3, "anim": "dr6",
 			"color": Color(1.0, 0.5, 0.15), "sfx": "sk_fire",
-			"desc": "Explode em chamas em volta de si: {dmg} de dano, empurra para longe quem chegou perto e deixa queimando."},
-		{"id": "ma7", "name": "Escudo de Mana", "type": "mana_shield", "cd": 18.0, "mp": 0, "pct": 0.5, "pct_lv": 0.03, "dur": 10.0, "anim": "dr4",
+			"desc": "Uma tempestade de calor repentina em volta: {dmg} de dano e empurra para longe quem tenta se aproximar, deixando queimando."},
+		{"id": "ma4", "name": "Raios em Cadeia", "type": "storm_chain", "cd": 6.0, "mp": 18, "mult": 1.3, "range": 14.0, "hops": 5, "jump": 8.0, "stun": 0.3, "anim": "dr8",
+			"color": Color(0.65, 0.75, 1.0), "sfx": "sk_thunder",
+			"desc": "Um relâmpago que salta de um alvo para o outro, eletrocutando até {n} inimigos: {dmg} de dano em cada."},
+		{"id": "ma5", "name": "Bloco Congelado", "type": "ice_block", "cd": 18.0, "mp": 20, "mult": 0.8, "r": 4.0, "dur": 2.0, "stun": 2.0, "pct": 0.12, "pct_lv": 0.01, "anim": "dr4",
+			"color": Color(0.7, 0.95, 1.0), "sfx": "sk_ice",
+			"desc": "Envolve a maga em gelo: fica invulnerável por {dur} s e cura {shield} da vida; ao sair, congela os atacantes próximos ({dmg} de dano)."},
+		{"id": "ma6", "name": "Imolação", "type": "immolate", "cd": 9.0, "mp": 22, "mult": 0.9, "r": 6.0, "range": 15.0, "count": 5, "ticks": 5, "every": 0.5, "anim": "dr1",
+			"color": Color(1.0, 0.45, 0.15), "sfx": "sk_fire",
+			"desc": "Invoca colunas de fogo do inferno sob até 5 inimigos na área mirada: {dmg} de dano de queima 5 vezes em cada."},
+		{"id": "ma7", "name": "Nevasca", "type": "blizzard", "cd": 14.0, "mp": 28, "mult": 0.5, "r": 6.0, "range": 15.0, "dur": 4.0, "every": 0.4, "slow": 0.5, "freeze": 1.5, "anim": "dr7",
+			"color": Color(0.75, 0.92, 1.0), "sfx": "sk_ice",
+			"desc": "Uma tempestade de neve severa na área ({r} m) por {dur} s: {dmg} de dano a cada 0,4 s, desacelera e no fim congela todos por 1,5 s."},
+		{"id": "ma8", "name": "Escudo Mágico", "type": "magic_shield", "cd": 22.0, "mp": 10, "pct": 0.6, "pct_lv": 0.03, "dur": 12.0, "anim": "dr4",
 			"color": Color(0.5, 0.6, 1.0), "sfx": "sk_shield",
-			"desc": "Transforma {shield} da sua mana atual num escudo que vale o triplo em vida, por {dur} s."},
-		{"id": "ma8", "name": "Devorador de Almas", "type": "soul_drain", "cd": 8.0, "mp": 16, "mult": 0.9, "count": 4, "speed": 20.0, "mana": 4, "anim": "dr5",
-			"color": Color(0.6, 0.3, 0.9), "sfx": "sk_magic",
-			"desc": "Quatro rajadas de energia sombria que perseguem os inimigos: {dmg} de dano cada e devolvem mana a cada acerto."},
-		{"id": "ma9", "name": "Tempestade de Trovões", "type": "sea_storm", "cd": 20.0, "mp": 36, "mult": 1.1, "r": 6.5, "range": 15.0, "dur": 4.0, "every": 0.25, "slow": 0.3, "slow_dur": 2.0, "anim": "dr8",
+			"desc": "Uma barreira protetora por {dur} s: {shield} do dano recebido sai da mana em vez da vida (até a mana acabar)."},
+		{"id": "ma9", "name": "Devorador de Almas", "type": "soul_drain", "cd": 8.0, "mp": 16, "mult": 0.9, "count": 4, "speed": 20.0, "mana": 4, "vuln": 0.15, "vuln_dur": 5.0, "anim": "dr5",
+			"color": Color(0.55, 0.25, 0.9), "sfx": "sk_magic",
+			"desc": "Dispara rajadas de energia negra que perseguem os inimigos: {dmg} de dano no espírito (ficam 15% mais frágeis) e rouba mana a cada acerto."},
+		{"id": "ma10", "name": "Tempestade de Raios", "type": "sea_storm", "cd": 20.0, "mp": 36, "mult": 1.1, "r": 6.5, "range": 15.0, "dur": 4.0, "every": 0.25, "slow": 0.3, "slow_dur": 2.0, "anim": "dr8",
 			"color": Color(0.65, 0.7, 1.0), "sfx": "sk_thunder",
-			"desc": "Nuvens negras sobre a área mirada por {dur} s: trovões seguidos de {dmg} de dano cada."},
-		{"id": "ma10", "name": "Tornado Elemental", "type": "tornado", "cd": 28.0, "mp": 42, "mult": 0.55, "r": 5.5, "len": 12.0, "ticks": 12, "every": 0.35, "anim": "dr6",
-			"color": Color(0.7, 0.6, 1.0), "sfx": "sk_magic",
-			"desc": "Um tornado gigante de fogo e vento avança à frente puxando os inimigos para dentro: {dmg} de dano por giro, {r} m de raio."},
+			"desc": "Invoca trovões do céu, um atrás do outro, na área mirada por {dur} s: {dmg} de dano cada."},
+		{"id": "ma11", "name": "Vórtice Sombrio", "type": "dark_vortex", "cd": 18.0, "mp": 30, "mult": 0.35, "r": 7.0, "range": 14.0, "dur": 3.0, "every": 0.3, "anim": "dr1",
+			"color": Color(0.45, 0.2, 0.8), "sfx": "sk_magic",
+			"desc": "Um buraco negro de vento no ponto mirado puxa os inimigos de {r} m para o centro por {dur} s ({dmg} de dano por puxão), agrupando todos."},
+		{"id": "ma12", "name": "Tornado Elemental", "type": "tornado", "cd": 30.0, "mp": 45, "mult": 0.6, "r": 7.0, "range": 14.0, "ticks": 14, "every": 0.3, "anim": "dr6",
+			"color": Color(0.75, 0.55, 1.0), "sfx": "sk_magic",
+			"desc": "Suprema: invoca um redemoinho elemental gigante no ponto mirado que arrasta e estraçalha todos em {r} m: {dmg} de dano por giro."},
 	],
 	"arqueira": [
 		{"id": "ar1", "name": "Tiro Triplo", "type": "projectile", "visual": "arrow", "count": 3, "spread": 0.22, "cd": 2.4, "mp": 7, "mult": 1.0, "speed": 38.0, "life": 0.8, "anim": "dr5",
@@ -1204,7 +1212,7 @@ const CAMPAIGN_UNLOCKS := {
 	"glaciar": [[], [], ["skill:9", "map:vulcao"]],
 	"fendas": [[], [], []],
 	"forja": [[], [], ["skill:10"]],
-	"ninho": [[], [], ["map:m1"]],
+	"ninho": [[], ["skill:11"], ["skill:12", "map:m1"]],
 }
 ## Missões que ensinam uma função, logo depois de uma etapa da zona: zona → [[etapa (0 caçada, 1 coleta, 2 chefe), missão]].
 const CAMPAIGN_EXTRA := {

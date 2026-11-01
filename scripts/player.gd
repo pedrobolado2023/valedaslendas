@@ -24,7 +24,7 @@ var max_mp := 50
 var mp := 50.0
 var atk := 20.0
 var speed := 7.0
-var skill_levels: Array[int] = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+var skill_levels: Array[int] = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
 var skill_points := 0
 var gems := 0                    # moeda premium da loja (Shop)
 var shop_counts := {}            # id -> quantas vezes comprou
@@ -47,7 +47,7 @@ var _ride_t := 0.0
 var _trail_t := 0.0
 var xp_boost_until := 0.0        # horário Unix até quando o XP vale dobrado
 var purchases: Array = []        # registro de compras/créditos (para o banco de dados)
-var skill_cd: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+var skill_cd: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 var basic_cd := 0.0
 
 var dmg_buff := 0.0
@@ -120,6 +120,8 @@ var combo_active_boost := 1.0
 var combo_boost_t := 0.0   # janela em que os golpes da skill do combo recebem o bônus (Skills.hit)
 var crit_bonus := 0.0      # Mira Firme: chance extra de crítico enquanto crit_bonus_t > 0
 var crit_bonus_t := 0.0
+var mana_shield_t := 0.0    # Escudo Mágico (Mago): mana_shield_pct do dano vai para a mana
+var mana_shield_pct := 0.0
 var soldiers: Array = []
 var troop_level := 1
 var troop_type := "lanceiro"
@@ -570,6 +572,7 @@ func _timers(delta: float) -> void:
 	invuln_t -= delta
 	combo_boost_t -= delta
 	crit_bonus_t -= delta
+	mana_shield_t -= delta
 	if combo_timer > 0.0:
 		combo_timer -= delta
 		if combo_timer <= 0.0:
@@ -712,6 +715,13 @@ func take_damage(n: int, from: Vector3 = Vector3.ZERO, attacker: Node = null) ->
 			var b := shield_burst
 			shield_burst = {}
 			Skills.shell_burst(self, b)
+	if mana_shield_t > 0.0 and mp > 0.0 and dmg > 0.0:   # Escudo Mágico: parte do dano sai da mana
+		var to_mp := minf(mp, dmg * mana_shield_pct)
+		mp -= to_mp
+		dmg -= to_mp
+		Fx.damage_number(get_parent(), global_position + Vector3(0, 2.9, 0), "-%d MP" % int(to_mp), Color(0.5, 0.65, 1.0))
+		if mp <= 0.0:
+			mana_shield_t = 0.0
 	if dmg <= 0.0:
 		stats_changed.emit()
 		return

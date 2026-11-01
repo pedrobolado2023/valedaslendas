@@ -986,7 +986,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			p.invuln_t = idur
 			p.cc_immune_t = idur
 			p.heal(p.max_hp * shield_pct(sk, lvl))
-			var block := Toon.glow_part(Toon.box(Vector3(1.6, 2.6, 1.6)), Color(0.7, 0.95, 1.0), Vector3(0, 1.3, 0), 0.45, true)
+			var block := Toon.glow_part(Toon.box(Vector3(1.6, 2.6, 1.6)), Color(0.3, 0.55, 0.75), Vector3(0, 1.3, 0), 0.35, false)
 			p.add_child(block)
 			Vfx.emit(host, pos + Vector3(0, 0.5, 0), {"tex": "dot", "amount": 30, "life": 0.8, "size": [0.06, 0.14], "shape": "ring",
 					"r": 1.2, "r_in": 0.4, "vel": [1.0, 3.0], "dir": Vector3.UP, "colors": [[0, Color(0.9, 1.0, 1.0, 0.9)], [1, Color(0.6, 0.9, 1.0, 0.0)]]})
@@ -1044,13 +1044,100 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 						if is_instance_valid(e) and e.alive:
 							Vfx.sparks(host, e.global_position + Vector3(0, 0.8, 0), 4, 2.0)
 							hit(p, e, fburn, e.global_position))
-		"mana_shield":
-			var spend := p.mp * shield_pct(sk, lvl)
-			p.mp -= spend
-			p.add_shield(spend * 3.0, float(sk["dur"]), col)
+		"magic_shield":
+			var msd := float(sk["dur"])
+			p.mana_shield_pct = shield_pct(sk, lvl)
+			p.mana_shield_t = msd
 			Vfx.magic_rune_circle(host, pos, 2.2, Color(col, 0.9), 1.2, 1.2)
 			Vfx.shockwave(host, pos, col, 3.0, 0.4)
-			Fx.damage_number(host, pos + Vector3(0, 2.8, 0), "Escudo %d" % int(spend * 3.0), col)
+			var bubble := Toon.glow_part(Toon.sphere(1.5, 16), col, Vector3(0, 1.1, 0), 0.22, true)
+			p.add_child(bubble)
+			var btw := bubble.create_tween().set_loops(int(msd / 1.2) + 1)
+			btw.tween_property(bubble, "scale", Vector3.ONE * 1.06, 0.6).set_trans(Tween.TRANS_SINE)
+			btw.tween_property(bubble, "scale", Vector3.ONE, 0.6).set_trans(Tween.TRANS_SINE)
+			_later(p, msd, func() -> void:
+				if is_instance_valid(bubble):
+					bubble.queue_free())
+		"frost_orb":
+			p.attack_visual()
+			var fo := Projectile.new()
+			fo.player = p
+			fo.dir = dir
+			fo.speed = float(sk["speed"])
+			fo.life = float(sk["life"])
+			fo.mult = m * 0.5
+			fo.visual = "ice"
+			fo.color = col
+			host.add_child(fo)
+			fo.global_position = hand + dir * 0.8
+			var for_r := area(sk)
+			# a explosão gelada sai onde o orbe parar (no primeiro inimigo ou no fim do alcance)
+			var burst := func(at9: Vector3) -> void:
+				if not is_instance_valid(p) or not p.is_inside_tree() or not is_instance_valid(host):
+					return
+				Vfx.shockwave(host, at9, col, for_r, 0.35)
+				for k in 8:
+					var a9 := TAU * k / 8.0
+					_ice_spike(host, at9 + Vector3(cos(a9), 0, sin(a9)) * for_r * 0.5, col)
+				Sfx.play("sk_ice", -4.0, 1.2)
+				for e in in_radius(tree, at9, for_r):
+					hit(p, e, m, at9, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"])})
+			# o orbe está saindo da cena: a explosão nasce no quadro seguinte
+			fo.tree_exiting.connect(func() -> void:
+				burst.call_deferred(Vector3(fo.global_position.x, pos.y, fo.global_position.z)))
+		"blizzard":
+			var rbz := area(sk)
+			var bzat := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var bzdur := float(sk["dur"])
+			var bzev := float(sk["every"])
+			Vfx.marker(host, bzat, col, rbz, bzdur + 0.3)
+			Vfx.ground_mark(host, bzat, "frost", rbz * 2.2, bzdur + 2.0)
+			Vfx.emit(host, bzat + Vector3(0, 7.0, 0), {"tex": "dot", "add": false, "shot": false, "amount": 160, "life": 1.3, "dur": bzdur,
+					"size": [0.08, 0.18], "shape": "box", "box": Vector3(rbz, 0.5, rbz), "vel": [5.0, 8.0], "dir": Vector3(0.35, -1, 0.15), "spread": 10.0,
+					"colors": [[0, Color(1, 1, 1, 0.0)], [0.15, Color(0.95, 0.98, 1.0, 0.9)], [1, Color(0.85, 0.95, 1.0, 0.0)]]})
+			Vfx.emit(host, bzat + Vector3(0, 0.6, 0), {"tex": "smoke", "add": false, "shot": false, "amount": 30, "life": 1.6, "dur": bzdur,
+					"size": [2.0, 3.5], "shape": "ring", "r": rbz * 0.9, "r_in": rbz * 0.2, "vel": [1.0, 2.5], "spread": 60.0,
+					"colors": [[0, Color(0.9, 0.95, 1.0, 0.0)], [0.3, Color(0.85, 0.92, 1.0, 0.18)], [1, Color(0.8, 0.9, 1.0, 0.0)]], "spin": 60.0})
+			for k in int(bzdur / bzev):
+				_later(p, bzev * (k + 1), func() -> void:
+					if not is_instance_valid(p):
+						return
+					for e in in_radius(tree, bzat, rbz):
+						hit(p, e, m, bzat, {"slow": float(sk["slow"]), "slow_dur": 1.0}))
+			_later(p, bzdur, func() -> void:
+				if not is_instance_valid(p):
+					return
+				Sfx.play("sk_ice", -1.0, 0.8)
+				for e in in_radius(tree, bzat, rbz):
+					_ice_spike(host, e.global_position, col)
+					e.apply_stun(float(sk["freeze"])))
+		"dark_vortex":
+			var rdv := area(sk)
+			var dvat := pos + flat(point - pos).limit_length(float(sk["range"]))
+			var dvdur := float(sk["dur"])
+			var dvev := float(sk["every"])
+			var core := Toon.glow_part(Toon.sphere(1.0, 16), Color(0.05, 0.0, 0.1), Vector3.ZERO, 1.0, false)
+			host.add_child(core)
+			core.global_position = dvat + Vector3(0, 1.4, 0)
+			core.scale = Vector3.ONE * 0.1
+			var ctw := core.create_tween()
+			ctw.tween_property(core, "scale", Vector3.ONE, 0.25)
+			ctw.tween_interval(maxf(0.1, dvdur - 0.5))
+			ctw.tween_property(core, "scale", Vector3.ONE * 0.05, 0.25)
+			ctw.tween_callback(core.queue_free)
+			Vfx.funnel(host, dvat, rdv * 0.12, rdv * 0.7, 3.0, col, dvdur, Vfx.SHADOW)
+			Vfx.emit(host, dvat + Vector3(0, 0.5, 0), {"tex": "smoke", "add": false, "shot": false, "amount": 30, "life": 0.9, "dur": dvdur,
+					"size": [0.8, 1.6], "shape": "ring", "r": rdv, "r_in": rdv * 0.7, "vel": [0.5, 1.5], "dir": Vector3.UP, "colors": Vfx.SHADOW, "spin": 120.0})
+			Fx.light_flash(host, dvat + Vector3(0, 2, 0), col, 3.0, rdv * 2.0, dvdur)
+			for k in int(dvdur / dvev):
+				_later(p, dvev * (k + 1), func() -> void:
+					if not is_instance_valid(p):
+						return
+					for e in in_radius(tree, dvat, rdv):
+						var to3 := flat(e.global_position - dvat)
+						if to3.length() > 1.0:
+							e.pull_to(dvat + to3 * 0.55, dvev * 0.9)
+						hit(p, e, m, dvat))
 		"soul_drain":
 			p.attack_visual()
 			for k in int(sk["count"]):
@@ -1063,34 +1150,35 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				sd.homing = true
 				sd.visual = "orb"
 				sd.color = col
-				sd.extra = {"mana": float(sk["mana"])}
+				sd.extra = {"mana": float(sk["mana"]), "vuln": float(sk.get("vuln", 0.0)), "vuln_dur": float(sk.get("vuln_dur", 5.0))}
 				sd._delay = 0.06 * k
 				host.add_child(sd)
 				sd.global_position = hand + sd.dir * 0.6
 			Vfx.shadow_puff(host, hand, 0.6, col)
 		"tornado":
 			var rt := area(sk)
-			var tlen2 := float(sk["len"])
+			var tat := pos + flat(point - pos).limit_length(float(sk["range"]))
 			var tticks := int(sk["ticks"])
 			var tevery := float(sk["every"])
 			var ttotal := tticks * tevery
-			var tw3 := _whirl(host, pos + dir * 2.0, rt, col, ttotal)
-			var tw_move := tw3.create_tween()
-			tw_move.tween_property(tw3, "global_position", pos + dir * (2.0 + tlen2), ttotal)
-			Vfx.emit(tw3, Vector3(0, 0.5, 0), {"tex": "flame", "shot": false, "local": true, "amount": 40, "life": 0.8, "dur": ttotal,
-					"size": [0.8, 1.8], "shape": "ring", "r": rt * 0.5, "r_in": rt * 0.2, "vel": [3.0, 7.0], "dir": Vector3.UP, "spread": 10.0,
-					"colors": Vfx.FIRE, "spin": 200.0})
-			Vfx.cinematic_dim(host, 0.8, 0.3)
+			var tw3 := Vfx.funnel(host, tat, rt * 0.22, rt * 0.85, 10.0, col, ttotal)
+			if tw3 != null:
+				Vfx.emit(tw3, Vector3(0, 1.0, 0), {"tex": "flame", "shot": false, "local": true, "amount": 40, "life": 0.9, "dur": ttotal,
+						"size": [0.8, 1.6], "shape": "ring", "r": rt * 0.4, "r_in": rt * 0.15, "vel": [5.0, 10.0], "dir": Vector3.UP, "spread": 12.0,
+						"colors": Vfx.FIRE, "spin": 220.0})
+			Vfx.cinematic_dim(host, 0.9, 0.35)
+			Fx.shake(p, 0.4)
 			for k in tticks:
 				_later(p, tevery * (k + 1), func() -> void:
-					if not is_instance_valid(p) or not is_instance_valid(tw3):
+					if not is_instance_valid(p):
 						return
-					var o := tw3.global_position
-					for e in in_radius(tree, o, rt):
-						var to2 := flat(e.global_position - o)
+					for e in in_radius(tree, tat, rt):
+						var to2 := flat(e.global_position - tat)
 						if to2.length() > 1.2:
-							e.pull_to(o + to2 * 0.6, tevery * 0.8)
-						hit(p, e, m, o))
+							e.pull_to(tat + to2 * 0.6, tevery * 0.8)
+						if k == 0:
+							e.lift(ttotal * 0.7)
+						hit(p, e, m, tat))
 		# ------------------------------------------------------------- Arqueira
 		"backstep":
 			var bsd := float(sk["dist"])
