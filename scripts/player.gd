@@ -373,20 +373,29 @@ func basic_attack(point: Vector3) -> void:
 		"melee":
 			var r := float(cdata["range"])
 			Fx.slash(host, global_position + Vector3(0, 1.0, 0), atan2(dir.z, dir.x), r, 150.0, trim, 1.0, 0.22, randf() < 0.5)
+			if String(cdata.get("basic_fx", "")) == "crescent":   # Golpe de Crescente (Guerreiro): meia-lua larga e brilhante
+				Fx.slash(host, global_position + Vector3(0, 1.1, 0), atan2(dir.z, dir.x), r * 1.15, 180.0, Color(1, 1, 1), 0.5, 0.2)
+				Vfx.sparks(host, global_position + dir * r * 0.8 + Vector3(0, 1.0, 0), 8, 4.0)
 			Sfx.play("swing", -4.0)
 			for e in Skills.in_cone(get_tree(), global_position, dir, r, float(cdata["dot"])):
 				Skills.hit(self, e, 1.0, global_position)
 		"thrust":
 			var r2 := float(cdata["range"])
-			if _vis != null:
-				var lunge := create_tween()
-				lunge.tween_property(_vis, "position:z", -0.42, 0.07).set_ease(Tween.EASE_OUT)
-				lunge.tween_property(_vis, "position:z", 0.0, 0.14).set_ease(Tween.EASE_IN)
-			Fx.slash(host, global_position + dir * 0.55 + Vector3(0, 1.05, 0), atan2(dir.z, dir.x), r2 * 0.88, 65.0, Color(0.92, 0.96, 1.0), 0.72, 0.18, randf() < 0.5)
-			Vfx.sparks(host, global_position + dir * (r2 * 0.75) + Vector3(0, 1.05, 0), 8, 3.5)
-			Sfx.play("swing", -4.0, 1.08)
-			for e in Skills.in_cone(get_tree(), global_position, dir, r2, float(cdata["dot"])):
-				Skills.hit(self, e, 1.0, global_position)
+			var hits := int(cdata.get("basic_hits", 1))   # Golpe Duplo (Lanceiro): 2 estocadas
+			for k in hits:
+				get_tree().create_timer(0.13 * k + 0.001).timeout.connect(func() -> void:
+					if not alive or not is_inside_tree():
+						return
+					var o := global_position
+					if _vis != null:
+						var lunge := create_tween()
+						lunge.tween_property(_vis, "position:z", -0.42, 0.06).set_ease(Tween.EASE_OUT)
+						lunge.tween_property(_vis, "position:z", 0.0, 0.07).set_ease(Tween.EASE_IN)
+					Fx.slash(host, o + dir * 0.55 + Vector3(0, 1.05, 0), atan2(dir.z, dir.x) + (k - 0.5) * 0.1, r2 * 0.88, 65.0, Color(0.92, 0.96, 1.0), 0.72, 0.18, k % 2 == 1)
+					Vfx.sparks(host, o + dir * (r2 * 0.75) + Vector3(0, 1.05, 0), 8, 3.5)
+					Sfx.play("swing", -4.0, 1.08 + 0.1 * k)
+					for e in Skills.in_cone(get_tree(), o, dir, r2, float(cdata["dot"])):
+						Skills.hit(self, e, 1.2 / hits if hits > 1 else 1.0, o, {"vuln": 0.05, "vuln_dur": 2.0} if hits > 1 else {}))
 		"arrow":
 			Sfx.play("arrow", -5.0)
 			_shoot(dir, "bolt", 30.0, 0.75, trim)
@@ -400,6 +409,8 @@ func basic_attack(point: Vector3) -> void:
 
 
 func _shoot(dir: Vector3, visual: String, spd: float, life: float, col: Color) -> Projectile:
+	if crit_bonus_t > 0.0:   # Mira Estável: flechas vão mais longe
+		life *= 1.4
 	var pr := Projectile.new()
 	pr.player = self
 	pr.dir = dir

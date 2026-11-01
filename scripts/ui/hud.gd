@@ -485,6 +485,8 @@ func refresh() -> void:
 	_btn_skills.text = "Skills (K)" + ("  +%d" % p.skill_points if p.skill_points > 0 else "")
 	_gear_btn.text = "+%d" % p.skill_points if p.skill_points > 0 else ""   # aviso de pontos de skill no botão
 	for i in _slots.size():
+		if i >= p.skill_count():   # HUD montado para outra classe (troca até a próxima montagem)
+			continue
 		var s: Dictionary = _slots[i]
 		var lvl: int = p.skill_levels[i]
 		var sk: Dictionary = GameData.SKILLS[p.class_key][i]

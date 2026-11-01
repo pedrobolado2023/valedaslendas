@@ -97,8 +97,14 @@ static func hit(p: Player, e: Enemy, mult: float, from: Vector3, opts: Dictionar
 		dmg *= 2.0
 	if p._giant_t > 0.0:
 		dmg *= 1.2
-	if opts.has("low") and float(e.hp) / float(e.max_hp) < float(opts["low"]):   # Tiro do Caçador
+	if opts.has("low") and (float(e.hp) / float(e.max_hp) < float(opts["low"]) or not e.aggro):   # Assassinato: fraco ou desavisado
 		dmg *= 2.0
+	if opts.has("consume") and (e._vuln > 0.0 or e._slow > 0.0 or e._stun_t > 0.0):   # Lâmina Crescente
+		dmg *= float(opts["consume"]) * (1.0 if crit else 1.8)   # vira crítico
+		crit = true
+		e._vuln = 0.0
+		e._vuln_t = 0.0
+		e._slow_t = 0.0
 	if opts.has("vs_vuln") and e._vuln > 0.0:   # Lança do Firmamento: defesa quebrada
 		dmg *= float(opts["vs_vuln"])
 	var final := maxi(1, int(round(dmg)))
@@ -110,6 +116,8 @@ static func hit(p: Player, e: Enemy, mult: float, from: Vector3, opts: Dictionar
 	if e.alive:
 		if opts.has("lift"):
 			e.lift(float(opts["lift"]))
+		if opts.has("weaken"):
+			e.apply_weaken(float(opts["weaken"]), float(opts.get("vuln_dur", 6.0)))
 		if p.poison_t > 0.0:
 			e.apply_poison(p.atk * p.poison_mult, 4.0, p)
 			e.apply_slow(0.2, 4.0)
@@ -248,7 +256,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				Fx.shake(p, 0.35)
 				Sfx.play("sk_slam", -3.0, 1.2)
 				for e in in_radius(tree, target2, r5):
-					hit(p, e, m, target2, {"stun": 0.5}))
+					hit(p, e, m, target2, {"stun": float(sk.get("stun", 0.5)), "lift": float(sk.get("lift", 0.0))}))
 		"pull":
 			var r6 := area(sk)
 			Fx.slash(host, pos + Vector3(0, 1.0, 0), _ang(dir), r6, 400.0, col, 1.4, 0.4)
@@ -418,6 +426,11 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					"shape": "ring", "r": 1.2, "vel": [0.5, 1.5], "dir": Vector3.UP, "spread": 60.0, "colors": Vfx.SHADOW,
 					"curve": [[0, 0.6], [1, 1.5]], "spin": 30.0})
 			p.start_stealth(float(sk["dur"]))
+			if sk.has("confuse"):   # Névoa: quem está perto perde o alvo
+				for e in in_radius(tree, pos, area(sk)):
+					e.apply_stun(float(sk["confuse"]))
+					e.aggro = false
+					Fx.damage_number(host, e.global_position + Vector3(0, float(e.data["height"]) + 0.6, 0), "?", Color(0.8, 0.8, 0.9))
 		"spin_multi":
 			var rs := area(sk)
 			for k in int(sk["hits"]):
@@ -814,7 +827,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					return
 				for e in enemies(tree):
 					if seg_dist(e.global_position, pos, cend) <= 2.0 + e.radius:
-						hit(p, e, m, pos, {"stun": float(sk["stun"]), "knock": 2.5})
+						hit(p, e, m, pos, {"stun": float(sk["stun"]), "knock": float(sk.get("knock", 2.5)), "lift": float(sk.get("lift", 0.0))})
 				Vfx.shockwave(host, p.global_position, col, 3.5, 0.35)
 				Fx.shake(p, 0.3))
 		"roar":
@@ -862,20 +875,17 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				for e in in_radius(tree, o, rp):
 					hit(p, e, m, o, {"knock": 2.0}))
 		"hook":
-			var far: Enemy = null
-			var fd := 0.0
-			for e in in_cone(tree, pos, dir, float(sk["range"]), cos(0.5)):
-				var dd2 := flat(e.global_position - pos).length()
-				if dd2 > fd:
-					fd = dd2
-					far = e
-			if far == null:
+			var cands := in_cone(tree, pos, dir, float(sk["range"]), cos(0.55))
+			cands.sort_custom(func(x: Enemy, y: Enemy) -> bool: return flat(x.global_position - pos).length() > flat(y.global_position - pos).length())
+			cands = cands.slice(0, int(sk.get("count", 1)))
+			if cands.is_empty():
 				Fx.streak(host, hand, hand + dir * float(sk["range"]), col, 0.25, 0.3)
-			else:
-				var fe := far
+			for k in cands.size():
+				var fe := cands[k]
+				var side3 := dir.cross(Vector3.UP) * (float(k) - (cands.size() - 1) * 0.5) * 1.6
 				Fx.streak(host, hand, fe.global_position + Vector3(0, 1.0, 0), col, 0.3, 0.45)
 				Vfx.sparks(host, fe.global_position + Vector3(0, 1.0, 0), 12, 5.0)
-				fe.pull_to(pos + dir * (fe.radius + 1.4), 0.3)
+				fe.pull_to(pos + dir * (fe.radius + 1.6) + side3, 0.3)
 				_later(p, 0.3, func() -> void:
 					if is_instance_valid(p) and is_instance_valid(fe):
 						hit(p, fe, m, p.global_position, {"stun": float(sk["stun"])})
@@ -924,7 +934,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			Vfx.emit(host, pos + dir * rsw * 0.5 + Vector3(0, 0.2, 0), {"tex": "smoke", "add": false, "amount": 20, "life": 0.6, "size": [0.7, 1.4],
 					"shape": "ring", "r": rsw * 0.8, "r_in": rsw * 0.4, "vel": [1.0, 2.5], "colors": Vfx.SMOKE, "spin": 60.0})
 			for e in in_cone(tree, pos, dir, rsw, 0.0):
-				hit(p, e, m, pos, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"]), "knock": 1.2})
+				hit(p, e, m, pos, {"slow": float(sk["slow"]), "slow_dur": float(sk["slow_dur"]), "knock": 1.2, "stun": float(sk.get("stun", 0.0))})
 		"crush":
 			var rcr := area(sk)
 			var cat := pos + dir * float(sk["range"])
@@ -967,9 +977,9 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 			var fend := pos + dir * flen2
 			p.attack_visual()
 			Vfx.cinematic_dim(host, 0.6, 0.35)
-			Vfx._beam_column(host, pos + dir * 1.5, 0.8, Color(col, 0.9), 0.4)
+			Vfx._beam_column(host, pos + dir * 1.5, 0.6, Color(col.r * 0.5, col.g * 0.5, col.b * 0.5, 0.6), 0.35)
 			Fx.streak(host, hand, fend + Vector3(0, 1.1, 0), col, 1.6, 0.4)
-			Fx.streak(host, hand, fend + Vector3(0, 1.1, 0), Color(1, 1, 1), 0.6, 0.3)
+			Fx.streak(host, hand, fend + Vector3(0, 1.1, 0), Color(0.8, 0.85, 0.9), 0.3, 0.25)
 			Fx.shake(p, 0.5)
 			Fx.hitstop(p, 0.07)
 			for e in enemies(tree):
@@ -978,7 +988,7 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 					hit(p, fe2, m, pos, {"vs_vuln": 2.0, "knock": 2.0})
 					Vfx.sparks(host, fe2.global_position + Vector3(0, 1.0, 0), 14, 7.0)
 					if not fe2.alive:
-						p.skill_cd[i] = maxf(0.0, p.skill_cd[i] - 3.0)
+						p.skill_cd[i] = maxf(0.0, p.skill_cd[i] - float(sk.get("kill_cd", 4.0)))
 		# ------------------------------------------------------------- Mago
 		"ice_block":
 			var rib := area(sk)
@@ -1253,11 +1263,84 @@ static func cast(p: Player, i: int, point: Vector3) -> void:
 				sn.global_position = p.global_position + Vector3(0, 1.1, 0) + sdir * 0.8
 				Fx.shake(p, 0.2)
 				Sfx.play("arrow", 0.0, 0.7))
+		"berserk":
+			var bb := buff_amount(sk, lvl)
+			if p.hp < p.max_hp * 0.5:
+				bb *= 2.0
+			p.add_dmg_buff(bb, float(sk["dur"]), col)
+			p.add_speed_buff(0.2, float(sk["dur"]))
+			Vfx.shockwave(host, pos, col, 4.0, 0.4)
+			Fx.light_flash(host, pos + Vector3(0, 1.5, 0), col, 5.0, 10.0, 0.5)
+			Vfx.emit(p, Vector3(0, 0.3, 0), {"tex": "flame", "shot": false, "local": true, "amount": 18, "life": 0.6, "dur": float(sk["dur"]),
+					"size": [0.5, 1.0], "shape": "ring", "r": 0.7, "r_in": 0.3, "vel": [1.5, 3.0], "dir": Vector3.UP, "spread": 10.0,
+					"colors": [[0, Color(1.0, 0.3, 0.1, 0.0)], [0.2, Color(1.0, 0.25, 0.1, 0.7)], [1, Color(0.6, 0.05, 0.05, 0.0)]]})
+			Fx.damage_number(host, pos + Vector3(0, 2.8, 0), "BERSERK +%d%%" % int(round(bb * 100.0)), col, true)
+		"inferno_cone":
+			var ric := area(sk)
+			var hic := float(sk["half"])
+			p.attack_visual()
+			Vfx.cinematic_dim(host, 1.0, 0.4)
+			_flame_cone(host, pos + Vector3(0, 0.9, 0), dir, ric, hic, Color(col.r * 0.35, col.g * 0.3, col.b * 0.3), Color(0.4, 0.3, 0.12))
+			Fx.slash(host, pos + Vector3(0, 1.0, 0), _ang(dir), ric * 0.5, rad_to_deg(hic * 2.0), Color(0.8, 0.5, 0.2), 1.2, 0.3)
+			Fx.shake(p, 0.7)
+			Fx.hitstop(p, 0.08)
+			for k in 3:
+				var dk := dir.rotated(Vector3.UP, randf_range(-hic, hic) * 0.8)
+				var atk := pos + dk * ric * (0.3 + 0.25 * k)
+				_later(p, 0.08 * k, func() -> void:
+					Vfx.shockwave(host, atk, col, 2.2 + 0.4 * k, 0.4)
+					Vfx.ground_mark(host, atk, "scorch", 3.0 + k, 4.0)
+					Vfx.fire_column(host, atk, 4.0, 0.7, 0.6))
+			var burned2 := in_cone(tree, pos, dir, ric, cos(hic))
+			for e in burned2:
+				hit(p, e, m, pos, {"knock": 3.0})
+			for k in 4:
+				_later(p, 0.5 * (k + 1), func() -> void:
+					if not is_instance_valid(p):
+						return
+					for e in burned2:
+						if is_instance_valid(e) and e.alive:
+							hit(p, e, m * 0.1, e.global_position))
+		"lance_storm":
+			var rls := area(sk)
+			var lsd := float(sk["dur"])
+			var lse := float(sk["every"])
+			var spinner := Node3D.new()
+			p.add_child(spinner)
+			spinner.position = Vector3(0, 1.0, 0)
+			for k in 2:
+				var blade := Toon.glow_part(Toon.box(Vector3(rls * 1.1, 0.05, 0.12)), Color(col.r * 0.5, col.g * 0.5, col.b * 0.5), Vector3.ZERO, 0.3, true)
+				blade.rotation.y = PI * 0.5 * k
+				spinner.add_child(blade)
+			var stw := spinner.create_tween().set_loops()
+			stw.tween_property(spinner, "rotation:y", TAU, 0.22).from(0.0)
+			_later(p, lsd, func() -> void:
+				if is_instance_valid(spinner):
+					spinner.queue_free())
+			for k in int(lsd / lse):
+				_later(p, lse * k, func() -> void:
+					if not is_instance_valid(p):
+						return
+					var o := p.global_position
+					p.spin_visual()
+					Fx.slash(host, o + Vector3(0, 1.0, 0), randf() * TAU, rls, 360.0, col, 0.7, 0.18, k % 2 == 1)
+					Sfx.play("swing", -9.0, 1.2 + 0.05 * k)
+					for e in in_radius(tree, o, rls):
+						hit(p, e, m, o))
+		"consume":
+			var rcs := area(sk)
+			p.attack_visual()
+			Fx.slash(host, pos + Vector3(0, 1.1, 0), _ang(dir), rcs, rad_to_deg(float(sk["half"]) * 2.0), col, 1.4, 0.26)
+			Fx.slash(host, pos + Vector3(0, 0.9, 0), _ang(dir), rcs * 0.75, rad_to_deg(float(sk["half"]) * 2.0), Color(1, 1, 1), 0.6, 0.22, true)
+			for e in in_cone(tree, pos, dir, rcs, cos(float(sk["half"]))):
+				if e._vuln > 0.0 or e._slow > 0.0 or e._stun_t > 0.0:
+					Vfx.shadow_burst(host, e.global_position, 2.0, col)
+				hit(p, e, m, pos, {"consume": 1.6})
 
 
 static func _opts(sk: Dictionary) -> Dictionary:
 	var o := {}
-	for key in ["knock", "vuln", "vuln_dur", "stun"]:
+	for key in ["knock", "vuln", "vuln_dur", "stun", "lift", "weaken"]:
 		if sk.has(key):
 			o[key] = sk[key]
 	return o
@@ -1474,7 +1557,7 @@ static func _whirl(host: Node, at: Vector3, r: float, col: Color, t: float) -> N
 
 # ------------------------------------------------------------- peças de efeito
 
-static func _flame_cone(host: Node, at: Vector3, dir: Vector3, r: float, half: float, col: Color) -> void:
+static func _flame_cone(host: Node, at: Vector3, dir: Vector3, r: float, half: float, col: Color, core: Color = Color(1.0, 0.9, 0.5)) -> void:
 	for layer in 2:
 		var p := CPUParticles3D.new()
 		p.one_shot = true
@@ -1501,7 +1584,7 @@ static func _flame_cone(host: Node, at: Vector3, dir: Vector3, r: float, half: f
 		sm.height = sm.radius * 2.0
 		sm.radial_segments = 6
 		sm.rings = 3
-		sm.material = Toon.glow_mat(col if layer == 0 else Color(1.0, 0.9, 0.5), 0.85, true)
+		sm.material = Toon.glow_mat(col if layer == 0 else core, 0.85, true)
 		p.mesh = sm
 		p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		host.add_child(p)

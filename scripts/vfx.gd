@@ -1703,7 +1703,7 @@ static func golden_shield(p: Node3D, dur: float, col: Color) -> void:
 		var crest := Toon.glow_part(Toon.box(Vector3(0.65, 0.95, 0.12)), Color(1.0, 0.88, 0.35), Vector3(cos(a) * 1.4, 0, sin(a) * 1.4), 1.0, true)
 		crest.rotation.y = a + PI / 2.0
 		rig.add_child(crest)
-	var dome := Toon.glow_part(Toon.sphere(1.6, 16), Color(1.0, 0.85, 0.35), Vector3.ZERO, 0.30, true)
+	var dome := Toon.glow_part(Toon.sphere(1.6, 16), Color(0.5, 0.42, 0.15), Vector3.ZERO, 0.16, true)
 	rig.add_child(dome)
 	var rot_tw := rig.create_tween().set_loops(int(dur / 0.03))
 	rot_tw.tween_callback(func() -> void:

@@ -44,6 +44,8 @@ var _stun_fx: Node3D
 var _returning := false
 var _vuln := 0.0        # quebra de defesa: dano extra recebido
 var _vuln_t := 0.0
+var _weak := 0.0        # Golpe Esmagador: ataque reduzido
+var _weak_t := 0.0
 var _poison_dps := 0.0  # veneno do Assassino
 var _poison_t := 0.0
 var _poison_tick := 0.0
@@ -200,6 +202,9 @@ func _physics_process(delta: float) -> void:
 	_cd -= delta
 	_attacking -= delta
 	_vuln_t -= delta
+	_weak_t -= delta
+	if _weak_t <= 0.0:
+		_weak = 0.0
 	if _vuln_t <= 0.0:
 		_vuln = 0.0
 	if _poison_t > 0.0:
@@ -321,7 +326,7 @@ func _slam_land(center: Vector3, r: float) -> void:
 
 func _atk_mult() -> float:
 	# veneno reduz a força/velocidade de ataque do alvo
-	return 0.75 if _poison_t > 0.0 else 1.0
+	return (0.75 if _poison_t > 0.0 else 1.0) * (1.0 - _weak)
 
 
 ## Cor própria do monstro (variantes dos mapas gerados) — volta para ela depois de lentidão/veneno.
@@ -332,6 +337,11 @@ func _reset_tint() -> void:
 		_kit.set_tint(data["tint"], float(data.get("tint_amt", 0.4)))
 	else:
 		_kit.set_tint(Color.WHITE, 0.0)
+
+
+func apply_weaken(amount: float, t: float) -> void:
+	_weak = maxf(_weak, amount)
+	_weak_t = maxf(_weak_t, t)
 
 
 func apply_vuln(amount: float, t: float) -> void:

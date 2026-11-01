@@ -327,17 +327,20 @@ cenário escuro com luzes coloridas. Dono do projeto: brasileiro, fala portuguê
   skills pedida pelo dono veio de outro jogo e virou só inspiração, com nomes próprios).
 - **Só 4 heróis jogáveis (`CLASS_ORDER`): Guerreiro, Lanceiro, Mago, Arqueira** (modelos de IA). Druida/Assassino/
   Mecânico/Náutico continuam nos dados (o corpo e as animações dos heróis de IA vêm deles) e saves antigos viram
-  Mago/Arqueira/Guerreiro/Lanceiro (`OLD_CLASS`). Cada classe tem tipos de skill só dela (só "projectile" se repete):
-  Guerreiro (tanque/controle) `arc`, `charge`, `roar`, `wave`, `leap`, `riposte`, `hook`, `spin_multi`, `guard`, `strike`;
-  Lanceiro (crítico/quebra de defesa) `thrust3`, `launch`, `spin`, `javelin`, `wind_wall`, `sweep`, `crush`, `leech`,
-  `blitz`, `finisher` (dobro em quem tem defesa quebrada); **Mago = as 12 skills da lista do dono** (Orbe de Chamas,
-  Orbe de Gelo `frost_orb`, Golpe de Chamas `flame_nova`, Raios em Cadeia, Bloco Congelado `ice_block`, Imolação `immolate`,
-  Nevasca `blizzard`, Escudo Mágico `magic_shield` (`player.mana_shield_t/pct`: parte do dano sai da mana), Devorador de
-  Almas `soul_drain`, Tempestade de Raios `sea_storm`, Vórtice Sombrio `dark_vortex`, Tornado Elemental `tornado` (suprema)),
-  efeitos de redemoinho com `Vfx.funnel`; Arqueira
-  (alcance/fuga) `projectile`, `backstep`, `rain`, `focus` (`player.crit_bonus`), `blast_arrow`, `stealth`, `trap`,
-  `missiles` (visual pela skill), `snipe`, `companion`. Opções novas do `Skills.hit`: `crit`, `low`, `vs_vuln`, `heal`,
-  `mana`, `lift`. Ícones = cópias dos ícones parecidos das classes antigas.
+  Mago/Arqueira/Guerreiro/Lanceiro (`OLD_CLASS`). **As skills são as da lista do dono** (veio do MIR4: nomes "do Dragão"
+  e "Nirvana" trocados por nomes próprios; o resto ficou). Guerreiro 12 + Golpe de Crescente como ataque básico
+  (`basic_fx: "crescent"`): `arc`, `charge` (Ataque de Ombro e Carga Bárbara), `wave`, `roar`, `leap`, `spin_multi`,
+  `riposte`, `hook` (vários alvos), `berserk` (dobra com menos de 50% de vida), `guard`, `inferno_cone` (Chama Suprema).
+  Lanceiro 12 + Golpe Duplo como ataque básico (`basic_hits: 2`): `thrust3`, `launch`, `spin`, `javelin`, `lance_storm`,
+  `sweep`, `crush` (`weaken` = `Enemy.apply_weaken`, ataque do monstro menor), `wind_wall`, `leech`, `consume` (Lâmina
+  Crescente: consome lentidão/atordoamento/defesa quebrada e vira crítico), `blitz`, `finisher` (Lança Celeste).
+  Mago 12: Orbe de Chamas, Orbe de Gelo `frost_orb`, Golpe de Chamas `flame_nova`, Raios em Cadeia, Bloco Congelado
+  `ice_block`, Imolação `immolate`, Nevasca `blizzard`, Escudo Mágico `magic_shield` (`player.mana_shield_t/pct`: parte do
+  dano sai da mana), Devorador de Almas `soul_drain`, Tempestade de Raios, Vórtice Sombrio `dark_vortex`, Tornado
+  Elemental `tornado` (suprema); redemoinhos com `Vfx.funnel`. Arqueira só 6: `backstep`, `rain`, `blast_arrow`, `focus` (crítico + alcance das flechas no
+  `Player._shoot`), `stealth` com `confuse`, `snipe` (Assassinato: dobro em alvo fraco ou desavisado `not aggro`).
+  Opções do `Skills.hit`: `crit`, `low`, `vs_vuln`, `consume`, `heal`, `mana`, `lift`, `weaken`. Efeitos claros demais
+  estouram no Vulkan: usar cores escuras/aditivas fracas (`_flame_cone` tem `core`). Ícones = cópias de ícones parecidos.
 - **Mapas sem colisão interna:** `world._solid`/`_solid_box` não fazem nada (casas, cercas, lago não bloqueiam; só chão e bordas).
   Clima trocado por vento (rajadas + folhas/neve/cinza/areia pelo bioma) seguindo o herói. Teste: `tools/test_wind_and_collision.gd`;
   combo/fúria/tropas/visuais: `VALE_TESTE=1 godot --headless --path . -s tools/test_combo_fury.gd`.
